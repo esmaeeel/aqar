@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import type { Filters, Listing, Location } from "@/lib/aqar";
 import { CATEGORIES, ROOM_TYPES } from "@/lib/aqar";
 
-const defaults: Filters = { propertyType:"عمارة",purpose:"sale",locations:[{city:"الدمام",neighborhoods:[]},{city:"الخبر",neighborhoods:["الثقبة"]},{city:"الظهران",neighborhoods:[]}],keywords:[],mode:"near",maxPages:2,maxListings:40,priceMin:0,priceMax:2500000,yieldMin:9,minMeters:10,minCount:0,minFloors:0,minStreet:15,areaMin:0,areaMax:0,minDensity:0,sqmMin:0,sqmMax:0 };
+const LAST_FILTERS_KEY = "aqar-last-filters-clean-v2";
+const defaults: Filters = { propertyType:"عمارة",purpose:"sale",locations:[{city:"",neighborhoods:[]}],keywords:[],mode:"near",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minDensity:0,sqmMin:0,sqmMax:0 };
 const nums: {key:keyof Filters;label:string;hint?:string}[] = [
   {key:"priceMin",label:"السعر من"},{key:"priceMax",label:"السعر إلى"},{key:"yieldMin",label:"أقل عائد فعلي %"},
   {key:"minMeters",label:"أقل عدادات"},{key:"minCount",label:"أقل شقق / غرف"},{key:"minFloors",label:"أقل أدوار"},
@@ -22,18 +23,18 @@ export default function Home(){
   const [filters,setFilters]=useState<Filters>(defaults),[results,setResults]=useState<Listing[]>([]),[busy,setBusy]=useState(false);
   const [message,setMessage]=useState("عدّل المواصفات ثم اضغط «ابدأ البحث»"),[progress,setProgress]=useState(0),[warnings,setWarnings]=useState<string[]>([]);
   const [tab,setTab]=useState<"search"|"saved">("search"),[sets,setSets]=useState<SavedSet[]>([]),[profiles,setProfiles]=useState<Profile[]>([]);
-  useEffect(()=>{const timer=setTimeout(()=>{try{const x=localStorage.getItem("aqar-last-filters");if(x)setFilters({...defaults,...JSON.parse(x)})}catch{/* تجاهل بيانات محلية تالفة */}void loadProfiles()},0);return()=>clearTimeout(timer)},[]);
+  useEffect(()=>{const timer=setTimeout(()=>{try{const x=localStorage.getItem(LAST_FILTERS_KEY);if(x)setFilters({...defaults,...JSON.parse(x)})}catch{/* تجاهل بيانات محلية تالفة */}void loadProfiles()},0);return()=>clearTimeout(timer)},[]);
   const countLabel=ROOM_TYPES.has(filters.propertyType)?"أقل غرف (مع المجلس والمقلط)":"أقل شقق";
   function update<K extends keyof Filters>(key:K,value:Filters[K]){setFilters(f=>({...f,[key]:value}))}
   function addLocation(){update("locations",[...filters.locations,{city:"",neighborhoods:[]}])}
   function changeLocation(i:number,key:"city"|"neighborhoods",value:string){const next=filters.locations.map((l,j)=>j===i?{...l,[key]:key==="neighborhoods"?value.split(/[،,]/).map(x=>x.trim()).filter(Boolean):value}:l);update("locations",next as Location[])}
-  function clearFields(){setFilters({...defaults,locations:[{city:"",neighborhoods:[]}],priceMax:0,yieldMin:0,minMeters:0,minStreet:0});setResults([]);setMessage("تم مسح حقول البحث.")}
+  function clearFields(){setFilters(defaults);localStorage.removeItem(LAST_FILTERS_KEY);setResults([]);setMessage("تم مسح جميع حقول البحث.")}
   async function loadProfiles(){try{const r=await fetch("/api/profiles",{headers:deviceHeaders()});const data=await r.json() as {profiles:Profile[]};if(r.ok)setProfiles(data.profiles)}catch{/* يعمل البحث حتى لو تعذر التخزين */}}
   async function saveProfile(){const name=prompt("اسم مواصفات البحث:");if(!name)return;const r=await fetch("/api/profiles",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({name,filters})});if(r.ok){await loadProfiles();setMessage("حُفظت مواصفات البحث.")}else setMessage("تعذر حفظ المواصفات.")}
   function loadProfile(id:string){const p=profiles.find(x=>x.id===Number(id));if(p){setFilters({...defaults,...JSON.parse(p.filtersJson)});setMessage(`تم تحميل: ${p.name}`)}}
   async function search(){
     const clean={...filters,locations:filters.locations.filter(l=>l.city.trim()),maxPages:Math.min(25,Math.max(1,filters.maxPages)),maxListings:Math.min(500,Math.max(5,filters.maxListings))};
-    if(!clean.locations.length){setMessage("أضف مدينة واحدة على الأقل.");return} localStorage.setItem("aqar-last-filters",JSON.stringify(clean));setBusy(true);setResults([]);setWarnings([]);setProgress(0);
+    if(!clean.locations.length){setMessage("أضف مدينة واحدة على الأقل.");return} localStorage.setItem(LAST_FILTERS_KEY,JSON.stringify(clean));setBusy(true);setResults([]);setWarnings([]);setProgress(0);
     const found=new Map<string,Listing>();let discovered=0;const allSources=(()=>{const a:SearchSource[]=[];for(const category of CATEGORIES[clean.propertyType]?.[clean.purpose]||[])for(const l of clean.locations)for(const neighborhood of(l.neighborhoods.length?l.neighborhoods:[""]))for(let page=1;page<=clean.maxPages;page++)a.push({category,city:l.city,neighborhood,page});return a})();
     for(let i=0;i<allSources.length&&found.size<clean.maxListings;i++){
       const s=allSources[i];setMessage(`قراءة ${s.city}${s.neighborhood?` — ${s.neighborhood}`:""}، صفحة ${s.page}…`);setProgress(Math.round(i/allSources.length*100));
