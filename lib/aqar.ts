@@ -119,10 +119,26 @@ export function locationUrl(category: string, city: string, neighborhood: string
   const hood = neighborhood.trim().replace(/^حي[\s-]+/, ""); if (hood) parts.push(`حي-${hood.replace(/\s+/g, "-")}`); if (page > 1) parts.push(String(page));
   return `${AQAR_ORIGIN}/${parts.map(encodeURIComponent).join("/")}`;
 }
-export function listingLinks(html: string, category: string) {
+function normalizedLocation(value: string, neighborhood = false) {
+  let result = normalizeText(value).replace(/-/g, " ").replace(/\s+/g, " ").trim();
+  if (neighborhood) result = result.replace(/^حي\s+/, "");
+  return result;
+}
+export function listingMatchesRequestedLocation(parsedCity: string, parsedNeighborhood: string, city: string, neighborhood = "") {
+  if (parsedCity && normalizedLocation(parsedCity) !== normalizedLocation(city)) return false;
+  return !(neighborhood && parsedNeighborhood && normalizedLocation(parsedNeighborhood, true) !== normalizedLocation(neighborhood, true));
+}
+function linkInRequestedLocation(url: string, category: string, city: string, neighborhood = "") {
+  let parts: string[];
+  try { parts = new URL(url).pathname.split("/").filter(Boolean).map(decodeURIComponent); } catch { return false; }
+  const index = parts.findIndex(part => normalizedLocation(part) === normalizedLocation(category));
+  if (index < 0 || normalizedLocation(parts[index + 1] || "") !== normalizedLocation(city)) return false;
+  return !neighborhood || parts.slice(index + 2).some(part => normalizedLocation(part, true) === normalizedLocation(neighborhood, true));
+}
+export function listingLinks(html: string, category: string, city: string, neighborhood = "") {
   const out = new Map<string, string>(); const decoded = html.replace(/&amp;/g, "&");
   const escaped = category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); const re = new RegExp(`href=["']([^"']*\\/${escaped}\\/[^"'#?]+-(\\d{5,})(?:\\/${escaped})?)["']`, "gi"); let m;
-  while ((m = re.exec(decoded))) { const url = m[1].startsWith("http") ? m[1] : `${AQAR_ORIGIN}${m[1].startsWith("/") ? "" : "/"}${m[1]}`; out.set(m[2], encodeURI(url)); }
+  while ((m = re.exec(decoded))) { const url = m[1].startsWith("http") ? m[1] : `${AQAR_ORIGIN}${m[1].startsWith("/") ? "" : "/"}${m[1]}`; if (linkInRequestedLocation(url, category, city, neighborhood)) out.set(m[2], encodeURI(url)); }
   return [...out.entries()].map(([listingId, url]) => ({ listingId, url }));
 }
 

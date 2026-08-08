@@ -1,4 +1,4 @@
-import { CATEGORIES, evaluate, Filters, keywordMatches, listingLinks, locationUrl, parseListing } from "@/lib/aqar";
+import { CATEGORIES, evaluate, Filters, keywordMatches, listingLinks, listingMatchesRequestedLocation, locationUrl, parseListing } from "@/lib/aqar";
 
 export const dynamic = "force-dynamic";
 
@@ -22,12 +22,16 @@ export async function POST(request: Request) {
     const { filters, city, category } = body; const neighborhood = body.neighborhood || "";
     if (!CATEGORIES[filters.propertyType]?.[filters.purpose]?.includes(category)) return Response.json({ error: "نوع البحث غير صالح." }, { status: 400 });
     const sourceUrl = locationUrl(category, city, neighborhood, Math.max(1, Math.min(25, Number(body.page)||1)));
-    const searchHtml = await fetchAqar(sourceUrl); const links = listingLinks(searchHtml, category).slice(0, Math.max(1, Math.min(20, Number(body.remaining)||20)));
+    const searchHtml = await fetchAqar(sourceUrl); const links = listingLinks(searchHtml, category, city, neighborhood).slice(0, Math.max(1, Math.min(20, Number(body.remaining)||20)));
     const results = []; const warnings: string[] = [];
     for (let i=0;i<links.length;i++) {
       try {
         if (i) await pause(350);
         const item = evaluate(parseListing(await fetchAqar(links[i].url), links[i].url, filters.propertyType), filters);
+        if (!listingMatchesRequestedLocation(item.city, item.neighborhood, city, neighborhood)) {
+          warnings.push(`${links[i].listingId}: استُبعد إعلان خارج المدينة أو الحي المطلوب.`);
+          continue;
+        }
         item.city ||= city; item.neighborhood ||= neighborhood;
         const searchable = `${item.title} ${item.description}`;
         if (filters.propertyType === "ورشة" && !/(?:^|\s)(?:ورشة|ورش)(?:\s|$)|(?:مركز|مراكز)\s+(?:ال)?صيانة/.test(searchable)) continue;
