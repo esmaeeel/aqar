@@ -29,7 +29,6 @@ export async function POST(request: Request) {
         if (i) await pause(350);
         const item = evaluate(parseListing(await fetchAqar(links[i].url), links[i].url, filters.propertyType), filters);
         if (!listingMatchesRequestedLocation(item.city, item.neighborhood, city, neighborhood)) {
-          warnings.push(`${links[i].listingId}: استُبعد إعلان خارج المدينة أو الحي المطلوب.`);
           continue;
         }
         item.city ||= city; item.neighborhood ||= neighborhood;
