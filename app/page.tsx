@@ -16,6 +16,7 @@ type Profile={id:number;name:string;filtersJson:string};
 type SearchSource={category:string;city:string;neighborhood:string;page:number};
 const fmt=(v:number|null,d=0)=>v==null?"غير مذكور":new Intl.NumberFormat("ar-SA",{maximumFractionDigits:d}).format(v);
 const inputNumber=(value:unknown)=>Number(value)||0;
+function deviceHeaders(json=false){let id=localStorage.getItem("aqar-device-id");if(!id){id=crypto.randomUUID();localStorage.setItem("aqar-device-id",id)}return {"x-aqar-device-id":id,...(json?{"content-type":"application/json"}:{})}}
 
 export default function Home(){
   const [filters,setFilters]=useState<Filters>(defaults),[results,setResults]=useState<Listing[]>([]),[busy,setBusy]=useState(false);
@@ -27,8 +28,8 @@ export default function Home(){
   function addLocation(){update("locations",[...filters.locations,{city:"",neighborhoods:[]}])}
   function changeLocation(i:number,key:"city"|"neighborhoods",value:string){const next=filters.locations.map((l,j)=>j===i?{...l,[key]:key==="neighborhoods"?value.split(/[،,]/).map(x=>x.trim()).filter(Boolean):value}:l);update("locations",next as Location[])}
   function clearFields(){setFilters({...defaults,locations:[{city:"",neighborhoods:[]}],priceMax:0,yieldMin:0,minMeters:0,minStreet:0});setResults([]);setMessage("تم مسح حقول البحث.")}
-  async function loadProfiles(){try{const r=await fetch("/api/profiles");const data=await r.json() as {profiles:Profile[]};if(r.ok)setProfiles(data.profiles)}catch{/* يعمل البحث حتى لو تعذر التخزين */}}
-  async function saveProfile(){const name=prompt("اسم مواصفات البحث:");if(!name)return;const r=await fetch("/api/profiles",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name,filters})});if(r.ok){await loadProfiles();setMessage("حُفظت مواصفات البحث.")}else setMessage("تعذر حفظ المواصفات.")}
+  async function loadProfiles(){try{const r=await fetch("/api/profiles",{headers:deviceHeaders()});const data=await r.json() as {profiles:Profile[]};if(r.ok)setProfiles(data.profiles)}catch{/* يعمل البحث حتى لو تعذر التخزين */}}
+  async function saveProfile(){const name=prompt("اسم مواصفات البحث:");if(!name)return;const r=await fetch("/api/profiles",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({name,filters})});if(r.ok){await loadProfiles();setMessage("حُفظت مواصفات البحث.")}else setMessage("تعذر حفظ المواصفات.")}
   function loadProfile(id:string){const p=profiles.find(x=>x.id===Number(id));if(p){setFilters({...defaults,...JSON.parse(p.filtersJson)});setMessage(`تم تحميل: ${p.name}`)}}
   async function search(){
     const clean={...filters,locations:filters.locations.filter(l=>l.city.trim()),maxPages:Math.min(25,Math.max(1,filters.maxPages)),maxListings:Math.min(500,Math.max(5,filters.maxListings))};
@@ -41,9 +42,9 @@ export default function Home(){
     setProgress(100);setBusy(false);setMessage(`اكتمل البحث: اكتُشف ${discovered} رابطًا، وظهرت ${found.size} نتيجة بعد التصفية.`);
   }
   function exportCsv(){if(!results.length)return;const fields:[keyof Listing,string][]=[["listingId","رقم الإعلان"],["status","الحالة"],["propertyType","نوع العقار"],["age","العمر"],["city","المدينة"],["neighborhood","الحي"],["price","السعر"],["sqmPrice","سعر متر الأرض"],["income","الدخل السنوي"],["yieldPct","العائد %"],["area","المساحة"],[ROOM_TYPES.has(filters.propertyType)?"rooms":"apartments",ROOM_TYPES.has(filters.propertyType)?"الغرف مع المجلس والمقلط":"الشقق"],["meters","العدادات"],["floors","الأدوار"],["street","عرض الشارع"],["density","الكثافة"],["url","الرابط"]];const csv="\ufeff"+[fields.map(x=>x[1]),...results.map(r=>fields.map(([k])=>String(r[k]??"")))].map(row=>row.map(x=>`"${x.replace(/"/g,'""')}"`).join(",")).join("\r\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download=`نتائج-${filters.propertyType}-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(a.href)}
-  async function saveResults(){if(!results.length){setMessage("لا توجد نتائج لحفظها.");return}const r=await fetch("/api/saved-results",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({propertyType:filters.propertyType,results})});const d=await r.json() as {set?:{name:string};error?:string};setMessage(r.ok?`حُفظت المجموعة: ${d.set?.name}`:d.error||"تعذر الحفظ")}
-  async function loadSets(){const r=await fetch("/api/saved-results");const data=await r.json() as {sets:SavedSet[]};if(r.ok)setSets(data.sets);setTab("saved")}
-  async function deleteSet(id:number){if(!confirm("هل تريد حذف هذه المجموعة المحفوظة؟"))return;await fetch(`/api/saved-results?id=${id}`,{method:"DELETE"});await loadSets()}
+  async function saveResults(){if(!results.length){setMessage("لا توجد نتائج لحفظها.");return}const r=await fetch("/api/saved-results",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({propertyType:filters.propertyType,results})});const d=await r.json() as {set?:{name:string};error?:string};setMessage(r.ok?`حُفظت المجموعة: ${d.set?.name}`:d.error||"تعذر الحفظ")}
+  async function loadSets(){const r=await fetch("/api/saved-results",{headers:deviceHeaders()});const data=await r.json() as {sets:SavedSet[]};if(r.ok)setSets(data.sets);setTab("saved")}
+  async function deleteSet(id:number){if(!confirm("هل تريد حذف هذه المجموعة المحفوظة؟"))return;await fetch(`/api/saved-results?id=${id}`,{method:"DELETE",headers:deviceHeaders()});await loadSets()}
   function openSet(s:SavedSet){setResults(JSON.parse(s.resultsJson));setTab("search");setMessage(`تم فتح المجموعة: ${s.name}`);setTimeout(()=>document.getElementById("results")?.scrollIntoView({behavior:"smooth"}),50)}
   return <main dir="rtl">
     <header className="top"><div><span className="eyebrow">نسخة الجوال المستقلة</span><h1>باحث العقارات</h1><p>ابحث في إعلانات عقار، واحسب العائد والكثافة تلقائيًا.</p></div><div className="topActions"><button className="ghost" onClick={loadSets}>المجموعات المحفوظة</button><button className="ghost" onClick={exportCsv}>تصدير CSV</button></div></header>
