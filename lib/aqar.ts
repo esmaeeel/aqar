@@ -54,16 +54,105 @@ export function keywordMatches(keyword: string, description: string) {
   return kt.length > 0 && dt.some((_, i) => kt.every((v, j) => dt[i + j] === v));
 }
 function htmlText(html: string) {
-  return normalizeDigits(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+  return normalizeColloquialAmounts(normalizeDigits(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ").replace(/<br\s*\/?\s*>/gi, "\n")
     .replace(/<\/(?:p|div|li|h\d)>/gi, "\n").replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;|&#160;/gi, " ").replace(/&amp;/gi, "&").replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'").replace(/[\t\r ]+/g, " ").replace(/\n\s*\n+/g, "\n").trim());
+    .replace(/&#39;|&apos;/gi, "'"))).replace(/[\t\r ]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
+}
+const arabicSmallNumbers: Record<string, number> = {
+  "صفر": 0,
+  "واحد": 1, "واحده": 1, "احد": 1, "احدي": 1,
+  "اثنان": 2, "اثنين": 2, "اثنا": 2, "اثني": 2,
+  "اثنتان": 2, "اثنتين": 2, "اثنتا": 2, "اثنتي": 2,
+  "ثلاث": 3, "ثلاثه": 3,
+  "اربع": 4, "اربعه": 4,
+  "خمس": 5, "خمسه": 5,
+  "ست": 6, "سته": 6,
+  "سبع": 7, "سبعه": 7,
+  "ثمان": 8, "ثماني": 8, "ثمانيه": 8,
+  "تسع": 9, "تسعه": 9,
+  "عشر": 10, "عشره": 10,
+  "عشرون": 20, "عشرين": 20,
+  "ثلاثون": 30, "ثلاثين": 30,
+  "اربعون": 40, "اربعين": 40,
+  "خمسون": 50, "خمسين": 50,
+  "ستون": 60, "ستين": 60,
+  "سبعون": 70, "سبعين": 70,
+  "ثمانون": 80, "ثمانين": 80,
+  "تسعون": 90, "تسعين": 90,
+};
+const arabicHundredWords = new Set(["مئه", "مائه", "مائة"]);
+const arabicDirectHundreds: Record<string, number> = {
+  "مئتان": 200, "مئتين": 200, "مئتا": 200, "مئتي": 200,
+  "مائتان": 200, "مائتين": 200, "مائتا": 200, "مائتي": 200,
+};
+for (const [word, amount] of [["ثلاث", 300], ["اربع", 400], ["خمس", 500], ["ست", 600], ["سبع", 700], ["ثمان", 800], ["تسع", 900]] as const)
+  for (const suffix of ["مئه", "مائه", "مائة"]) arabicDirectHundreds[`${word}${suffix}`] = amount;
+const arabicMillionForms: Record<string, number> = { "مليون": 1, "مليونان": 2, "مليونين": 2, "مليونا": 2, "مليوني": 2 };
+const arabicMillionPlurals = new Set(["ملايين"]);
+const arabicThousandForms: Record<string, number> = { "الف": 1, "الفان": 2, "الفين": 2, "الفا": 2, "الفي": 2 };
+const arabicThousandPlurals = new Set(["الاف"]);
+const arabicAmountWords = new Set([
+  ...Object.keys(arabicSmallNumbers), ...arabicHundredWords, ...Object.keys(arabicDirectHundreds),
+  ...Object.keys(arabicMillionForms), ...arabicMillionPlurals,
+  ...Object.keys(arabicThousandForms), ...arabicThousandPlurals,
+]);
+const amountWordSpellingPattern = (word: string) => word
+  .replaceAll("ا", "[اأإآ]").replaceAll("ي", "[يى]").replaceAll("ه", "[هة]");
+const arabicAmountWordPattern = [...arabicAmountWords]
+  .sort((a, b) => b.length - a.length).map(amountWordSpellingPattern).join("|");
+const arabicWordAmountRe = new RegExp(
+  `(?<![\\p{L}\\p{N}_])((?:و?(?:${arabicAmountWordPattern}))(?:[^\\S\\n]+و?(?:${arabicAmountWordPattern})){0,11})(?![\\p{L}\\p{N}_])`,
+  "giu",
+);
+function normalizeColloquialAmounts(value: string) {
+  value = value.replace(/(\d[\d,.]*)\s*\u0648\s*(?:\u0646\u0635|\u0646\u0635\u0641)\s*(\u0645\u0644\u064a\u0648\u0646|\u0627\u0644\u0641|\u0623\u0644\u0641)/gi, (_, raw: string, unit: string) => {
+    const base = Number(raw.replace(/,/g, ""));
+    return `${base + 0.5} ${unit}`;
+  });
+  const normalizeToken = (raw: string) => {
+    const token = normalizeText(raw).replaceAll("ة", "ه");
+    if (arabicAmountWords.has(token)) return token;
+    if (token.startsWith("و") && arabicAmountWords.has(token.slice(1))) return token.slice(1);
+    return null;
+  };
+  const parseWordAmount = (phrase: string) => {
+    const tokens = phrase.split(/\s+/).map(normalizeToken);
+    if (tokens.length < 2 || tokens.some(token => token == null)) return null;
+    let total = 0, group = 0, sawScale = false;
+    for (const token of tokens as string[]) {
+      if (token in arabicSmallNumbers) group += arabicSmallNumbers[token];
+      else if (arabicHundredWords.has(token)) group = group > 0 && group < 10 ? group * 100 : group + 100;
+      else if (token in arabicDirectHundreds) group += arabicDirectHundreds[token];
+      else if (token in arabicMillionForms) {
+        total += (group || arabicMillionForms[token]) * 1_000_000;
+        group = 0; sawScale = true;
+      } else if (arabicMillionPlurals.has(token)) {
+        if (!group) return null;
+        total += group * 1_000_000;
+        group = 0; sawScale = true;
+      } else if (token in arabicThousandForms) {
+        total += (group || arabicThousandForms[token]) * 1_000;
+        group = 0; sawScale = true;
+      } else if (arabicThousandPlurals.has(token)) {
+        if (!group) return null;
+        total += group * 1_000;
+        group = 0; sawScale = true;
+      }
+    }
+    return sawScale ? total + group : null;
+  };
+  return value.replace(arabicWordAmountRe, phrase => {
+    const parsed = parseWordAmount(phrase);
+    return parsed == null ? phrase : String(parsed);
+  });
 }
 function parseAmount(raw?: string | null, unit = "") {
   if (!raw) return null;
   const n = normalizeText(raw);
   if (n === "مليون") return 1_000_000;
+  if (n === "مليونين" || n === "مليونان") return 2_000_000;
   if (n === "الف") return 1_000;
   const cleaned = normalizeDigits(raw).replace(/\s/g, "").replace(/(?<=\d)\.(?=\d{3}(?:\D|$))/g, "").replace(/,/g, "");
   let value = Number(cleaned);
@@ -73,10 +162,14 @@ function parseAmount(raw?: string | null, unit = "") {
   else if (u.includes("الف") && value < 100000) value *= 1_000;
   return value;
 }
-const amount = `([\\d][\\d,.]*|(?:مليون|الف|ألف)(?!\\w))[^\\S\\n]*(مليون|الف|ألف)?(?:[^\\d\\n]{0,8}و[^\\d\\n]{0,8}([\\d][\\d,.]*)[^\\S\\n]*(مليون|الف|ألف)?)?`;
+const amount = `([\\d][\\d,.]*|(?:مليون(?:ين|ان)?|الف|ألف)(?!\\w))[^\\S\\n]*(مليون(?:ين|ان)?|الف|ألف)?(?:[^\\d\\n]{0,8}و[^\\d\\n]{0,8}([\\d][\\d,.]*)[^\\S\\n]*(مليون(?:ين|ان)?|الف|ألف)?)?`;
 const gap = `[^\\d\\n]{0,40}?(?:\\n[^\\d\\n]{0,24}?)?`;
 function matchedAmount(m: RegExpMatchArray) {
-  const a = parseAmount(m[1], m[2] || ""), b = m[3] ? parseAmount(m[3], m[4] || "") : null;
+  const firstScale = m[2] || "", secondScale = m[4] || "";
+  const a = parseAmount(m[1], firstScale);
+  let b = m[3] ? parseAmount(m[3], secondScale) : null;
+  const firstHasMillionScale = normalizeText(`${m[1]} ${firstScale}`).includes("مليون");
+  if (firstHasMillionScale && !secondScale && b != null && b < 1000) b *= 1000;
   return a == null ? null : a + (b || 0);
 }
 function labeled(labels: string) { return `(?:${labels})${gap}${amount}`; }
@@ -87,9 +180,12 @@ function first(text: string, patterns: string[]) {
 function preferred(desc: string, structured: string, patterns: string[]) {
   const a = first(desc, patterns); return a.value != null ? a : first(structured, patterns);
 }
-function allAmounts(text: string, pattern: string) {
+function allAmounts(text: string, pattern: string, excludePercentages = false) {
   const values: number[] = []; const re = new RegExp(pattern, "gi"); let m: RegExpExecArray | null;
-  while ((m = re.exec(text))) { const v = matchedAmount(m); if (v && v > 0) values.push(v); }
+  while ((m = re.exec(text))) {
+    if (excludePercentages && /^\s*(?:[%٪]|بالمئ(?:ة|ه))/.test(text.slice(re.lastIndex))) continue;
+    const v = matchedAmount(m); if (v && v > 0) values.push(v);
+  }
   return values;
 }
 function splitDescription(text: string) {
@@ -106,13 +202,29 @@ function countNamed(text: string, word: "مجلس" | "مقلط") {
   if (word === "مجلس") { const types = new Set([...n.matchAll(/مجلس\s+(رجال|نساء|خارجي|داخلي)/g)].map(m => m[1])); if (types.size) return types.size; return /مجلس|مجالس/.test(n) ? 1 : 0; }
   return /مقلط|مقالط/.test(n) ? 1 : 0;
 }
-function ageValue(desc: string, structured: string) {
-  for (const s of [desc, structured]) { const n = normalizeText(s), labels = `عمر\\s*(?:العقار|العمارة|العماره|الفيلا|الشقة|الشقه|الدور|الورشة|الورشه)|عمرها|عمره|العمر`;
-    const m = n.match(new RegExp(`(?:${labels})${gap}([\\d][\\d,.]*)`, "i")); if (m) return /اكثر\s+من|فوق/.test(m[0]) ? `أكثر من ${Number(m[1])} سنوات` : `${Number(m[1])} سنة`;
-    if (new RegExp(`(?:${labels})${gap}(?:جديد|جديدة)`).test(n)) return "جديد"; }
-  return null;
+function roomCounts(source: string) {
+  const patterns = [labeled(`عدد\\s+غرف\\s+النوم|عدد\\s+الغرف(?:\\s+النوم)?|غرف\\s+النوم`), `([\\d,.]+)\\s*(?:غرف(?:ة)?(?:\\s+نوم)?|غرفة\\s+نوم)(?!\\w)`];
+  let bedrooms = first(source, patterns).value;
+  if (bedrooms == null) { const n = normalizeText(source); if (/غرفت(?:ين|ان)/.test(n)) bedrooms = 2; else if (/غرفة\s+(?:نوم|ماستر)/.test(n)) bedrooms = 1; }
+  const majlis = countNamed(source, "مجلس"), maqlat = countNamed(source, "مقلط");
+  return { rooms: bedrooms == null ? null : bedrooms + majlis + maqlat, bedrooms, majlis, maqlat };
 }
-function conflicts(values: number[]) { return values.length > 1 && (Math.max(...values) - Math.min(...values)) / Math.min(...values) > .02; }
+function ageFromSource(source: string) {
+  const n = normalizeText(source), labels = `عمر\\s*(?:العقار|العمارة|العماره|الفيلا|الشقة|الشقه|الدور|الورشة|الورشه)|عمرها|عمره|العمر`;
+  const m = n.match(new RegExp(`(?:${labels})${gap}([\\d][\\d,.]*)`, "i"));
+  if (m) { const years = Number(m[1].replace(/,/g, "")); return { years, label: /اكثر\s+من|فوق/.test(m[0]) ? `أكثر من ${years} سنوات` : `${years} سنة` }; }
+  if (new RegExp(`(?:${labels})${gap}(?:جديد|جديدة)`).test(n)) return { years: 0, label: "جديد" };
+  return { years: null as number | null, label: null as string | null };
+}
+function conflicts(values: number[], tolerance = .02) {
+  if (values.length <= 1 || Math.min(...values) === Math.max(...values)) return false;
+  if (tolerance <= 0 || Math.min(...values) <= 0) return true;
+  return (Math.max(...values) - Math.min(...values)) / Math.min(...values) > tolerance;
+}
+function expandAbbreviatedAmount(value: number | undefined, reference: number | undefined) {
+  if (value == null || reference == null || value >= 10_000 || reference < 100_000) return value;
+  return [value * 1_000, value * 1_000_000].sort((a, b) => Math.abs(a - reference) - Math.abs(b - reference))[0];
+}
 
 export function locationUrl(category: string, city: string, neighborhood: string, page: number) {
   const parts = [category, city.trim().replace(/\s+/g, "-")];
@@ -147,29 +259,69 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const titleHtml = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "إعلان عقار";
   const title = htmlText(titleHtml).replace(/\s*\|\s*تطبيق عقار.*$/, ""); const listingId = url.match(/-(\d{5,})(?:\/[^/?#]*)?(?:[?#]|$)/)?.[1] || "";
   const pricePattern = labeled(`السعر(?:\\s+المطلوب)?|سعر\\s+البيع|المطلوب|الحد`);
-  const dp = allAmounts(desc, pricePattern), hp = allAmounts(text.slice(0, 700), `([\\d,.]+)\\s*(?:ر\\.?\\s*س\\.?|ريال|﷼|SAR|§)`), sp = allAmounts(structured, pricePattern);
-  const price = (dp.length ? dp : hp.length ? hp : sp)[0] ?? null;
+  const headerText = text.slice(0, 700), hp = allAmounts(headerText, `([\\d,.]+)\\s*(?:ر\\.?\\s*س\\.?|ريال|﷼|SAR|§)`);
+  const headerPrice = hp.length >= 2 && headerText.includes("خصم") ? Math.min(...hp.slice(0, 2)) : hp[0];
+  const dp = allAmounts(desc, pricePattern, true), sp = allAmounts(structured, pricePattern, true);
+  const listedPrice = headerPrice ?? sp[0];
+  const descriptionPrice = expandAbbreviatedAmount(dp[0], listedPrice);
+  const price = descriptionPrice ?? listedPrice ?? null;
+
   const areaPatterns = [labeled(`المساحة\\s+حسب\\s+الصك|مساحة\\s+الأرض|المساحة|مساحتها|مساحته`), `([\\d,.]+)[^\\S\\n]*م(?:²|2)`];
   const da = first(desc, areaPatterns).value, sa = first(structured, areaPatterns).value, area = da ?? sa;
-  const apartments = preferred(desc, structured, [labeled(`عدد\\s+الشقق|عدد\\s+الوحدات\\s+السكنية`), `([\\d,.]+)\\s*(?:شقة|شقق)(?:\\s|،|\\.|$)`, `([\\d,.]+)\\s*وحد(?:ة|ات)\\s*سكنية`]).value;
-  let bedrooms = preferred(desc, structured, [labeled(`عدد\\s+غرف\\s+النوم|عدد\\s+الغرف(?:\\s+النوم)?|غرف\\s+النوم`), `([\\d,.]+)\\s*(?:غرف(?:ة)?(?:\\s+نوم)?|غرفة\\s+نوم)(?!\\w)`]).value;
-  if (bedrooms == null) { const n = normalizeText(desc); if (/غرفت(?:ين|ان)/.test(n)) bedrooms = 2; else if (/غرفة\s+(?:نوم|ماستر)/.test(n)) bedrooms = 1; }
-  const majlis = countNamed(desc, "مجلس"), maqlat = countNamed(desc, "مقلط"); const rooms = bedrooms == null ? null : bedrooms + majlis + maqlat;
-  const meters = preferred(desc, structured, [labeled(`عدد\\s+عدادات\\s+الكهرباء|عدادات\\s+الكهرباء|عدد\\s+العدادات`), `([\\d,.]+)\\s*(?:عدادات|عداد)(?!\\s*مياه)`]).value;
-  const floors = preferred(desc, structured, [labeled(`عدد\\s+الأدوار|عدد\\s+الادوار`), `([\\d,.]+)\\s*(?:أدوار|ادوار|طوابق)`]).value;
-  const street = preferred(desc, structured, [labeled(`عرض\\s+الشارع`), `شارع(?:ين)?\\s*(?:بعرض|عرض)?\\s*([\\d,.]+)\\s*م`]).value;
-  const annual = preferred(desc, structured, [labeled(`الدخل\\s+السنوي(?:\\s+الحالي)?|الدخل\\s+الحالي|الايجار\\s+السنوي|الإيجار\\s+السنوي|صافي\\s+الدخل|الدخل(?:\\s+الصافي|\\s+الإجمالي|\\s+الاجمالي)?|المدخول|مدخول`)]);
-  const monthly = annual.value == null ? preferred(desc, structured, [labeled(`(?:إجمالي\\s+)?(?:الدخل|الإيجار)\\s+الشهري(?:\\s+الحالي)?`)]) : { value: null, index: -1, raw: "", source: "" };
-  const income = annual.value ?? (monthly.value == null ? null : monthly.value * 12); const match = annual.value != null ? annual : monthly;
+
+  const apartmentPatterns = [labeled(`عدد\\s+الشقق|عدد\\s+الوحدات\\s+السكنية`), `([\\d,.]+)\\s*(?:شقة|شقق)(?:\\s|،|\\.|$)`, `([\\d,.]+)\\s*وحد(?:ة|ات)\\s*سكنية`];
+  const descriptionApartments = first(desc, apartmentPatterns).value, structuredApartments = first(structured, apartmentPatterns).value;
+  const apartments = descriptionApartments ?? structuredApartments;
+
+  const descriptionRooms = roomCounts(desc), structuredRooms = roomCounts(structured);
+  const selectedRooms = descriptionRooms.rooms != null ? descriptionRooms : structuredRooms;
+  const { rooms, bedrooms, majlis, maqlat } = selectedRooms;
+
+  const meterPatterns = [labeled(`عدد\\s+عدادات\\s+الكهرباء|عدادات\\s+الكهرباء|عدد\\s+العدادات`), `([\\d,.]+)\\s*(?:عدادات|عداد)(?!\\s*مياه)`];
+  const descriptionMeters = first(desc, meterPatterns).value, structuredMeters = first(structured, meterPatterns).value;
+  const meters = descriptionMeters ?? structuredMeters;
+
+  const floorPatterns = [labeled(`عدد\\s+الأدوار|عدد\\s+الادوار`), `([\\d,.]+)\\s*(?:أدوار|ادوار|طوابق)`];
+  const descriptionFloors = first(desc, floorPatterns).value, structuredFloors = first(structured, floorPatterns).value;
+  const floors = descriptionFloors ?? structuredFloors;
+
+  const streetPatterns = [labeled(`عرض\\s+الشارع`), `شارع(?:ين)?\\s*(?:بعرض|عرض)?\\s*([\\d,.]+)\\s*م`];
+  const descriptionStreet = first(desc, streetPatterns).value, structuredStreet = first(structured, streetPatterns).value;
+  const street = descriptionStreet ?? structuredStreet;
+
+  const descriptionAge = ageFromSource(desc), structuredAge = ageFromSource(structured);
+  const age = descriptionAge.label ?? structuredAge.label;
+
+  const annualPatterns = [labeled(`الدخل\\s+السنوي(?:\\s+الحالي)?|الدخل\\s+الحالي|الايجار\\s+السنوي|الإيجار\\s+السنوي|صافي\\s+الدخل|الدخل(?:\\s+الصافي|\\s+الإجمالي|\\s+الاجمالي)?|المدخول|مدخول`)];
+  const monthlyPatterns = [labeled(`(?:إجمالي\\s+)?(?:الدخل|الإيجار)\\s+الشهري(?:\\s+الحالي)?`)];
+  const incomeFrom = (source: string) => {
+    const annual = first(source, annualPatterns); if (annual.value != null) return { value: annual.value, match: annual, monthly: false };
+    const monthly = first(source, monthlyPatterns); return { value: monthly.value == null ? null : monthly.value * 12, match: monthly, monthly: monthly.value != null };
+  };
+  const descriptionIncome = incomeFrom(desc), structuredIncome = incomeFrom(structured);
+  const selectedIncome = descriptionIncome.value != null ? descriptionIncome : structuredIncome;
+  const income = selectedIncome.value, match = selectedIncome.match;
   const context = match.index >= 0 ? match.source.slice(Math.max(0, match.index - 55), match.index + match.raw.length + 70) : "";
   const incomeKind = income == null ? "unknown" : /متوقع|المتوقع|يمكن|قابل للزيادة|بعد|يصل|يوصل|تقريبي/.test(context) ? "expected" : "actual";
   const city = title.match(/مدينة\s+([^,،|]+)/)?.[1]?.trim() || "", neighborhood = title.match(/حي\s+([^,،|]+)/)?.[1]?.trim() || "";
-  const warnings: string[] = []; if (conflicts([...dp, ...hp, ...sp])) warnings.push("السعر مختلف بين الوصف ورأس الإعلان؛ اعتُمد وصف المعلن");
-  if (da != null && sa != null && Math.abs(da - sa) / Math.min(da, sa) > .05) warnings.push("المساحة مختلفة بين الوصف والخصائص؛ اعتُمد وصف المعلن");
-  if (monthly.value != null) warnings.push("حُوّل الدخل الشهري إلى سنوي بضربه في 12"); if (incomeKind === "expected") warnings.push("الدخل المذكور متوقع وليس فعليًا مؤكدًا");
+
+  const warnings: string[] = [];
+  const addConflict = (label: string, descriptionValue: number | null | undefined, structuredValue: number | null | undefined, tolerance = 0) => {
+    if (descriptionValue != null && structuredValue != null && conflicts([descriptionValue, structuredValue], tolerance)) warnings.push(`${label} مختلف بين وصف المعلن والقائمة؛ اعتُمد وصف المعلن`);
+  };
+  addConflict("السعر", descriptionPrice, listedPrice, .02);
+  addConflict("المساحة", da, sa, .05);
+  addConflict("عدد الشقق", descriptionApartments, structuredApartments);
+  addConflict("عدد الغرف", descriptionRooms.rooms, structuredRooms.rooms);
+  addConflict("عدد العدادات", descriptionMeters, structuredMeters);
+  addConflict("عدد الأدوار", descriptionFloors, structuredFloors);
+  addConflict("عرض الشارع", descriptionStreet, structuredStreet);
+  addConflict("عمر العقار", descriptionAge.years, structuredAge.years);
+  addConflict("الدخل السنوي", descriptionIncome.value, structuredIncome.value, .02);
+  if (selectedIncome.monthly) warnings.push("حُوّل الدخل الشهري إلى سنوي بضربه في 12"); if (incomeKind === "expected") warnings.push("الدخل المذكور متوقع وليس فعليًا مؤكدًا");
   for (const [v, w] of [[price,"السعر غير مذكور بوضوح"],[income,"الدخل السنوي غير مذكور"],[meters,"عدد العدادات غير مذكور"],[floors,"عدد الأدوار غير مذكور"],[street,"عرض الشارع غير مذكور"],[area,"المساحة غير مذكورة"]] as [number|null,string][]) if (v == null) warnings.push(w);
   return { listingId, url, title, city, neighborhood, propertyType, price, area, sqmPrice: price && area ? price / area : null,
-    apartments, rooms: ROOM_TYPES.has(propertyType) ? rooms : null, bedrooms, majlis, maqlat, meters, floors, street, age: ageValue(desc, structured), income,
+    apartments, rooms: ROOM_TYPES.has(propertyType) ? rooms : null, bedrooms, majlis, maqlat, meters, floors, street, age, income,
     incomeKind, yieldPct: income && price ? income / price * 100 : null, density: apartments && area ? apartments / area * 100 : null,
     warnings, status: "بيانات ناقصة", score: 0, nearEligible: true, description: desc.slice(0, 2200) };
 }
