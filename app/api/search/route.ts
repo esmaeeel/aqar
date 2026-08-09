@@ -18,13 +18,14 @@ const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json() as { filters: Filters; city: string; neighborhood?: string; category: string; page: number; remaining: number };
+    const body = await request.json() as { filters: Filters; city: string; neighborhood?: string; category: string; page: number; remaining: number; excludeListingIds?: string[] };
     const { filters, city, category } = body; const neighborhood = body.neighborhood || "";
     if (!CATEGORIES[filters.propertyType]?.[filters.purpose]?.includes(category)) return Response.json({ error: "نوع البحث غير صالح." }, { status: 400 });
     const sourceUrl = locationUrl(category, city, neighborhood, Math.max(1, Math.min(25, Number(body.page)||1)));
-    const searchHtml = await fetchAqar(sourceUrl); const links = listingLinks(searchHtml, category, city, neighborhood).slice(0, Math.max(1, Math.min(20, Number(body.remaining)||20)));
-    const results = []; const warnings: string[] = [];
+    const searchHtml = await fetchAqar(sourceUrl); const allLinks = listingLinks(searchHtml, category, city, neighborhood); const excluded = new Set(body.excludeListingIds || []); const links = allLinks.filter(link => !excluded.has(link.listingId)).slice(0, Math.max(1, Math.min(20, Number(body.remaining)||20)));
+    const results = []; const warnings: string[] = []; const checkedListingIds: string[] = [];
     for (let i=0;i<links.length;i++) {
+      checkedListingIds.push(links[i].listingId);
       try {
         if (i) await pause(350);
         const item = evaluate(parseListing(await fetchAqar(links[i].url), links[i].url, filters.propertyType), filters);
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
         if (/429|منع|تحقق|تسجيل دخول/.test(message)) break;
       }
     }
-    return Response.json({ results, discovered: links.length, warnings, sourceUrl });
+    return Response.json({ results, discovered: allLinks.length, checkedListingIds, warnings, sourceUrl });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "تعذر إكمال البحث." }, { status: 502 });
   }
