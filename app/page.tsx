@@ -82,7 +82,7 @@ function Results({rows,roomMode,propertyType}:{rows:Listing[];roomMode:boolean;p
       <div className="resultsTableWrap" role="region" aria-label="جدول مقارنة نتائج العقارات" tabIndex={0}>
         <table className="resultsTable">
           <thead><tr>
-            <th>الموقع</th><th>رقم الإعلان</th><th>السعر</th><th>الدخل السنوي</th><th>العائد</th><th>المساحة</th><th>سعر المتر</th><th>{roomMode?"الغرف":"الشقق"}</th><th>العدادات</th><th>الأدوار</th><th>عرض الشارع</th><th>شقق لكل 100م²</th><th>العمر</th><th>التقييم</th><th>التفاصيل</th>
+            <th>الموقع</th><th>رقم الإعلان</th><th>السعر</th><th>الدخل السنوي</th><th>العائد</th><th>المساحة</th><th>سعر المتر</th><th>{roomMode?"الغرف":"الشقق"}</th><th>العدادات</th><th>الأدوار</th><th>عرض الشارع</th><th>شقق لكل 100م²</th><th>العمر</th><th>التفاصيل</th>
           </tr></thead>
           <tbody>{orderedRows.map(r=><tr className={rowClass(r.status)} key={r.listingId}>
             <td><strong>{r.city||"مدينة غير مذكورة"}</strong><small>{r.neighborhood||"حي غير مذكور"}</small></td>
@@ -93,7 +93,7 @@ function Results({rows,roomMode,propertyType}:{rows:Listing[];roomMode:boolean;p
             <td>{r.area==null?"غير مذكور":`${fmt(r.area,1)} م²`}</td>
             <td>{r.sqmPrice==null?"غير مذكور":`${fmt(r.sqmPrice,2)} ر.س`}</td>
             <td>{fmt(roomMode?r.rooms:r.apartments)}{roomMode&&r.rooms!=null&&<small>{fmt(r.bedrooms)} غرفة + {r.majlis} مجلس + {r.maqlat} مقلط</small>}</td>
-            <td>{fmt(r.meters)}</td><td>{fmt(r.floors)}</td><td>{r.street==null?"غير مذكور":`${fmt(r.street)} م`}</td><td>{r.density==null?"غير مذكور":fmt(r.density,2)}</td><td>{r.age||"غير مذكور"}</td><td>{r.score}/100</td>
+            <td>{fmt(r.meters)}</td><td>{fmt(r.floors)}</td><td>{r.street==null?"غير مذكور":`${fmt(r.street)} م`}</td><td>{r.density==null?"غير مذكور":fmt(r.density,2)}</td><td>{r.age||"غير مذكور"}</td>
             <td className="rowActions">{r.warnings.length>0&&<details><summary>الملاحظات</summary><ul>{r.warnings.map((w,i)=><li key={i}>{w}</li>)}</ul></details>}<a href={r.url} target="_blank" rel="noreferrer">فتح الإعلان ↗</a></td>
           </tr>)}</tbody>
         </table>
