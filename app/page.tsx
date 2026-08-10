@@ -58,10 +58,46 @@ export default function Home(){
       <div className="limits"><label>عدد الصفحات<input type="number" min="1" max="25" value={filters.maxPages} onChange={e=>update("maxPages",inputNumber(e.target.value))}/></label><label>أقصى إعلانات<input type="number" min="5" max="500" value={filters.maxListings} onChange={e=>update("maxListings",inputNumber(e.target.value))}/></label><span>تُقرأ الصفحات على دفعات معتدلة، وقد يتوقف البحث إذا طلب الموقع تحققًا.</span></div>
       <div className="run"><button className="primary" disabled={busy} onClick={search}>{busy?"جارٍ البحث…":"ابدأ البحث في عقار"}</button><button className="save" disabled={!results.length||busy} onClick={saveResults}>حفظ هذه النتائج</button></div>{busy&&<progress value={progress} max="100"/>}<div className="status">{message}</div>{warnings.length>0&&<details className="warnings"><summary>ملاحظات أثناء القراءة ({warnings.length})</summary>{warnings.map((w,i)=><p key={i}>{w}</p>)}</details>}
     </section>
-    <Results rows={results} roomMode={ROOM_TYPES.has(filters.propertyType)}/></>}
+    <Results rows={results} roomMode={ROOM_TYPES.has(filters.propertyType)} propertyType={filters.propertyType}/></>}
     <footer>أداة مستقلة · لا تتجاوز تسجيل الدخول أو حماية موقع عقار · البيانات غير المذكورة تبقى «غير مذكور»</footer>
   </main>
 }
 
-function Results({rows,roomMode}:{rows:Listing[];roomMode:boolean}){return <section className="panel results" id="results"><div className="sectionHead"><div><span className="eyebrow">النتائج</span><h2>{rows.length} عقار</h2></div><div className="legend"><span className="match">مطابقة</span><span className="near">قريبة</span><span className="missing">ناقصة</span></div></div>{!rows.length?<div className="empty">ستظهر النتائج هنا بعد البحث.</div>:<div className="cards">{rows.map(r=><article className="resultCard" key={r.listingId}><div className="cardTop"><div><span className={`badge ${r.status==="مطابقة"?"match":r.status==="قريبة"?"near":"missing"}`}>{r.status}</span><h3>{r.city||"مدينة غير مذكورة"} · {r.neighborhood||"حي غير مذكور"}</h3><small>رقم الإعلان {r.listingId} · التقييم {r.score}/100</small></div><div className="price">{fmt(r.price)} <small>ر.س</small></div></div><div className="facts"><Fact k="الدخل" v={r.income==null?"غير مذكور":`${fmt(r.income)} ر.س`}/><Fact k="العائد" v={r.yieldPct==null?"غير مذكور":`${fmt(r.yieldPct,2)}%${r.incomeKind==="expected"?" (متوقع)":""}`}/><Fact k="المساحة" v={r.area==null?"غير مذكور":`${fmt(r.area,1)} م²`}/><Fact k="سعر المتر" v={r.sqmPrice==null?"غير مذكور":`${fmt(r.sqmPrice,2)} ر.س`}/><Fact k={roomMode?"الغرف":"الشقق"} v={fmt(roomMode?r.rooms:r.apartments)}/><Fact k="العدادات" v={fmt(r.meters)}/><Fact k="الأدوار" v={fmt(r.floors)}/><Fact k="الشارع" v={r.street==null?"غير مذكور":`${fmt(r.street)} م`}/><Fact k="الكثافة" v={r.density==null?"غير مذكور":`${fmt(r.density,2)} / 100م²`}/><Fact k="العمر" v={r.age||"غير مذكور"}/></div>{roomMode&&r.rooms!=null&&<p className="roomNote">الغرف المذكورة {fmt(r.bedrooms)} + المجالس {r.majlis} + المقالط {r.maqlat}</p>}{r.warnings.length>0&&<details><summary>التحذيرات والبيانات الناقصة</summary><ul>{r.warnings.map((w,i)=><li key={i}>{w}</li>)}</ul></details>}<a className="open" href={r.url} target="_blank" rel="noreferrer">فتح الإعلان في عقار ↗</a></article>)}</div>}</section>}
-function Fact({k,v}:{k:string;v:string}){return <div><small>{k}</small><strong>{v}</strong></div>}
+function Results({rows,roomMode,propertyType}:{rows:Listing[];roomMode:boolean;propertyType:string}){
+  const [preferredStatus,setPreferredStatus]=useState<Listing["status"]|null>(null);
+  const orderedRows=preferredStatus?[...rows].sort((a,b)=>Number(b.status===preferredStatus)-Number(a.status===preferredStatus)):rows;
+  const rowClass=(status:Listing["status"])=>status==="مطابقة"?"match":status==="قريبة"?"near":"missing";
+  return <section className="panel results" id="results">
+    <div className="sectionHead resultsHead">
+      <div><span className="eyebrow">النتائج</span><h2>{rows.length} عقار</h2></div>
+      <div className="resultKey" aria-label="نوع العقار ودليل ألوان المطابقة">
+        <strong>نوع العقار: {propertyType}</strong>
+        <div className="legend">
+          {(["مطابقة","قريبة","بيانات ناقصة"] as Listing["status"][]).map(status=><button key={status} type="button" aria-pressed={preferredStatus===status} className={rowClass(status)} onClick={()=>setPreferredStatus(status)}>{status==="بيانات ناقصة"?"ناقصة":status}</button>)}
+        </div>
+      </div>
+    </div>
+    {!rows.length?<div className="empty">ستظهر النتائج هنا بعد البحث.</div>:<>
+      <p className="swipeHint">مرّر الجدول أفقيًا لمقارنة جميع البيانات.</p>
+      <div className="resultsTableWrap" role="region" aria-label="جدول مقارنة نتائج العقارات" tabIndex={0}>
+        <table className="resultsTable">
+          <thead><tr>
+            <th>الموقع</th><th>رقم الإعلان</th><th>السعر</th><th>الدخل السنوي</th><th>العائد</th><th>المساحة</th><th>سعر المتر</th><th>{roomMode?"الغرف":"الشقق"}</th><th>العدادات</th><th>الأدوار</th><th>عرض الشارع</th><th>شقق لكل 100م²</th><th>العمر</th><th>التقييم</th><th>التفاصيل</th>
+          </tr></thead>
+          <tbody>{orderedRows.map(r=><tr className={rowClass(r.status)} key={r.listingId}>
+            <td><strong>{r.city||"مدينة غير مذكورة"}</strong><small>{r.neighborhood||"حي غير مذكور"}</small></td>
+            <td>{r.listingId}</td>
+            <td className="money">{fmt(r.price)}<small> ر.س</small></td>
+            <td>{r.income==null?"غير مذكور":`${fmt(r.income)} ر.س`}</td>
+            <td>{r.yieldPct==null?"غير مذكور":`${fmt(r.yieldPct,2)}%${r.incomeKind==="expected"?" متوقع":""}`}</td>
+            <td>{r.area==null?"غير مذكور":`${fmt(r.area,1)} م²`}</td>
+            <td>{r.sqmPrice==null?"غير مذكور":`${fmt(r.sqmPrice,2)} ر.س`}</td>
+            <td>{fmt(roomMode?r.rooms:r.apartments)}{roomMode&&r.rooms!=null&&<small>{fmt(r.bedrooms)} غرفة + {r.majlis} مجلس + {r.maqlat} مقلط</small>}</td>
+            <td>{fmt(r.meters)}</td><td>{fmt(r.floors)}</td><td>{r.street==null?"غير مذكور":`${fmt(r.street)} م`}</td><td>{r.density==null?"غير مذكور":fmt(r.density,2)}</td><td>{r.age||"غير مذكور"}</td><td>{r.score}/100</td>
+            <td className="rowActions">{r.warnings.length>0&&<details><summary>الملاحظات</summary><ul>{r.warnings.map((w,i)=><li key={i}>{w}</li>)}</ul></details>}<a href={r.url} target="_blank" rel="noreferrer">فتح الإعلان ↗</a></td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+    </>}
+  </section>
+}
