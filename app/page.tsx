@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { Filters, Listing, Location } from "@/lib/aqar";
 import { CATEGORIES, ROOM_TYPES } from "@/lib/aqar";
 
@@ -70,9 +70,48 @@ export default function Home(){
   </main>
 }
 
+type ColumnKey="location"|"listingId"|"price"|"income"|"yieldPct"|"area"|"sqmPrice"|"count"|"meters"|"floors"|"street"|"density"|"age"|"details";
+type TableColumn={key:ColumnKey;label:string;value:(row:Listing)=>string|number|null;render:(row:Listing)=>ReactNode;className?:string};
+const DEFAULT_COLUMN_ORDER:ColumnKey[]=["location","listingId","price","income","yieldPct","area","sqmPrice","count","meters","floors","street","density","age","details"];
+const COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v1";
+
 function Results({rows,roomMode,propertyType}:{rows:Listing[];roomMode:boolean;propertyType:string}){
   const [preferredStatus,setPreferredStatus]=useState<Listing["status"]|null>(null);
-  const orderedRows=preferredStatus?[...rows].sort((a,b)=>Number(b.status===preferredStatus)-Number(a.status===preferredStatus)):rows;
+  const [sort,setSort]=useState<{key:ColumnKey;direction:"asc"|"desc"}|null>(null);
+  const [columnOrder,setColumnOrder]=useState<ColumnKey[]>(DEFAULT_COLUMN_ORDER);
+  const [columnOrderLoaded,setColumnOrderLoaded]=useState(false);
+  const [showColumnOrder,setShowColumnOrder]=useState(false);
+  useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(COLUMN_ORDER_KEY)||"[]") as ColumnKey[];if(stored.length===DEFAULT_COLUMN_ORDER.length&&DEFAULT_COLUMN_ORDER.every(key=>stored.includes(key)))setColumnOrder(stored)}catch{/* تجاهل ترتيب محلي تالف */}setColumnOrderLoaded(true)},[]);
+  useEffect(()=>{if(columnOrderLoaded)localStorage.setItem(COLUMN_ORDER_KEY,JSON.stringify(columnOrder))},[columnOrder,columnOrderLoaded]);
+  const columns:TableColumn[]=[
+    {key:"location",label:"الموقع",value:r=>`${r.city||""} ${r.neighborhood||""}`.trim()||null,render:r=><><strong>{r.city||"مدينة غير مذكورة"}</strong><small>{r.neighborhood||"حي غير مذكور"}</small></>},
+    {key:"listingId",label:"رقم الإعلان",value:r=>Number(r.listingId)||r.listingId,render:r=>r.listingId},
+    {key:"price",label:"السعر",value:r=>r.price,render:r=><>{fmt(r.price)}<small> ر.س</small></>,className:"money"},
+    {key:"income",label:"الدخل السنوي",value:r=>r.income,render:r=>r.income==null?"غير مذكور":`${fmt(r.income)} ر.س`},
+    {key:"yieldPct",label:"العائد",value:r=>r.yieldPct,render:r=>r.yieldPct==null?"غير مذكور":`${fmt(r.yieldPct,2)}%${r.incomeKind==="expected"?" متوقع":""}`},
+    {key:"area",label:"المساحة",value:r=>r.area,render:r=>r.area==null?"غير مذكور":`${fmt(r.area,1)} م²`},
+    {key:"sqmPrice",label:"سعر المتر",value:r=>r.sqmPrice,render:r=>r.sqmPrice==null?"غير مذكور":`${fmt(r.sqmPrice,2)} ر.س`},
+    {key:"count",label:roomMode?"الغرف":"الشقق",value:r=>roomMode?r.rooms:r.apartments,render:r=><>{fmt(roomMode?r.rooms:r.apartments)}{roomMode&&r.rooms!=null&&<small>{fmt(r.bedrooms)} غرفة + {r.majlis} مجلس + {r.maqlat} مقلط</small>}</>},
+    {key:"meters",label:"العدادات",value:r=>r.meters,render:r=>fmt(r.meters)},
+    {key:"floors",label:"الأدوار",value:r=>r.floors,render:r=>fmt(r.floors)},
+    {key:"street",label:"عرض الشارع",value:r=>r.street,render:r=>r.street==null?"غير مذكور":`${fmt(r.street)} م`},
+    {key:"density",label:"شقق لكل 100م²",value:r=>r.density,render:r=>r.density==null?"غير مذكور":fmt(r.density,2)},
+    {key:"age",label:"العمر",value:r=>r.age||null,render:r=>r.age||"غير مذكور"},
+    {key:"details",label:"التفاصيل",value:r=>r.warnings.length,render:r=><>{r.warnings.length>0&&<details><summary>الملاحظات</summary><ul>{r.warnings.map((w,i)=><li key={i}>{w}</li>)}</ul></details>}<a href={r.url} target="_blank" rel="noreferrer">فتح الإعلان ↗</a></>,className:"rowActions"},
+  ];
+  const columnsByKey=new Map(columns.map(column=>[column.key,column]));
+  const orderedColumns=columnOrder.map(key=>columnsByKey.get(key)).filter((column):column is TableColumn=>Boolean(column));
+  const orderedRows=[...rows].sort((a,b)=>{
+    const statusOrder=preferredStatus?Number(b.status===preferredStatus)-Number(a.status===preferredStatus):0;
+    if(statusOrder)return statusOrder;
+    if(!sort)return 0;
+    const column=columnsByKey.get(sort.key),left=column?.value(a)??null,right=column?.value(b)??null;
+    if(left==null&&right==null)return 0;if(left==null)return 1;if(right==null)return -1;
+    const comparison=typeof left==="number"&&typeof right==="number"?left-right:String(left).localeCompare(String(right),"ar",{numeric:true,sensitivity:"base"});
+    return sort.direction==="asc"?comparison:-comparison;
+  });
+  function sortBy(key:ColumnKey){setSort(current=>current?.key===key?{key,direction:current.direction==="asc"?"desc":"asc"}:{key,direction:"asc"})}
+  function moveColumn(key:ColumnKey,step:-1|1){setColumnOrder(order=>{const index=order.indexOf(key),target=index+step;if(index<0||target<0||target>=order.length)return order;const next=[...order];[next[index],next[target]]=[next[target],next[index]];return next})}
   const rowClass=(status:Listing["status"])=>status==="مطابقة"?"match":status==="قريبة"?"near":"missing";
   return <section className="panel results" id="results">
     <div className="sectionHead resultsHead">
@@ -85,23 +124,13 @@ function Results({rows,roomMode,propertyType}:{rows:Listing[];roomMode:boolean;p
       </div>
     </div>
     {!rows.length?<div className="empty">ستظهر النتائج هنا بعد البحث.</div>:<>
-      <p className="swipeHint">مرّر الجدول أفقيًا لمقارنة جميع البيانات.</p>
+      <div className="tableTools"><p className="swipeHint">اضغط عنوان العمود للفرز، ومرّر الجدول أفقيًا للمقارنة.</p><button type="button" className="ghost" aria-expanded={showColumnOrder} onClick={()=>setShowColumnOrder(value=>!value)}>ترتيب الأعمدة</button></div>
+      {showColumnOrder&&<div className="columnOrder" aria-label="ترتيب أعمدة الجدول"><strong>رتّب الأعمدة من اليمين إلى اليسار</strong><div>{orderedColumns.map((column,index)=><span key={column.key}><b>{column.label}</b><button type="button" disabled={index===0} onClick={()=>moveColumn(column.key,-1)} aria-label={`تحريك ${column.label} يمينًا`}>→</button><button type="button" disabled={index===orderedColumns.length-1} onClick={()=>moveColumn(column.key,1)} aria-label={`تحريك ${column.label} يسارًا`}>←</button></span>)}</div><button type="button" className="resetColumns" onClick={()=>setColumnOrder(DEFAULT_COLUMN_ORDER)}>الترتيب الأصلي</button></div>}
       <div className="resultsTableWrap" role="region" aria-label="جدول مقارنة نتائج العقارات" tabIndex={0}>
         <table className="resultsTable">
-          <thead><tr>
-            <th>الموقع</th><th>رقم الإعلان</th><th>السعر</th><th>الدخل السنوي</th><th>العائد</th><th>المساحة</th><th>سعر المتر</th><th>{roomMode?"الغرف":"الشقق"}</th><th>العدادات</th><th>الأدوار</th><th>عرض الشارع</th><th>شقق لكل 100م²</th><th>العمر</th><th>التفاصيل</th>
-          </tr></thead>
+          <thead><tr>{orderedColumns.map(column=><th key={column.key} aria-sort={sort?.key===column.key?(sort.direction==="asc"?"ascending":"descending"):"none"}><button type="button" className="sortHeader" onClick={()=>sortBy(column.key)}>{column.label}<span aria-hidden="true">{sort?.key===column.key?(sort.direction==="asc"?"▲":"▼"):"↕"}</span></button></th>)}</tr></thead>
           <tbody>{orderedRows.map(r=><tr className={rowClass(r.status)} key={r.listingId}>
-            <td><strong>{r.city||"مدينة غير مذكورة"}</strong><small>{r.neighborhood||"حي غير مذكور"}</small></td>
-            <td>{r.listingId}</td>
-            <td className="money">{fmt(r.price)}<small> ر.س</small></td>
-            <td>{r.income==null?"غير مذكور":`${fmt(r.income)} ر.س`}</td>
-            <td>{r.yieldPct==null?"غير مذكور":`${fmt(r.yieldPct,2)}%${r.incomeKind==="expected"?" متوقع":""}`}</td>
-            <td>{r.area==null?"غير مذكور":`${fmt(r.area,1)} م²`}</td>
-            <td>{r.sqmPrice==null?"غير مذكور":`${fmt(r.sqmPrice,2)} ر.س`}</td>
-            <td>{fmt(roomMode?r.rooms:r.apartments)}{roomMode&&r.rooms!=null&&<small>{fmt(r.bedrooms)} غرفة + {r.majlis} مجلس + {r.maqlat} مقلط</small>}</td>
-            <td>{fmt(r.meters)}</td><td>{fmt(r.floors)}</td><td>{r.street==null?"غير مذكور":`${fmt(r.street)} م`}</td><td>{r.density==null?"غير مذكور":fmt(r.density,2)}</td><td>{r.age||"غير مذكور"}</td>
-            <td className="rowActions">{r.warnings.length>0&&<details><summary>الملاحظات</summary><ul>{r.warnings.map((w,i)=><li key={i}>{w}</li>)}</ul></details>}<a href={r.url} target="_blank" rel="noreferrer">فتح الإعلان ↗</a></td>
+            {orderedColumns.map(column=><td key={column.key} className={column.className}>{column.render(r)}</td>)}
           </tr>)}</tbody>
         </table>
       </div>
