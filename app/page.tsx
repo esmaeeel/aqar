@@ -17,6 +17,12 @@ type Profile={id:number;name:string;filtersJson:string};
 type SearchSource={category:string;city:string;neighborhood:string;page:number};
 const fmt=(v:number|null,d=0)=>v==null?"غير مذكور":new Intl.NumberFormat("ar-SA",{maximumFractionDigits:d}).format(v);
 const inputNumber=(value:unknown)=>Number(value)||0;
+function automaticPageCount(filters:Filters,locations:Location[],maxListings:number){
+  const scopes=Math.max(1,locations.reduce((total,location)=>total+Math.max(1,location.neighborhoods.length),0));
+  const categoryCount=Math.max(1,(CATEGORIES[filters.propertyType]?.[filters.purpose]||[]).length);
+  const basePages=Math.max(1,Math.ceil(maxListings/(20*scopes*categoryCount)));
+  return Math.min(25,basePages<=2?2:basePages+2);
+}
 function deviceHeaders(json=false){let id=localStorage.getItem("aqar-device-id");if(!id){id=crypto.randomUUID();localStorage.setItem("aqar-device-id",id)}return {"x-aqar-device-id":id,...(json?{"content-type":"application/json"}:{})}}
 
 export default function Home(){
@@ -33,7 +39,8 @@ export default function Home(){
   async function saveProfile(){const name=prompt("اسم مواصفات البحث:");if(!name)return;const r=await fetch("/api/profiles",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({name,filters})});if(r.ok){await loadProfiles();setMessage("حُفظت مواصفات البحث.")}else setMessage("تعذر حفظ المواصفات.")}
   function loadProfile(id:string){const p=profiles.find(x=>x.id===Number(id));if(p){setFilters({...defaults,...JSON.parse(p.filtersJson)});setMessage(`تم تحميل: ${p.name}`)}}
   async function search(){
-    const clean={...filters,locations:filters.locations.filter(l=>l.city.trim()),maxPages:Math.min(25,Math.max(1,filters.maxPages)),maxListings:Math.min(500,Math.max(5,filters.maxListings))};
+    const locations=filters.locations.filter(l=>l.city.trim()),maxListings=Math.min(500,Math.max(5,filters.maxListings));
+    const clean={...filters,locations,maxListings,maxPages:automaticPageCount(filters,locations,maxListings)};
     if(!clean.locations.length){setMessage("أضف مدينة واحدة على الأقل.");return} localStorage.setItem(LAST_FILTERS_KEY,JSON.stringify(clean));setBusy(true);setResults([]);setWarnings([]);setProgress(0);
     const found=new Map<string,Listing>(),checked=new Set<string>();let discovered=0,stoppedAt=-1,stopReason="";const allSources=(()=>{const a:SearchSource[]=[];for(let page=1;page<=clean.maxPages;page++)for(const category of CATEGORIES[clean.propertyType]?.[clean.purpose]||[])for(const l of clean.locations)for(const neighborhood of(l.neighborhoods.length?l.neighborhoods:[""]))a.push({category,city:l.city,neighborhood,page});return a})();
     for(let i=0;i<allSources.length&&checked.size<clean.maxListings;i++){
@@ -55,7 +62,7 @@ export default function Home(){
       <h3>المدن والأحياء</h3><div className="locations">{filters.locations.map((l,i)=><div className="location" key={i}><label>المدينة<input value={l.city} onChange={e=>changeLocation(i,"city",e.target.value)} placeholder="مثال: الدمام"/></label><label>الأحياء (بفواصل)<input value={l.neighborhoods.join("، ")} onChange={e=>changeLocation(i,"neighborhoods",e.target.value)} placeholder="اتركها فارغة لكل الأحياء"/></label><button aria-label="حذف المدينة" className="icon danger" onClick={()=>update("locations",filters.locations.filter((_,j)=>j!==i))}>×</button></div>)}</div><button className="add" onClick={addLocation}>+ إضافة مدينة</button>
       <h3>الشروط الرقمية</h3><div className="grid">{nums.map(n=><label key={String(n.key)}>{n.key==="minCount"?countLabel:n.label}<input inputMode="decimal" type="number" min="0" value={String(filters[n.key]||"")} onChange={e=>update(n.key,inputNumber(e.target.value) as never)}/></label>)}</div>
       <h3>البحث في الوصف</h3><label>كلمات مطلوبة (بفواصل)<input value={filters.keywords.join("، ")} onChange={e=>update("keywords",e.target.value.split(/[،,]/).map(x=>x.trim()).filter(Boolean))} placeholder="مثال: مكيفات، مدخل سيارة، صناعات"/><small>يشمل اللواصق مثل: الصناعات، للصناعات، والصناعات.</small></label>
-      <div className="limits"><label>عدد الصفحات<input type="number" min="1" max="25" value={filters.maxPages} onChange={e=>update("maxPages",inputNumber(e.target.value))}/></label><label>أقصى إعلانات<input type="number" min="5" max="500" value={filters.maxListings} onChange={e=>update("maxListings",inputNumber(e.target.value))}/></label><span>تُقرأ الصفحات على دفعات معتدلة، وقد يتوقف البحث إذا طلب الموقع تحققًا.</span></div>
+      <div className="limits"><label>أقصى إعلانات<input type="number" min="5" max="500" value={filters.maxListings} onChange={e=>update("maxListings",inputNumber(e.target.value))}/></label><span>يحسب البرنامج عدد الصفحات تلقائيًا بحسب عدد الإعلانات والمدن والأحياء، وقد يتوقف البحث إذا طلب الموقع تحققًا.</span></div>
       <div className="run"><button className="primary" disabled={busy} onClick={search}>{busy?"جارٍ البحث…":"ابدأ البحث في عقار"}</button><button className="save" disabled={!results.length||busy} onClick={saveResults}>حفظ هذه النتائج</button></div>{busy&&<progress value={progress} max="100"/>}<div className="status">{message}</div>{warnings.length>0&&<details className="warnings"><summary>ملاحظات أثناء القراءة ({warnings.length})</summary>{warnings.map((w,i)=><p key={i}>{w}</p>)}</details>}
     </section>
     <Results rows={results} roomMode={ROOM_TYPES.has(filters.propertyType)} propertyType={filters.propertyType}/></>}
