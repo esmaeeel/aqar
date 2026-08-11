@@ -65,17 +65,17 @@ export default function Home(){
       <div className="limits"><label>أقصى إعلانات<input type="number" min="5" max="500" value={filters.maxListings} onChange={e=>update("maxListings",inputNumber(e.target.value))}/></label><span>يحسب البرنامج عدد الصفحات تلقائيًا بحسب عدد الإعلانات والمدن والأحياء، وقد يتوقف البحث إذا طلب الموقع تحققًا.</span></div>
       <div className="run"><button className="primary" disabled={busy} onClick={search}>{busy?"جارٍ البحث…":"ابدأ البحث في عقار"}</button><button className="save" disabled={!results.length||busy} onClick={saveResults}>حفظ هذه النتائج</button></div>{busy&&<progress value={progress} max="100"/>}<div className="status">{message}</div>{warnings.length>0&&<details className="warnings"><summary>ملاحظات أثناء القراءة ({warnings.length})</summary>{warnings.map((w,i)=><p key={i}>{w}</p>)}</details>}
     </section>
-    <Results rows={results} roomMode={ROOM_TYPES.has(filters.propertyType)} propertyType={filters.propertyType}/></>}
+    <Results rows={results} roomMode={ROOM_TYPES.has(filters.propertyType)} propertyType={filters.propertyType} cities={[...new Set(filters.locations.map(location=>location.city.trim()).filter(Boolean))]}/></>}
     <footer>أداة مستقلة · لا تتجاوز تسجيل الدخول أو حماية موقع عقار · البيانات غير المذكورة تبقى «غير مذكور»</footer>
   </main>
 }
 
-type ColumnKey="location"|"listingId"|"price"|"income"|"yieldPct"|"area"|"sqmPrice"|"count"|"meters"|"floors"|"street"|"density"|"age"|"details";
+type ColumnKey="price"|"income"|"yieldPct"|"area"|"sqmPrice"|"count"|"meters"|"floors"|"street"|"density"|"age"|"details";
 type TableColumn={key:ColumnKey;label:string;value:(row:Listing)=>string|number|null;render:(row:Listing)=>ReactNode;className?:string};
-const DEFAULT_COLUMN_ORDER:ColumnKey[]=["location","listingId","price","income","yieldPct","area","sqmPrice","count","meters","floors","street","density","age","details"];
-const COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v1";
+const DEFAULT_COLUMN_ORDER:ColumnKey[]=["price","income","yieldPct","area","sqmPrice","count","meters","floors","street","density","age","details"];
+const COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v2";
 
-function Results({rows,roomMode,propertyType}:{rows:Listing[];roomMode:boolean;propertyType:string}){
+function Results({rows,roomMode,propertyType,cities}:{rows:Listing[];roomMode:boolean;propertyType:string;cities:string[]}){
   const [preferredStatus,setPreferredStatus]=useState<Listing["status"]|null>(null);
   const [sort,setSort]=useState<{key:ColumnKey;direction:"asc"|"desc"}|null>(null);
   const [columnOrder,setColumnOrder]=useState<ColumnKey[]>(DEFAULT_COLUMN_ORDER);
@@ -84,8 +84,6 @@ function Results({rows,roomMode,propertyType}:{rows:Listing[];roomMode:boolean;p
   useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(COLUMN_ORDER_KEY)||"[]") as ColumnKey[];if(stored.length===DEFAULT_COLUMN_ORDER.length&&DEFAULT_COLUMN_ORDER.every(key=>stored.includes(key)))setColumnOrder(stored)}catch{/* تجاهل ترتيب محلي تالف */}setColumnOrderLoaded(true)},[]);
   useEffect(()=>{if(columnOrderLoaded)localStorage.setItem(COLUMN_ORDER_KEY,JSON.stringify(columnOrder))},[columnOrder,columnOrderLoaded]);
   const columns:TableColumn[]=[
-    {key:"location",label:"الموقع",value:r=>`${r.city||""} ${r.neighborhood||""}`.trim()||null,render:r=><><strong>{r.city||"مدينة غير مذكورة"}</strong><small>{r.neighborhood||"حي غير مذكور"}</small></>},
-    {key:"listingId",label:"رقم الإعلان",value:r=>Number(r.listingId)||r.listingId,render:r=>r.listingId},
     {key:"price",label:"السعر",value:r=>r.price,render:r=><>{fmt(r.price)}<small> ر.س</small></>,className:"money"},
     {key:"income",label:"الدخل السنوي",value:r=>r.income,render:r=>r.income==null?"غير مذكور":`${fmt(r.income)} ر.س`},
     {key:"yieldPct",label:"العائد",value:r=>r.yieldPct,render:r=>r.yieldPct==null?"غير مذكور":`${fmt(r.yieldPct,2)}%${r.incomeKind==="expected"?" متوقع":""}`},
@@ -113,9 +111,10 @@ function Results({rows,roomMode,propertyType}:{rows:Listing[];roomMode:boolean;p
   function sortBy(key:ColumnKey){setSort(current=>current?.key===key?{key,direction:current.direction==="asc"?"desc":"asc"}:{key,direction:"asc"})}
   function moveColumn(key:ColumnKey,step:-1|1){setColumnOrder(order=>{const index=order.indexOf(key),target=index+step;if(index<0||target<0||target>=order.length)return order;const next=[...order];[next[index],next[target]]=[next[target],next[index]];return next})}
   const rowClass=(status:Listing["status"])=>status==="مطابقة"?"match":status==="قريبة"?"near":"missing";
+  const resultCities=[...new Set(rows.map(row=>(row.city||"").trim()).filter(Boolean))],displayCities=resultCities.length?resultCities:cities;
   return <section className="panel results" id="results">
     <div className="sectionHead resultsHead">
-      <div><span className="eyebrow">النتائج</span><h2>{rows.length} عقار</h2></div>
+      <div><span className="eyebrow">النتائج</span><div className="resultsSummary"><h2>{rows.length} عقار</h2>{displayCities.length>0&&<span>المدن: {displayCities.join("، ")}</span>}</div></div>
       <div className="resultKey" aria-label="نوع العقار ودليل ألوان المطابقة">
         <strong>نوع العقار: {propertyType}</strong>
         <div className="legend">
