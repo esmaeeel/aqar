@@ -135,6 +135,29 @@ test("يذكر إجمالي غرف العمارة عندما يورده المع
   assert.equal(listing.totalRooms, 32);
 });
 
+test("يعتبر مبلغ مؤجر به دخلا لا سعر البيع", () => {
+  const html = `
+    <h1>عمارة للبيع في مدينة الدمام، حي البادية</h1>
+    <div>﷼ 23,000,000</div>
+    <div>استكشف خيارات التمويل</div>
+    <p>مؤجر بـ ١٬٦٠٠٬٠٠٠ ريال لمدة سبع سنين</p>
+    <h3>تفاصيل الإعلان</h3><p>المساحة 2,000 م²</p>
+  `;
+  const listing = parseListing(html, "https://sa.aqar.fm/عمائر-للبيع/الدمام/حي-البادية/عمارة-7654324", "عمارة");
+  assert.equal(listing.price, 23_000_000);
+  assert.equal(listing.income, 1_600_000);
+  assert.equal(listing.incomeKind, "actual");
+  assert.ok(Math.abs(listing.yieldPct - (1_600_000 / 23_000_000 * 100)) < 1e-9);
+  assert.ok(!listing.warnings.includes("الدخل السنوي غير مذكور"));
+});
+
+test("لا يخترع دخلا من عبارة غير مؤجر", () => {
+  const html = `<h1>عمارة للبيع في مدينة الدمام، حي البادية</h1><div>23,000,000 ﷼</div><div>استكشف خيارات التمويل</div><p>العقار غير مؤجر، السعر المطلوب 23 مليون</p>`;
+  const listing = parseListing(html, "https://sa.aqar.fm/عمائر-للبيع/الدمام/حي-البادية/عمارة-7654325", "عمارة");
+  assert.equal(listing.price, 23_000_000);
+  assert.equal(listing.income, null);
+});
+
 test("يتجاهل شروط الاستثمار المخفية في إيجار السكن", () => {
   const listing = parseListing(
     `<h1>شقة للإيجار في مدينة الرياض، حي الشفا</h1><p>الإيجار السنوي 30,000 ريال</p>`,

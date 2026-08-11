@@ -188,6 +188,29 @@ function allAmounts(text: string, pattern: string, excludePercentages = false) {
   }
   return values;
 }
+function incomeAmountContext(text: string, start: number, end: number) {
+  const lineStart = text.lastIndexOf("\n", start - 1) + 1, nextLine = text.indexOf("\n", end), lineEnd = nextLine < 0 ? text.length : nextLine;
+  const before = normalizeText(text.slice(lineStart, start)), after = normalizeText(text.slice(end, lineEnd));
+  const incomeLabels = `مؤجر(?:ه)?|ال?ايجار|الدخل|المدخول|مدخول|ريع`;
+  const priceLabels = `السعر(?:\\s+المطلوب)?|سعر\\s+البيع|المطلوب|الحد`;
+  const lastEnd = (pattern: string) => [...before.matchAll(new RegExp(pattern, "g"))].at(-1)?.index ?? -1;
+  if (lastEnd(incomeLabels) > lastEnd(priceLabels)) return true;
+  return new RegExp(`^(?:\\s*(?:ر\\.?\\s*س\\.?|ريال|﷼|sar|§))?\\s*(?:${incomeLabels})\\b`, "i").test(after);
+}
+function unitPriceContext(text: string, start: number) {
+  return /(?:سعر\s*(?:المتر|متر)|سعر\s*المتر\s*المربع)[^\d\n]{0,20}$/i.test(text.slice(Math.max(0, start - 50), start));
+}
+function headerCurrencyAmounts(text: string) {
+  const currency = `(?:ر\\.?\\s*س\\.?|ريال|﷼|SAR|§)`, candidates: { index: number; value: number }[] = [];
+  for (const pattern of [`${amount}\\s*${currency}`, `${currency}\\s*${amount}`]) {
+    const re = new RegExp(pattern, "gi"); let match: RegExpExecArray | null;
+    while ((match = re.exec(text))) {
+      if (unitPriceContext(text, match.index) || incomeAmountContext(text, match.index, re.lastIndex)) continue;
+      const value = matchedAmount(match); if (value && value > 0) candidates.push({ index: match.index, value });
+    }
+  }
+  return candidates.sort((a, b) => a.index - b.index).map(candidate => candidate.value);
+}
 function splitDescription(text: string) {
   const marker = text.search(/\n\s*(?:المزيد\s*\n\s*)?تفاصيل\s+الإعلان/);
   const before = marker >= 0 ? text.slice(0, marker) : text;
@@ -266,7 +289,7 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const titleHtml = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "إعلان عقار";
   const title = htmlText(titleHtml).replace(/\s*\|\s*تطبيق عقار.*$/, ""); const listingId = url.match(/-(\d{5,})(?:\/[^/?#]*)?(?:[?#]|$)/)?.[1] || "";
   const pricePattern = labeled(`السعر(?:\\s+المطلوب)?|سعر\\s+البيع|المطلوب|الحد`);
-  const headerText = text.slice(0, 700), hp = allAmounts(headerText, `([\\d,.]+)\\s*(?:ر\\.?\\s*س\\.?|ريال|﷼|SAR|§)`);
+  const headerText = text.slice(0, 700), hp = headerCurrencyAmounts(headerText);
   const headerPrice = hp.length >= 2 && headerText.includes("خصم") ? Math.min(...hp.slice(0, 2)) : hp[0];
   const dp = allAmounts(desc, pricePattern, true), sp = allAmounts(structured, pricePattern, true);
   const listedPrice = headerPrice ?? sp[0];
@@ -301,7 +324,10 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const descriptionAge = ageFromSource(desc), structuredAge = ageFromSource(structured);
   const age = descriptionAge.label ?? structuredAge.label;
 
-  const annualPatterns = [labeled(`الدخل\\s+السنوي(?:\\s+الحالي)?|الدخل\\s+الحالي|الايجار\\s+السنوي|الإيجار\\s+السنوي|صافي\\s+الدخل|الدخل(?:\\s+الصافي|\\s+الإجمالي|\\s+الاجمالي)?|المدخول|مدخول`)];
+  const annualPatterns = [
+    labeled(`الدخل\\s+السنوي(?:\\s+الحالي)?|الدخل\\s+الحالي|الايجار\\s+السنوي|الإيجار\\s+السنوي|صافي\\s+الدخل|الدخل(?:\\s+الصافي|\\s+الإجمالي|\\s+الاجمالي)?|المدخول|مدخول`),
+    `(?<!غير\\s)(?:العقار\\s+)?مؤجر(?:ة)?(?:\\s+حاليا)?\\s*(?:ب(?:مبلغ|قيمة|(?:ـ|[\\u064b-\\u065f])*))?\\s*[:\\-]?\\s*${amount}`,
+  ];
   const monthlyPatterns = [labeled(`(?:إجمالي\\s+)?(?:الدخل|الإيجار)\\s+الشهري(?:\\s+الحالي)?`)];
   const incomeFrom = (source: string) => {
     const annual = first(source, annualPatterns); if (annual.value != null) return { value: annual.value, match: annual, monthly: false };
