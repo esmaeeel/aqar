@@ -58,15 +58,15 @@ export default function Home(){
   return <main dir="rtl">
     <header className="top"><div><span className="eyebrow">نسخة الجوال المستقلة</span><h1>باحث العقارات</h1><p>ابحث في إعلانات عقار، واحسب العائد والكثافة تلقائيًا.</p></div><div className="topActions"><button className="ghost" onClick={loadSets}>المجموعات المحفوظة</button><button className="ghost" onClick={exportCsv}>تصدير CSV</button></div></header>
     {tab==="saved"?<section className="panel saved"><div className="sectionHead"><div><h2>المجموعات المحفوظة</h2><p>لا تُحفظ النتائج إلا عند ضغط زر الحفظ.</p></div><button className="ghost" onClick={()=>setTab("search")}>العودة للبحث</button></div>{sets.length?sets.map(s=><article className="savedRow" key={s.id}><div><strong>{s.name}</strong><small>{s.propertyType} · {s.count} نتيجة</small></div><div><button onClick={()=>openSet(s)}>فتح</button><button className="danger" onClick={()=>deleteSet(s.id)}>حذف المجموعة</button></div></article>):<div className="empty">لا توجد مجموعات محفوظة بعد.</div>}</section>:<>
-    <section className="panel"><div className="sectionHead"><div><h2>مواصفات البحث</h2><p>تُحفظ آخر مواصفات تلقائيًا على هذا الجوال فقط.</p></div><div className="inline"><select defaultValue="" onChange={e=>loadProfile(e.target.value)}><option value="">اختر بحثًا محفوظًا</option>{profiles.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><button className="ghost" onClick={saveProfile}>حفظ المواصفات</button><button className="ghost" onClick={clearFields}>مسح الحقول</button></div></div>
+    <section className="panel"><div className="sectionHead"><div><h2>مواصفات البحث</h2><p>تُحفظ آخر مواصفات تلقائيًا على هذا الجوال فقط.</p></div><div className="inline"><select defaultValue="" onChange={e=>loadProfile(e.target.value)}><option value="">اختر بحثًا محفوظًا</option>{profiles.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><button className="ghost" onClick={saveProfile}>حفظ الشروط</button><button className="ghost" onClick={clearFields}>مسح الحقول</button></div></div>
       <div className="choiceRow"><label>نوع العقار<select value={filters.propertyType} onChange={e=>update("propertyType",e.target.value)}>{Object.keys(CATEGORIES).map(x=><option key={x}>{x}</option>)}</select></label><fieldset><legend>الغرض</legend><label className="radio"><input type="radio" checked={filters.purpose==="sale"} onChange={()=>update("purpose","sale")}/> بيع</label><label className="radio"><input type="radio" checked={filters.purpose==="rent"} onChange={()=>update("purpose","rent")}/> تأجير</label></fieldset><fieldset><legend>طريقة المطابقة</legend><label className="radio"><input type="radio" checked={filters.mode==="strict"} onChange={()=>update("mode","strict")}/> جميع الشروط</label><label className="radio"><input type="radio" checked={filters.mode==="near"} onChange={()=>update("mode","near")}/> القريبة والناقصة ±50%</label></fieldset></div>
       <h3>المدن والأحياء</h3><div className="locations">{filters.locations.map((location,index)=><LocationAutocomplete key={index} location={location} index={index} onChange={changeLocation} onRemove={()=>update("locations",filters.locations.filter((_,itemIndex)=>itemIndex!==index))}/>)}</div><button className="add" onClick={addLocation}>+ إضافة مدينة</button>
       <h3>الشروط الرقمية</h3><div className="grid">{nums.map(n=><label key={String(n.key)}>{n.key==="minCount"?countLabel:n.label}<input inputMode="decimal" type="number" min="0" value={String(filters[n.key]||"")} onChange={e=>update(n.key,inputNumber(e.target.value) as never)}/></label>)}</div>
       <h3>البحث في الوصف</h3><label>كلمات مطلوبة (بفواصل)<input value={filters.keywords.join("، ")} onChange={e=>update("keywords",e.target.value.split(/[،,]/).map(x=>x.trim()).filter(Boolean))} placeholder="مثال: مكيفات، مدخل سيارة، صناعات"/><small>يشمل اللواصق مثل: الصناعات، للصناعات، والصناعات.</small></label>
       <div className="limits"><label>أقصى إعلانات<input type="number" min="5" max="500" value={filters.maxListings} onChange={e=>update("maxListings",inputNumber(e.target.value))}/></label><span>يحسب البرنامج عدد الصفحات تلقائيًا بحسب عدد الإعلانات والمدن والأحياء، وقد يتوقف البحث إذا طلب الموقع تحققًا.</span></div>
-      <div className="run"><button className="primary" disabled={busy} onClick={search}>{busy?"جارٍ البحث…":"ابدأ البحث في عقار"}</button><button className="save" disabled={!results.length||busy} onClick={saveResults}>حفظ هذه النتائج</button></div>{busy&&<progress value={progress} max="100"/>}<div className="status">{message}</div>{warnings.length>0&&<details className="warnings"><summary>ملاحظات أثناء القراءة ({warnings.length})</summary>{warnings.map((w,i)=><p key={i}>{w}</p>)}</details>}
+      <div className="run"><button className="primary" disabled={busy} onClick={search}>{busy?"جارٍ البحث…":"ابدأ البحث في عقار"}</button></div>{busy&&<progress value={progress} max="100"/>}<div className="status">{message}</div>{warnings.length>0&&<details className="warnings"><summary>ملاحظات أثناء القراءة ({warnings.length})</summary>{warnings.map((w,i)=><p key={i}>{w}</p>)}</details>}
     </section>
-    <Results rows={results} roomMode={ROOM_TYPES.has(filters.propertyType)} propertyType={filters.propertyType} cities={[...new Set(filters.locations.map(location=>location.city.trim()).filter(Boolean))]}/></>}
+    <Results rows={results} roomMode={ROOM_TYPES.has(filters.propertyType)} propertyType={filters.propertyType} cities={[...new Set(filters.locations.map(location=>location.city.trim()).filter(Boolean))]} onSave={saveResults} saveDisabled={!results.length||busy}/></>}
     <footer>أداة مستقلة · لا تتجاوز تسجيل الدخول أو حماية موقع عقار · البيانات غير المذكورة تبقى «غير مذكور»</footer>
   </main>
 }
@@ -96,18 +96,18 @@ type TableColumn={key:ColumnKey;label:string;value:(row:Listing)=>string|number|
 const DEFAULT_COLUMN_ORDER:ColumnKey[]=["price","income","yieldPct","area","sqmPrice","count","meters","floors","street","density","age"];
 const COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v3";
 
-function Results({rows,roomMode,propertyType,cities}:{rows:Listing[];roomMode:boolean;propertyType:string;cities:string[]}){
+function Results({rows,roomMode,propertyType,cities,onSave,saveDisabled}:{rows:Listing[];roomMode:boolean;propertyType:string;cities:string[];onSave:()=>void;saveDisabled:boolean}){
   const [preferredStatus,setPreferredStatus]=useState<Listing["status"]|null>(null);
   const [sort,setSort]=useState<{key:ColumnKey;direction:"asc"|"desc"}|null>(null);
   const [columnOrder,setColumnOrder]=useState<ColumnKey[]>(DEFAULT_COLUMN_ORDER);
   const [columnOrderLoaded,setColumnOrderLoaded]=useState(false);
-  const [selectedListingId,setSelectedListingId]=useState<string|null>(null);
   const [draggedColumn,setDraggedColumn]=useState<ColumnKey|null>(null);
   const pointerDrag=useRef<{key:ColumnKey;pointerId:number;startX:number;moved:boolean}|null>(null);
+  const lastTouch=useRef<{listingId:string;at:number}|null>(null);
+  const suppressDoubleOpenUntil=useRef(0);
   const suppressSortUntil=useRef(0);
   useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(COLUMN_ORDER_KEY)||"[]") as ColumnKey[];if(stored.length===DEFAULT_COLUMN_ORDER.length&&DEFAULT_COLUMN_ORDER.every(key=>stored.includes(key)))setColumnOrder(stored)}catch{/* تجاهل ترتيب محلي تالف */}setColumnOrderLoaded(true)},[]);
   useEffect(()=>{if(columnOrderLoaded)localStorage.setItem(COLUMN_ORDER_KEY,JSON.stringify(columnOrder))},[columnOrder,columnOrderLoaded]);
-  useEffect(()=>{if(selectedListingId&&!rows.some(row=>row.listingId===selectedListingId))setSelectedListingId(null)},[rows,selectedListingId]);
   const columns:TableColumn[]=[
     {key:"price",label:"السعر",value:r=>r.price,render:r=>fmt(r.price),className:"money"},
     {key:"income",label:"الدخل السنوي",value:r=>r.income,render:r=>fmt(r.income)},
@@ -137,12 +137,13 @@ function Results({rows,roomMode,propertyType,cities}:{rows:Listing[];roomMode:bo
   function beginPointerDrag(event:ReactPointerEvent<HTMLTableCellElement>,key:ColumnKey){if(event.button!==0)return;pointerDrag.current={key,pointerId:event.pointerId,startX:event.clientX,moved:false};event.currentTarget.setPointerCapture(event.pointerId)}
   function continuePointerDrag(event:ReactPointerEvent<HTMLTableCellElement>){const drag=pointerDrag.current;if(!drag||drag.pointerId!==event.pointerId)return;if(!drag.moved&&Math.abs(event.clientX-drag.startX)<10)return;drag.moved=true;setDraggedColumn(drag.key);event.preventDefault();const target=document.elementFromPoint(event.clientX,event.clientY)?.closest<HTMLElement>("th[data-column-key]")?.dataset.columnKey as ColumnKey|undefined;if(target)moveColumnTo(drag.key,target)}
   function endPointerDrag(event:ReactPointerEvent<HTMLTableCellElement>){const drag=pointerDrag.current;if(!drag||drag.pointerId!==event.pointerId)return;if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);if(drag.moved)suppressSortUntil.current=Date.now()+300;pointerDrag.current=null;setDraggedColumn(null)}
-  function openSelected(){const selected=rows.find(row=>row.listingId===selectedListingId);if(selected)window.open(selected.url,"_blank","noopener,noreferrer")}
+  function openListing(row:Listing){window.open(row.url,"_blank","noopener,noreferrer")}
+  function openOnRepeatedTouch(event:ReactPointerEvent<HTMLTableRowElement>,row:Listing){if(event.pointerType!=="touch")return;const now=Date.now(),previous=lastTouch.current;if(previous?.listingId===row.listingId&&now-previous.at<=500){lastTouch.current=null;suppressDoubleOpenUntil.current=now+800;openListing(row)}else lastTouch.current={listingId:row.listingId,at:now}}
   const rowClass=(status:Listing["status"])=>status==="مطابقة"?"match":status==="قريبة"?"near":"missing";
   const resultCities=[...new Set(rows.map(row=>(row.city||"").trim()).filter(Boolean))],displayCities=resultCities.length?resultCities:cities;
   return <section className="panel results" id="results">
     <div className="sectionHead resultsHead">
-      <div><span className="eyebrow">النتائج</span><div className="resultsSummary"><h2>{rows.length} عقار</h2>{displayCities.length>0&&<span>المدن: {displayCities.join("، ")}</span>}<button type="button" className="openSelected" disabled={!selectedListingId} onClick={openSelected}>فتح الإعلان المحدد ↗</button></div></div>
+      <div><span className="eyebrow">النتائج</span><div className="resultsSummary"><h2>{rows.length} عقار</h2>{displayCities.length>0&&<span>المدن: {displayCities.join("، ")}</span>}<button type="button" className="save resultSave" disabled={saveDisabled} onClick={onSave}>حفظ هذه النتائج</button></div></div>
       <div className="resultKey" aria-label="نوع العقار ودليل ألوان المطابقة">
         <strong>نوع العقار: {propertyType}</strong>
         <div className="legend">
@@ -151,11 +152,11 @@ function Results({rows,roomMode,propertyType,cities}:{rows:Listing[];roomMode:bo
       </div>
     </div>
     {!rows.length?<div className="empty">ستظهر النتائج هنا بعد البحث.</div>:<>
-      <div className="tableTools"><p className="swipeHint">اضغط رأس العمود للفرز، أو أمسكه واسحبه يمينًا أو يسارًا لترتيب الأعمدة. المس صفًا لتحديد الإعلان.</p></div>
+      <div className="tableTools"><p className="swipeHint">اضغط رأس العمود للفرز، أو أمسكه واسحبه يمينًا أو يسارًا لترتيب الأعمدة. اضغط صف الإعلان مرتين لفتحه.</p></div>
       <div className="resultsTableWrap" role="region" aria-label="جدول مقارنة نتائج العقارات" tabIndex={0}>
         <table className="resultsTable">
           <thead><tr>{orderedColumns.map(column=><th key={column.key} data-column-key={column.key} className={draggedColumn===column.key?"draggingColumn":undefined} aria-sort={sort?.key===column.key?(sort.direction==="asc"?"ascending":"descending"):"none"} onPointerDown={event=>beginPointerDrag(event,column.key)} onPointerMove={continuePointerDrag} onPointerUp={endPointerDrag} onPointerCancel={endPointerDrag}><button type="button" className="sortHeader" onClick={()=>sortBy(column.key)}>{column.label}<span aria-hidden="true">{sort?.key===column.key?(sort.direction==="asc"?"▲":"▼"):"↕"}</span></button></th>)}</tr></thead>
-          <tbody>{orderedRows.map(r=><tr className={`${rowClass(r.status)}${selectedListingId===r.listingId?" selectedRow":""}`} key={r.listingId} aria-selected={selectedListingId===r.listingId} tabIndex={0} onClick={()=>setSelectedListingId(r.listingId)} onKeyDown={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();setSelectedListingId(r.listingId)}}}>
+          <tbody>{orderedRows.map(r=><tr className={rowClass(r.status)} key={r.listingId} tabIndex={0} title="اضغط مرتين لفتح الإعلان" onDoubleClick={()=>{if(Date.now()>=suppressDoubleOpenUntil.current)openListing(r)}} onPointerUp={event=>openOnRepeatedTouch(event,r)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();openListing(r)}}}>
             {orderedColumns.map(column=><td key={column.key} className={column.className}>{column.render(r)}</td>)}
           </tr>)}</tbody>
         </table>
