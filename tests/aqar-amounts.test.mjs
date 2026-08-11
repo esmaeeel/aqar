@@ -178,3 +178,18 @@ test("يطبق شرط سعر المتر على الأراضي فقط", () => {
   assert.equal(evaluate({...listing}, filters).status, "مطابقة");
   assert.equal(evaluate({...listing}, {...filters, propertyType:"أرض"}).status, "قريبة");
 });
+
+test("يحصر النتائج القريبة في عشرين بالمئة", () => {
+  const listing = {
+    listingId:"1",url:"",title:"",city:"",neighborhood:"",propertyType:"عمارة",price:1_000_000,area:500,sqmPrice:2_000,
+    apartments:10,rooms:null,totalRooms:null,bedrooms:null,majlis:0,maqlat:0,meters:10,floors:3,street:20,age:null,income:100_000,
+    incomeKind:"actual",yieldPct:10,density:2,warnings:[],status:"بيانات ناقصة",score:0,nearEligible:true,description:"",
+  };
+  const filters = {propertyType:"عمارة",purpose:"sale",locations:[],keywords:[],mode:"near",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:10,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minDensity:0,sqmMin:0,sqmMax:0};
+  const boundary = evaluate({...listing,apartments:8}, filters);
+  const outside = evaluate({...listing,apartments:7}, filters);
+  assert.equal(boundary.status, "قريبة");
+  assert.equal(boundary.nearEligible, true);
+  assert.equal(outside.status, "قريبة");
+  assert.equal(outside.nearEligible, false);
+});
