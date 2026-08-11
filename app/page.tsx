@@ -88,11 +88,11 @@ function Results({rows,roomMode,propertyType,cities}:{rows:Listing[];roomMode:bo
   useEffect(()=>{if(columnOrderLoaded)localStorage.setItem(COLUMN_ORDER_KEY,JSON.stringify(columnOrder))},[columnOrder,columnOrderLoaded]);
   useEffect(()=>{if(selectedListingId&&!rows.some(row=>row.listingId===selectedListingId))setSelectedListingId(null)},[rows,selectedListingId]);
   const columns:TableColumn[]=[
-    {key:"price",label:"السعر",value:r=>r.price,render:r=><>{fmt(r.price)}<small> ر.س</small></>,className:"money"},
-    {key:"income",label:"الدخل السنوي",value:r=>r.income,render:r=>r.income==null?"غير مذكور":`${fmt(r.income)} ر.س`},
+    {key:"price",label:"السعر",value:r=>r.price,render:r=>fmt(r.price),className:"money"},
+    {key:"income",label:"الدخل السنوي",value:r=>r.income,render:r=>fmt(r.income)},
     {key:"yieldPct",label:"العائد",value:r=>r.yieldPct,render:r=>r.yieldPct==null?"غير مذكور":`${fmt(r.yieldPct,2)}%${r.incomeKind==="expected"?" متوقع":""}`},
     {key:"area",label:"المساحة",value:r=>r.area,render:r=>r.area==null?"غير مذكور":`${fmt(r.area,1)} م²`},
-    {key:"sqmPrice",label:"سعر المتر",value:r=>r.sqmPrice,render:r=>r.sqmPrice==null?"غير مذكور":`${fmt(r.sqmPrice,2)} ر.س`},
+    {key:"sqmPrice",label:"سعر المتر",value:r=>r.sqmPrice,render:r=>fmt(r.sqmPrice,2)},
     {key:"count",label:roomMode?"الغرف":"الشقق",value:r=>roomMode?r.rooms:r.apartments,render:r=><>{fmt(roomMode?r.rooms:r.apartments)}{roomMode&&r.rooms!=null&&<small>{fmt(r.bedrooms)} غرفة + {r.majlis} مجلس + {r.maqlat} مقلط</small>}</>},
     {key:"meters",label:"العدادات",value:r=>r.meters,render:r=>fmt(r.meters)},
     {key:"floors",label:"الأدوار",value:r=>r.floors,render:r=>fmt(r.floors)},
