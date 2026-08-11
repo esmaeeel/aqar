@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { Filters, Listing, Location } from "@/lib/aqar";
 import { CATEGORIES, ROOM_TYPES } from "@/lib/aqar";
+import { CITY_NAMES, canonicalCity, canonicalPlace, cityNeighborhoods, placeSuggestions } from "@/lib/locations";
 
 const LAST_FILTERS_KEY = "aqar-last-filters-clean-v2";
 const defaults: Filters = { propertyType:"عمارة",purpose:"sale",locations:[{city:"",neighborhoods:[]}],keywords:[],mode:"near",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minDensity:0,sqmMin:0,sqmMax:0 };
@@ -39,7 +40,7 @@ export default function Home(){
   async function saveProfile(){const name=prompt("اسم مواصفات البحث:");if(!name)return;const r=await fetch("/api/profiles",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({name,filters})});if(r.ok){await loadProfiles();setMessage("حُفظت مواصفات البحث.")}else setMessage("تعذر حفظ المواصفات.")}
   function loadProfile(id:string){const p=profiles.find(x=>x.id===Number(id));if(p){setFilters({...defaults,...JSON.parse(p.filtersJson)});setMessage(`تم تحميل: ${p.name}`)}}
   async function search(){
-    const locations=filters.locations.filter(l=>l.city.trim()),maxListings=Math.min(500,Math.max(5,filters.maxListings));
+    const locations=filters.locations.filter(l=>l.city.trim()).map(location=>{const city=canonicalCity(location.city);const neighborhoodOptions=cityNeighborhoods(city);return{city,neighborhoods:location.neighborhoods.map(value=>canonicalPlace(value,neighborhoodOptions)).filter(Boolean)}}),maxListings=Math.min(500,Math.max(5,filters.maxListings));
     const clean={...filters,locations,maxListings,maxPages:automaticPageCount(filters,locations,maxListings)};
     if(!clean.locations.length){setMessage("أضف مدينة واحدة على الأقل.");return} localStorage.setItem(LAST_FILTERS_KEY,JSON.stringify(clean));setBusy(true);setResults([]);setWarnings([]);setProgress(0);
     const found=new Map<string,Listing>(),checked=new Set<string>();let discovered=0,stoppedAt=-1,stopReason="";const allSources=(()=>{const a:SearchSource[]=[];for(let page=1;page<=clean.maxPages;page++)for(const category of CATEGORIES[clean.propertyType]?.[clean.purpose]||[])for(const l of clean.locations)for(const neighborhood of(l.neighborhoods.length?l.neighborhoods:[""]))a.push({category,city:l.city,neighborhood,page});return a})();
@@ -59,7 +60,7 @@ export default function Home(){
     {tab==="saved"?<section className="panel saved"><div className="sectionHead"><div><h2>المجموعات المحفوظة</h2><p>لا تُحفظ النتائج إلا عند ضغط زر الحفظ.</p></div><button className="ghost" onClick={()=>setTab("search")}>العودة للبحث</button></div>{sets.length?sets.map(s=><article className="savedRow" key={s.id}><div><strong>{s.name}</strong><small>{s.propertyType} · {s.count} نتيجة</small></div><div><button onClick={()=>openSet(s)}>فتح</button><button className="danger" onClick={()=>deleteSet(s.id)}>حذف المجموعة</button></div></article>):<div className="empty">لا توجد مجموعات محفوظة بعد.</div>}</section>:<>
     <section className="panel"><div className="sectionHead"><div><h2>مواصفات البحث</h2><p>تُحفظ آخر مواصفات تلقائيًا على هذا الجوال فقط.</p></div><div className="inline"><select defaultValue="" onChange={e=>loadProfile(e.target.value)}><option value="">اختر بحثًا محفوظًا</option>{profiles.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><button className="ghost" onClick={saveProfile}>حفظ المواصفات</button><button className="ghost" onClick={clearFields}>مسح الحقول</button></div></div>
       <div className="choiceRow"><label>نوع العقار<select value={filters.propertyType} onChange={e=>update("propertyType",e.target.value)}>{Object.keys(CATEGORIES).map(x=><option key={x}>{x}</option>)}</select></label><fieldset><legend>الغرض</legend><label className="radio"><input type="radio" checked={filters.purpose==="sale"} onChange={()=>update("purpose","sale")}/> بيع</label><label className="radio"><input type="radio" checked={filters.purpose==="rent"} onChange={()=>update("purpose","rent")}/> تأجير</label></fieldset><fieldset><legend>طريقة المطابقة</legend><label className="radio"><input type="radio" checked={filters.mode==="strict"} onChange={()=>update("mode","strict")}/> جميع الشروط</label><label className="radio"><input type="radio" checked={filters.mode==="near"} onChange={()=>update("mode","near")}/> القريبة والناقصة ±50%</label></fieldset></div>
-      <h3>المدن والأحياء</h3><div className="locations">{filters.locations.map((l,i)=><div className="location" key={i}><label>المدينة<input value={l.city} onChange={e=>changeLocation(i,"city",e.target.value)} placeholder="مثال: الدمام"/></label><label>الأحياء (بفواصل)<input value={l.neighborhoods.join("، ")} onChange={e=>changeLocation(i,"neighborhoods",e.target.value)} placeholder="اتركها فارغة لكل الأحياء"/></label><button aria-label="حذف المدينة" className="icon danger" onClick={()=>update("locations",filters.locations.filter((_,j)=>j!==i))}>×</button></div>)}</div><button className="add" onClick={addLocation}>+ إضافة مدينة</button>
+      <h3>المدن والأحياء</h3><div className="locations">{filters.locations.map((location,index)=><LocationAutocomplete key={index} location={location} index={index} onChange={changeLocation} onRemove={()=>update("locations",filters.locations.filter((_,itemIndex)=>itemIndex!==index))}/>)}</div><button className="add" onClick={addLocation}>+ إضافة مدينة</button>
       <h3>الشروط الرقمية</h3><div className="grid">{nums.map(n=><label key={String(n.key)}>{n.key==="minCount"?countLabel:n.label}<input inputMode="decimal" type="number" min="0" value={String(filters[n.key]||"")} onChange={e=>update(n.key,inputNumber(e.target.value) as never)}/></label>)}</div>
       <h3>البحث في الوصف</h3><label>كلمات مطلوبة (بفواصل)<input value={filters.keywords.join("، ")} onChange={e=>update("keywords",e.target.value.split(/[،,]/).map(x=>x.trim()).filter(Boolean))} placeholder="مثال: مكيفات، مدخل سيارة، صناعات"/><small>يشمل اللواصق مثل: الصناعات، للصناعات، والصناعات.</small></label>
       <div className="limits"><label>أقصى إعلانات<input type="number" min="5" max="500" value={filters.maxListings} onChange={e=>update("maxListings",inputNumber(e.target.value))}/></label><span>يحسب البرنامج عدد الصفحات تلقائيًا بحسب عدد الإعلانات والمدن والأحياء، وقد يتوقف البحث إذا طلب الموقع تحققًا.</span></div>
@@ -68,6 +69,26 @@ export default function Home(){
     <Results rows={results} roomMode={ROOM_TYPES.has(filters.propertyType)} propertyType={filters.propertyType} cities={[...new Set(filters.locations.map(location=>location.city.trim()).filter(Boolean))]}/></>}
     <footer>أداة مستقلة · لا تتجاوز تسجيل الدخول أو حماية موقع عقار · البيانات غير المذكورة تبقى «غير مذكور»</footer>
   </main>
+}
+
+function LocationAutocomplete({location,index,onChange,onRemove}:{location:Location;index:number;onChange:(index:number,key:"city"|"neighborhoods",value:string)=>void;onRemove:()=>void}){
+  const [cityOpen,setCityOpen]=useState(false),[neighborhoodOpen,setNeighborhoodOpen]=useState(false),[editingNeighborhoods,setEditingNeighborhoods]=useState(false);
+  const joinedNeighborhoods=location.neighborhoods.join("، "),[neighborhoodDraft,setNeighborhoodDraft]=useState(joinedNeighborhoods);
+  useEffect(()=>{if(!editingNeighborhoods)setNeighborhoodDraft(joinedNeighborhoods)},[joinedNeighborhoods,editingNeighborhoods]);
+  const cityMatches=placeSuggestions(location.city,CITY_NAMES);
+  const neighborhoodOptions=cityNeighborhoods(location.city);
+  const neighborhoodToken=(neighborhoodDraft.split(/[،,]/).at(-1)||"").trim();
+  const neighborhoodMatches=placeSuggestions(neighborhoodToken,neighborhoodOptions);
+  function selectCity(value:string){onChange(index,"city",value);setCityOpen(false)}
+  function finishCity(){onChange(index,"city",canonicalCity(location.city));setCityOpen(false)}
+  function updateNeighborhoodDraft(value:string){setNeighborhoodDraft(value);onChange(index,"neighborhoods",value)}
+  function selectNeighborhood(value:string){const parts=neighborhoodDraft.split(/[،,]/);parts[parts.length-1]=value;const joined=parts.map(item=>item.trim()).filter(Boolean).join("، ");setNeighborhoodDraft(joined);onChange(index,"neighborhoods",joined);setNeighborhoodOpen(false)}
+  function finishNeighborhoods(){const joined=neighborhoodDraft.split(/[،,]/).map(value=>canonicalPlace(value,neighborhoodOptions)).filter(Boolean).join("، ");setNeighborhoodDraft(joined);onChange(index,"neighborhoods",joined);setEditingNeighborhoods(false);setNeighborhoodOpen(false)}
+  return <div className="location">
+    <label className="autocomplete">المدينة<input value={location.city} autoComplete="off" onFocus={()=>setCityOpen(true)} onBlur={finishCity} onChange={event=>{onChange(index,"city",event.target.value);setCityOpen(true)}} onKeyDown={event=>{if(event.key==="Enter"&&cityMatches[0]){event.preventDefault();selectCity(cityMatches[0])}else if(event.key==="Escape")setCityOpen(false)}} placeholder="ابدأ الكتابة: جد…"/>{cityOpen&&location.city.trim()&&cityMatches.length>0&&<span className="suggestions" role="listbox">{cityMatches.map(value=><button type="button" key={value} role="option" onMouseDown={event=>event.preventDefault()} onClick={()=>selectCity(value)}>{value}</button>)}</span>}</label>
+    <label className="autocomplete">الأحياء (بفواصل)<input value={neighborhoodDraft} autoComplete="off" onFocus={()=>{setEditingNeighborhoods(true);setNeighborhoodOpen(true)}} onBlur={finishNeighborhoods} onChange={event=>{updateNeighborhoodDraft(event.target.value);setNeighborhoodOpen(true)}} onKeyDown={event=>{if(event.key==="Enter"&&neighborhoodMatches[0]){event.preventDefault();selectNeighborhood(neighborhoodMatches[0])}else if(event.key==="Escape")setNeighborhoodOpen(false)}} placeholder={location.city?"ابدأ الكتابة: الشف…":"اختر المدينة أولًا"}/>{neighborhoodOpen&&neighborhoodToken&&neighborhoodMatches.length>0&&<span className="suggestions" role="listbox">{neighborhoodMatches.map(value=><button type="button" key={value} role="option" onMouseDown={event=>event.preventDefault()} onClick={()=>selectNeighborhood(value)}>{value}</button>)}</span>}</label>
+    <button type="button" aria-label="حذف المدينة" className="icon danger" onClick={onRemove}>×</button>
+  </div>
 }
 
 type ColumnKey="price"|"income"|"yieldPct"|"area"|"sqmPrice"|"count"|"meters"|"floors"|"street"|"density"|"age";
