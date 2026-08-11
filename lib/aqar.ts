@@ -24,7 +24,7 @@ export type Filters = {
 export type Listing = {
   listingId: string; url: string; title: string; city: string; neighborhood: string;
   propertyType: string; price: number | null; area: number | null; sqmPrice: number | null;
-  apartments: number | null; rooms: number | null; bedrooms: number | null;
+  apartments: number | null; rooms: number | null; totalRooms: number | null; bedrooms: number | null;
   majlis: number; maqlat: number; meters: number | null; floors: number | null;
   street: number | null; age: string | null; income: number | null;
   incomeKind: "actual" | "expected" | "unknown"; yieldPct: number | null;
@@ -209,6 +209,13 @@ function roomCounts(source: string) {
   const majlis = countNamed(source, "مجلس"), maqlat = countNamed(source, "مقلط");
   return { rooms: bedrooms == null ? null : bedrooms + majlis + maqlat, bedrooms, majlis, maqlat };
 }
+function totalBuildingRooms(source: string) {
+  return first(source, [
+    labeled(`(?:إجمالي|اجمالي|الإجمالي|الاجمالي|مجموع)\\s+(?:عدد\\s+)?الغرف`),
+    labeled(`عدد\\s+الغرف\\s+(?:الإجمالي|الاجمالي|الكلي)`),
+    `([\\d,.]+)\\s*(?:غرفة|غرف)\\s*(?:إجمالاً|اجمالا|بالمجموع)`,
+  ]).value;
+}
 function ageFromSource(source: string) {
   const n = normalizeText(source), labels = `عمر\\s*(?:العقار|العمارة|العماره|الفيلا|الشقة|الشقه|الدور|الورشة|الورشه)|عمرها|عمره|العمر`;
   const m = n.match(new RegExp(`(?:${labels})${gap}([\\d][\\d,.]*)`, "i"));
@@ -276,6 +283,8 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const descriptionRooms = roomCounts(desc), structuredRooms = roomCounts(structured);
   const selectedRooms = descriptionRooms.rooms != null ? descriptionRooms : structuredRooms;
   const { rooms, bedrooms, majlis, maqlat } = selectedRooms;
+  const descriptionTotalRooms = totalBuildingRooms(desc), structuredTotalRooms = totalBuildingRooms(structured);
+  const totalRooms = descriptionTotalRooms ?? structuredTotalRooms;
 
   const meterPatterns = [labeled(`عدد\\s+عدادات\\s+الكهرباء|عدادات\\s+الكهرباء|عدد\\s+العدادات`), `([\\d,.]+)\\s*(?:عدادات|عداد)(?!\\s*مياه)`];
   const descriptionMeters = first(desc, meterPatterns).value, structuredMeters = first(structured, meterPatterns).value;
@@ -313,6 +322,7 @@ export function parseListing(html: string, url: string, propertyType: string): L
   addConflict("المساحة", da, sa, .05);
   addConflict("عدد الشقق", descriptionApartments, structuredApartments);
   addConflict("عدد الغرف", descriptionRooms.rooms, structuredRooms.rooms);
+  addConflict("إجمالي عدد الغرف", descriptionTotalRooms, structuredTotalRooms);
   addConflict("عدد العدادات", descriptionMeters, structuredMeters);
   addConflict("عدد الأدوار", descriptionFloors, structuredFloors);
   addConflict("عرض الشارع", descriptionStreet, structuredStreet);
@@ -321,24 +331,27 @@ export function parseListing(html: string, url: string, propertyType: string): L
   if (selectedIncome.monthly) warnings.push("حُوّل الدخل الشهري إلى سنوي بضربه في 12"); if (incomeKind === "expected") warnings.push("الدخل المذكور متوقع وليس فعليًا مؤكدًا");
   for (const [v, w] of [[price,"السعر غير مذكور بوضوح"],[income,"الدخل السنوي غير مذكور"],[meters,"عدد العدادات غير مذكور"],[floors,"عدد الأدوار غير مذكور"],[street,"عرض الشارع غير مذكور"],[area,"المساحة غير مذكورة"]] as [number|null,string][]) if (v == null) warnings.push(w);
   return { listingId, url, title, city, neighborhood, propertyType, price, area, sqmPrice: price && area ? price / area : null,
-    apartments, rooms: ROOM_TYPES.has(propertyType) ? rooms : null, bedrooms, majlis, maqlat, meters, floors, street, age, income,
+    apartments, rooms: ROOM_TYPES.has(propertyType) ? rooms : null, totalRooms: propertyType === "عمارة" ? totalRooms : null, bedrooms, majlis, maqlat, meters, floors, street, age, income,
     incomeKind, yieldPct: income && price ? income / price * 100 : null, density: apartments && area ? apartments / area * 100 : null,
     warnings, status: "بيانات ناقصة", score: 0, nearEligible: true, description: desc.slice(0, 2200) };
 }
 
 export function evaluate(item: Listing, f: Filters) {
   const count = ROOM_TYPES.has(f.propertyType) ? item.rooms : item.apartments;
+  const rentalHousing = f.purpose === "rent" && ["عمارة", "فيلا", "شقة", "دور"].includes(f.propertyType);
+  const sqmMin = rentalHousing ? 0 : f.sqmMin, sqmMax = rentalHousing ? 0 : f.sqmMax;
+  const yieldMin = rentalHousing ? 0 : f.yieldMin, minDensity = rentalHousing ? 0 : f.minDensity;
   const checks: [boolean, number|null, (x:number)=>boolean, number][] = [
     [f.priceMin>0,item.price,x=>x>=f.priceMin,12],[f.priceMax>0,item.price,x=>x<=f.priceMax,16],
-    [f.sqmMin>0,item.sqmPrice,x=>x>=f.sqmMin,8],[f.sqmMax>0,item.sqmPrice,x=>x<=f.sqmMax,8],
-    [f.yieldMin>0,item.yieldPct,x=>x>=f.yieldMin&&item.incomeKind==="actual",22],
+    [sqmMin>0,item.sqmPrice,x=>x>=sqmMin,8],[sqmMax>0,item.sqmPrice,x=>x<=sqmMax,8],
+    [yieldMin>0,item.yieldPct,x=>x>=yieldMin&&item.incomeKind==="actual",22],
     [f.minMeters>0,item.meters,x=>x>=f.minMeters,10],[f.minCount>0,count,x=>x>=f.minCount,10],
     [f.minFloors>0,item.floors,x=>x>=f.minFloors,7],[f.minStreet>0,item.street,x=>x>=f.minStreet,8],
-    [f.areaMin>0,item.area,x=>x>=f.areaMin,5],[f.areaMax>0,item.area,x=>x<=f.areaMax,5],[f.minDensity>0,item.density,x=>x>=f.minDensity,10],
+    [f.areaMin>0,item.area,x=>x>=f.areaMin,5],[f.areaMax>0,item.area,x=>x<=f.areaMax,5],[minDensity>0,item.density,x=>x>=minDensity,10],
   ];
   let score=100, failed=false, missing=false; for(const [active,value,pass,weight] of checks){if(!active)continue;if(value==null){missing=true;score-=weight}else if(!pass(value)){failed=true;score-=weight}}
   item.score=Math.max(0,score); item.status=!failed&&!missing?"مطابقة":missing?"بيانات ناقصة":"قريبة";
-  let near=true; for(const [v,lo,hi] of [[item.price,f.priceMin,f.priceMax],[item.sqmPrice,f.sqmMin,f.sqmMax],[item.area,f.areaMin,f.areaMax]] as [number|null,number,number][]){if(v==null)continue;if(lo>0&&v<lo*.5)near=false;if(hi>0&&v>hi*1.5)near=false}
-  for(const [v,min] of [[item.yieldPct,f.yieldMin],[item.meters,f.minMeters],[count,f.minCount],[item.floors,f.minFloors],[item.street,f.minStreet],[item.density,f.minDensity]] as [number|null,number][]){if(v!=null&&min>0&&v<min*.5)near=false}
+  let near=true; for(const [v,lo,hi] of [[item.price,f.priceMin,f.priceMax],[item.sqmPrice,sqmMin,sqmMax],[item.area,f.areaMin,f.areaMax]] as [number|null,number,number][]){if(v==null)continue;if(lo>0&&v<lo*.5)near=false;if(hi>0&&v>hi*1.5)near=false}
+  for(const [v,min] of [[item.yieldPct,yieldMin],[item.meters,f.minMeters],[count,f.minCount],[item.floors,f.minFloors],[item.street,f.minStreet],[item.density,minDensity]] as [number|null,number][]){if(v!=null&&min>0&&v<min*.5)near=false}
   item.nearEligible=near; return item;
 }

@@ -10,7 +10,7 @@ const javascript = ts.transpileModule(source, {
     target: ts.ScriptTarget.ES2022,
   },
 }).outputText;
-const { parseListing } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
+const { evaluate, parseListing } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
 
 function priceFrom(description) {
   const html = `<h1>عمارة للبيع في مدينة الرياض، حي العوالي</h1><p>${description}</p>`;
@@ -123,4 +123,24 @@ test("يفهم صيغ الآحاد والعشرات والمئات والآلا�
   assert.equal(priceFrom("سعر البيع: ثلاثة ملايين ومئتا ألف ريال"), 3_200_000);
   assert.equal(priceFrom("سعر البيع: عشرة ملايين وعشرون ألف ريال"), 10_020_000);
   assert.equal(priceFrom("سعر البيع: سبعمائة وخمسة وعشرون ألف ريال"), 725_000);
+});
+
+test("يذكر إجمالي غرف العمارة عندما يورده المعلن صراحة", () => {
+  const html = `
+    <h1>عمارة للبيع في مدينة الدمام، حي البادية</h1>
+    <p>عدد الشقق: 8 - إجمالي عدد الغرف: 32 - كل شقة فيها مجلس</p>
+  `;
+  const listing = parseListing(html, "https://sa.aqar.fm/عمائر-للبيع/الدمام/حي-البادية/عمارة-7654321", "عمارة");
+  assert.equal(listing.apartments, 8);
+  assert.equal(listing.totalRooms, 32);
+});
+
+test("يتجاهل شروط الاستثمار المخفية في إيجار السكن", () => {
+  const listing = parseListing(
+    `<h1>شقة للإيجار في مدينة الرياض، حي الشفا</h1><p>الإيجار السنوي 30,000 ريال</p>`,
+    "https://sa.aqar.fm/شقق-للإيجار/الرياض/حي-الشفا/شقة-7654322",
+    "شقة",
+  );
+  const filters = {propertyType:"شقة",purpose:"rent",locations:[],keywords:[],mode:"strict",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:99,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minDensity:99,sqmMin:99_999,sqmMax:100_000};
+  assert.equal(evaluate(listing, filters).status, "مطابقة");
 });
