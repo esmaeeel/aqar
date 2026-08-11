@@ -377,6 +377,7 @@ export function evaluate(item: Listing, f: Filters) {
     [f.areaMin>0,item.area,x=>x>=f.areaMin,5],[f.areaMax>0,item.area,x=>x<=f.areaMax,5],[minDensity>0,item.density,x=>x>=minDensity,10],
   ];
   let score=100, failed=false, missing=false; for(const [active,value,pass,weight] of checks){if(!active)continue;if(value==null){missing=true;score-=weight}else if(!pass(value)){failed=true;score-=weight}}
+  // «مطابقة» تتطلب اجتياز كل شرط مفعّل بقيمته الفعلية؛ سماحية 20% للنتائج القريبة فقط.
   item.score=Math.max(0,score); item.status=!failed&&!missing?"مطابقة":missing?"بيانات ناقصة":"قريبة";
   let near=true; for(const [v,lo,hi] of [[item.price,f.priceMin,f.priceMax],[item.sqmPrice,sqmMin,sqmMax],[item.area,f.areaMin,f.areaMax]] as [number|null,number,number][]){if(v==null)continue;if(lo>0&&v<lo*(1-NEAR_TOLERANCE))near=false;if(hi>0&&v>hi*(1+NEAR_TOLERANCE))near=false}
   for(const [v,min] of [[item.yieldPct,yieldMin],[item.meters,f.minMeters],[count,f.minCount],[item.floors,f.minFloors],[item.street,f.minStreet],[item.density,minDensity]] as [number|null,number][]){if(v!=null&&min>0&&v<min*(1-NEAR_TOLERANCE))near=false}
