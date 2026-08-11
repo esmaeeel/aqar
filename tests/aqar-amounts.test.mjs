@@ -146,6 +146,17 @@ test("يفصل عشرين وحدة سكنية في الإعلان 6665449 عن �
   assert.equal(listing.housingUnits, 20);
 });
 
+test("يفصل عدد المحلات التجارية عن الشقق والوحدات السكنية", () => {
+  const html = `
+    <h1>عمارة للبيع في مدينة الدمام، حي البادية</h1>
+    <p>عدد الشقق: 4\n* 20 وحدة\nعدد المحلات التجارية: 6</p>
+  `;
+  const listing = parseListing(html, "https://sa.aqar.fm/عمائر-للبيع/الدمام/حي-البادية/عمارة-6665450", "عمارة");
+  assert.equal(listing.apartments, 4);
+  assert.equal(listing.housingUnits, 20);
+  assert.equal(listing.commercialShops, 6);
+});
+
 test("يعتبر مبلغ مؤجر به دخلا لا سعر البيع", () => {
   const html = `
     <h1>عمارة للبيع في مدينة الدمام، حي البادية</h1>
