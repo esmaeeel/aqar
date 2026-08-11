@@ -98,7 +98,7 @@ function Results({rows,roomMode,propertyType,cities}:{rows:Listing[];roomMode:bo
     {key:"floors",label:"الأدوار",value:r=>r.floors,render:r=>fmt(r.floors)},
     {key:"street",label:"عرض الشارع",value:r=>r.street,render:r=>r.street==null?"غير مذكور":`${fmt(r.street)} م`},
     {key:"density",label:"شقق لكل 100م²",value:r=>r.density,render:r=>r.density==null?"غير مذكور":fmt(r.density,2)},
-    {key:"age",label:"العمر",value:r=>r.age||null,render:r=>r.age||"غير مذكور"},
+    {key:"age",label:"العمر",value:r=>r.age||null,render:r=>r.age?String(r.age).replace(/\s*(?:سنوات|سنة)\s*$/u,""):"غير مذكور"},
   ];
   const columnsByKey=new Map(columns.map(column=>[column.key,column]));
   const orderedColumns=columnOrder.map(key=>columnsByKey.get(key)).filter((column):column is TableColumn=>Boolean(column));
