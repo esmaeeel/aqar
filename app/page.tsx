@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { Filters, Listing, Location } from "@/lib/aqar";
 import { CATEGORIES, ROOM_TYPES } from "@/lib/aqar";
 
@@ -70,19 +70,23 @@ export default function Home(){
   </main>
 }
 
-type ColumnKey="price"|"income"|"yieldPct"|"area"|"sqmPrice"|"count"|"meters"|"floors"|"street"|"density"|"age"|"details";
+type ColumnKey="price"|"income"|"yieldPct"|"area"|"sqmPrice"|"count"|"meters"|"floors"|"street"|"density"|"age";
 type TableColumn={key:ColumnKey;label:string;value:(row:Listing)=>string|number|null;render:(row:Listing)=>ReactNode;className?:string};
-const DEFAULT_COLUMN_ORDER:ColumnKey[]=["price","income","yieldPct","area","sqmPrice","count","meters","floors","street","density","age","details"];
-const COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v2";
+const DEFAULT_COLUMN_ORDER:ColumnKey[]=["price","income","yieldPct","area","sqmPrice","count","meters","floors","street","density","age"];
+const COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v3";
 
 function Results({rows,roomMode,propertyType,cities}:{rows:Listing[];roomMode:boolean;propertyType:string;cities:string[]}){
   const [preferredStatus,setPreferredStatus]=useState<Listing["status"]|null>(null);
   const [sort,setSort]=useState<{key:ColumnKey;direction:"asc"|"desc"}|null>(null);
   const [columnOrder,setColumnOrder]=useState<ColumnKey[]>(DEFAULT_COLUMN_ORDER);
   const [columnOrderLoaded,setColumnOrderLoaded]=useState(false);
-  const [showColumnOrder,setShowColumnOrder]=useState(false);
+  const [selectedListingId,setSelectedListingId]=useState<string|null>(null);
+  const [draggedColumn,setDraggedColumn]=useState<ColumnKey|null>(null);
+  const pointerDrag=useRef<{key:ColumnKey;pointerId:number;startX:number;moved:boolean}|null>(null);
+  const suppressSortUntil=useRef(0);
   useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(COLUMN_ORDER_KEY)||"[]") as ColumnKey[];if(stored.length===DEFAULT_COLUMN_ORDER.length&&DEFAULT_COLUMN_ORDER.every(key=>stored.includes(key)))setColumnOrder(stored)}catch{/* تجاهل ترتيب محلي تالف */}setColumnOrderLoaded(true)},[]);
   useEffect(()=>{if(columnOrderLoaded)localStorage.setItem(COLUMN_ORDER_KEY,JSON.stringify(columnOrder))},[columnOrder,columnOrderLoaded]);
+  useEffect(()=>{if(selectedListingId&&!rows.some(row=>row.listingId===selectedListingId))setSelectedListingId(null)},[rows,selectedListingId]);
   const columns:TableColumn[]=[
     {key:"price",label:"السعر",value:r=>r.price,render:r=><>{fmt(r.price)}<small> ر.س</small></>,className:"money"},
     {key:"income",label:"الدخل السنوي",value:r=>r.income,render:r=>r.income==null?"غير مذكور":`${fmt(r.income)} ر.س`},
@@ -95,7 +99,6 @@ function Results({rows,roomMode,propertyType,cities}:{rows:Listing[];roomMode:bo
     {key:"street",label:"عرض الشارع",value:r=>r.street,render:r=>r.street==null?"غير مذكور":`${fmt(r.street)} م`},
     {key:"density",label:"شقق لكل 100م²",value:r=>r.density,render:r=>r.density==null?"غير مذكور":fmt(r.density,2)},
     {key:"age",label:"العمر",value:r=>r.age||null,render:r=>r.age||"غير مذكور"},
-    {key:"details",label:"التفاصيل",value:r=>r.warnings.length,render:r=><>{r.warnings.length>0&&<details><summary>الملاحظات</summary><ul>{r.warnings.map((w,i)=><li key={i}>{w}</li>)}</ul></details>}<a href={r.url} target="_blank" rel="noreferrer">فتح الإعلان ↗</a></>,className:"rowActions"},
   ];
   const columnsByKey=new Map(columns.map(column=>[column.key,column]));
   const orderedColumns=columnOrder.map(key=>columnsByKey.get(key)).filter((column):column is TableColumn=>Boolean(column));
@@ -108,13 +111,17 @@ function Results({rows,roomMode,propertyType,cities}:{rows:Listing[];roomMode:bo
     const comparison=typeof left==="number"&&typeof right==="number"?left-right:String(left).localeCompare(String(right),"ar",{numeric:true,sensitivity:"base"});
     return sort.direction==="asc"?comparison:-comparison;
   });
-  function sortBy(key:ColumnKey){setSort(current=>current?.key===key?{key,direction:current.direction==="asc"?"desc":"asc"}:{key,direction:"asc"})}
-  function moveColumn(key:ColumnKey,step:-1|1){setColumnOrder(order=>{const index=order.indexOf(key),target=index+step;if(index<0||target<0||target>=order.length)return order;const next=[...order];[next[index],next[target]]=[next[target],next[index]];return next})}
+  function sortBy(key:ColumnKey){if(Date.now()<suppressSortUntil.current)return;setSort(current=>current?.key===key?{key,direction:current.direction==="asc"?"desc":"asc"}:{key,direction:"asc"})}
+  function moveColumnTo(source:ColumnKey,target:ColumnKey){if(source===target)return;setColumnOrder(order=>{const targetIndex=order.indexOf(target);if(targetIndex<0)return order;const next=order.filter(key=>key!==source);next.splice(targetIndex,0,source);return next})}
+  function beginPointerDrag(event:ReactPointerEvent<HTMLTableCellElement>,key:ColumnKey){if(event.button!==0)return;pointerDrag.current={key,pointerId:event.pointerId,startX:event.clientX,moved:false};event.currentTarget.setPointerCapture(event.pointerId)}
+  function continuePointerDrag(event:ReactPointerEvent<HTMLTableCellElement>){const drag=pointerDrag.current;if(!drag||drag.pointerId!==event.pointerId)return;if(!drag.moved&&Math.abs(event.clientX-drag.startX)<10)return;drag.moved=true;setDraggedColumn(drag.key);event.preventDefault();const target=document.elementFromPoint(event.clientX,event.clientY)?.closest<HTMLElement>("th[data-column-key]")?.dataset.columnKey as ColumnKey|undefined;if(target)moveColumnTo(drag.key,target)}
+  function endPointerDrag(event:ReactPointerEvent<HTMLTableCellElement>){const drag=pointerDrag.current;if(!drag||drag.pointerId!==event.pointerId)return;if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);if(drag.moved)suppressSortUntil.current=Date.now()+300;pointerDrag.current=null;setDraggedColumn(null)}
+  function openSelected(){const selected=rows.find(row=>row.listingId===selectedListingId);if(selected)window.open(selected.url,"_blank","noopener,noreferrer")}
   const rowClass=(status:Listing["status"])=>status==="مطابقة"?"match":status==="قريبة"?"near":"missing";
   const resultCities=[...new Set(rows.map(row=>(row.city||"").trim()).filter(Boolean))],displayCities=resultCities.length?resultCities:cities;
   return <section className="panel results" id="results">
     <div className="sectionHead resultsHead">
-      <div><span className="eyebrow">النتائج</span><div className="resultsSummary"><h2>{rows.length} عقار</h2>{displayCities.length>0&&<span>المدن: {displayCities.join("، ")}</span>}</div></div>
+      <div><span className="eyebrow">النتائج</span><div className="resultsSummary"><h2>{rows.length} عقار</h2>{displayCities.length>0&&<span>المدن: {displayCities.join("، ")}</span>}<button type="button" className="openSelected" disabled={!selectedListingId} onClick={openSelected}>فتح الإعلان المحدد ↗</button></div></div>
       <div className="resultKey" aria-label="نوع العقار ودليل ألوان المطابقة">
         <strong>نوع العقار: {propertyType}</strong>
         <div className="legend">
@@ -123,12 +130,11 @@ function Results({rows,roomMode,propertyType,cities}:{rows:Listing[];roomMode:bo
       </div>
     </div>
     {!rows.length?<div className="empty">ستظهر النتائج هنا بعد البحث.</div>:<>
-      <div className="tableTools"><p className="swipeHint">اضغط عنوان العمود للفرز، ومرّر الجدول أفقيًا للمقارنة.</p><button type="button" className="ghost" aria-expanded={showColumnOrder} onClick={()=>setShowColumnOrder(value=>!value)}>ترتيب الأعمدة</button></div>
-      {showColumnOrder&&<div className="columnOrder" aria-label="ترتيب أعمدة الجدول"><strong>رتّب الأعمدة من اليمين إلى اليسار</strong><div>{orderedColumns.map((column,index)=><span key={column.key}><b>{column.label}</b><button type="button" disabled={index===0} onClick={()=>moveColumn(column.key,-1)} aria-label={`تحريك ${column.label} يمينًا`}>→</button><button type="button" disabled={index===orderedColumns.length-1} onClick={()=>moveColumn(column.key,1)} aria-label={`تحريك ${column.label} يسارًا`}>←</button></span>)}</div><button type="button" className="resetColumns" onClick={()=>setColumnOrder(DEFAULT_COLUMN_ORDER)}>الترتيب الأصلي</button></div>}
+      <div className="tableTools"><p className="swipeHint">اضغط رأس العمود للفرز، أو أمسكه واسحبه يمينًا أو يسارًا لترتيب الأعمدة. المس صفًا لتحديد الإعلان.</p></div>
       <div className="resultsTableWrap" role="region" aria-label="جدول مقارنة نتائج العقارات" tabIndex={0}>
         <table className="resultsTable">
-          <thead><tr>{orderedColumns.map(column=><th key={column.key} aria-sort={sort?.key===column.key?(sort.direction==="asc"?"ascending":"descending"):"none"}><button type="button" className="sortHeader" onClick={()=>sortBy(column.key)}>{column.label}<span aria-hidden="true">{sort?.key===column.key?(sort.direction==="asc"?"▲":"▼"):"↕"}</span></button></th>)}</tr></thead>
-          <tbody>{orderedRows.map(r=><tr className={rowClass(r.status)} key={r.listingId}>
+          <thead><tr>{orderedColumns.map(column=><th key={column.key} data-column-key={column.key} className={draggedColumn===column.key?"draggingColumn":undefined} aria-sort={sort?.key===column.key?(sort.direction==="asc"?"ascending":"descending"):"none"} onPointerDown={event=>beginPointerDrag(event,column.key)} onPointerMove={continuePointerDrag} onPointerUp={endPointerDrag} onPointerCancel={endPointerDrag}><button type="button" className="sortHeader" onClick={()=>sortBy(column.key)}>{column.label}<span aria-hidden="true">{sort?.key===column.key?(sort.direction==="asc"?"▲":"▼"):"↕"}</span></button></th>)}</tr></thead>
+          <tbody>{orderedRows.map(r=><tr className={`${rowClass(r.status)}${selectedListingId===r.listingId?" selectedRow":""}`} key={r.listingId} aria-selected={selectedListingId===r.listingId} tabIndex={0} onClick={()=>setSelectedListingId(r.listingId)} onKeyDown={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();setSelectedListingId(r.listingId)}}}>
             {orderedColumns.map(column=><td key={column.key} className={column.className}>{column.render(r)}</td>)}
           </tr>)}</tbody>
         </table>
