@@ -91,13 +91,14 @@ test("يقدم وصف المعلن على قائمة التفاصيل عند ث�
   const listing = parseListing(html, "https://sa.aqar.fm/عمائر-للبيع/الخبر/حي-الثقبة/عمارة-7654321", "عمارة");
   assert.equal(listing.price, 3_500_000);
   assert.equal(listing.area, 400);
-  assert.equal(listing.apartments, 12);
+  assert.equal(listing.apartments, 10);
+  assert.equal(listing.housingUnits, 12);
   assert.equal(listing.meters, 13);
   assert.equal(listing.floors, 4);
   assert.equal(listing.street, 20);
   assert.equal(listing.age, "7 سنة");
   assert.equal(listing.income, 300_000);
-  for (const label of ["السعر", "المساحة", "عدد الشقق", "عدد العدادات", "عدد الأدوار", "عرض الشارع", "عمر العقار", "الدخل السنوي"])
+  for (const label of ["السعر", "المساحة", "عدد العدادات", "عدد الأدوار", "عرض الشارع", "عمر العقار", "الدخل السنوي"])
     assert.ok(listing.warnings.some(w => w.startsWith(`${label} مختلف`)), label);
 });
 
@@ -135,13 +136,14 @@ test("يذكر إجمالي غرف العمارة عندما يورده المع
   assert.equal(listing.totalRooms, 32);
 });
 
-test("يقرأ عشرين وحدة في الإعلان 6665449 على أنها عشرون شقة", () => {
+test("يفصل عشرين وحدة سكنية في الإعلان 6665449 عن عدد الشقق", () => {
   const html = `
     <h1>عمارة للبيع في مدينة الدمام، حي البادية</h1>
     <p>مواصفات العمارة:\n* 20 وحدة\n* 4 أدوار</p>
   `;
   const listing = parseListing(html, "https://sa.aqar.fm/عمائر-للبيع/الدمام/حي-البادية/عمارة-6665449", "عمارة");
-  assert.equal(listing.apartments, 20);
+  assert.equal(listing.apartments, null);
+  assert.equal(listing.housingUnits, 20);
 });
 
 test("يعتبر مبلغ مؤجر به دخلا لا سعر البيع", () => {

@@ -25,7 +25,7 @@ export type Filters = {
 export type Listing = {
   listingId: string; url: string; title: string; city: string; neighborhood: string;
   propertyType: string; price: number | null; area: number | null; sqmPrice: number | null;
-  apartments: number | null; rooms: number | null; totalRooms: number | null; bedrooms: number | null;
+  apartments: number | null; housingUnits: number | null; rooms: number | null; totalRooms: number | null; bedrooms: number | null;
   majlis: number; maqlat: number; meters: number | null; floors: number | null;
   street: number | null; age: string | null; income: number | null;
   incomeKind: "actual" | "expected" | "unknown"; yieldPct: number | null;
@@ -300,9 +300,13 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const areaPatterns = [labeled(`المساحة\\s+حسب\\s+الصك|مساحة\\s+الأرض|المساحة|مساحتها|مساحته`), `([\\d,.]+)[^\\S\\n]*م(?:²|2)`];
   const da = first(desc, areaPatterns).value, sa = first(structured, areaPatterns).value, area = da ?? sa;
 
-  const apartmentPatterns = [labeled(`عدد\\s+الشقق|عدد\\s+الوحدات(?:\\s+السكنية)?`), `([\\d,.]+)\\s*(?:شقة|شقق)(?:\\s|،|\\.|$)`, `([\\d,.]+)\\s*وحد(?:ة|ات)\\s*سكنية`, `(?:^|[\\n*•\\-])\\s*([\\d,.]+)\\s*وحد(?:ة|ات)(?=\\s|،|\\.|$)`];
+  const apartmentPatterns = [labeled(`عدد\\s+الشقق`), `([\\d,.]+)\\s*(?:شقة|شقق)(?:\\s|،|\\.|$)`];
   const descriptionApartments = first(desc, apartmentPatterns).value, structuredApartments = first(structured, apartmentPatterns).value;
   const apartments = descriptionApartments ?? structuredApartments;
+
+  const housingUnitPatterns = [labeled(`عدد\\s+الوحدات(?:\\s+السكنية)?`), `([\\d,.]+)\\s*وحد(?:ة|ات)\\s*سكنية`, `(?:^|[\\n*•\\-])\\s*([\\d,.]+)\\s*وحد(?:ة|ات)(?=\\s|،|\\.|$)`];
+  const descriptionHousingUnits = first(desc, housingUnitPatterns).value, structuredHousingUnits = first(structured, housingUnitPatterns).value;
+  const housingUnits = descriptionHousingUnits ?? structuredHousingUnits;
 
   const descriptionRooms = roomCounts(desc), structuredRooms = roomCounts(structured);
   const selectedRooms = descriptionRooms.rooms != null ? descriptionRooms : structuredRooms;
@@ -348,6 +352,7 @@ export function parseListing(html: string, url: string, propertyType: string): L
   addConflict("السعر", descriptionPrice, listedPrice, .02);
   addConflict("المساحة", da, sa, .05);
   addConflict("عدد الشقق", descriptionApartments, structuredApartments);
+  addConflict("عدد الوحدات السكنية", descriptionHousingUnits, structuredHousingUnits);
   addConflict("عدد الغرف", descriptionRooms.rooms, structuredRooms.rooms);
   addConflict("إجمالي عدد الغرف", descriptionTotalRooms, structuredTotalRooms);
   addConflict("عدد العدادات", descriptionMeters, structuredMeters);
@@ -358,7 +363,7 @@ export function parseListing(html: string, url: string, propertyType: string): L
   if (selectedIncome.monthly) warnings.push("حُوّل الدخل الشهري إلى سنوي بضربه في 12"); if (incomeKind === "expected") warnings.push("الدخل المذكور متوقع وليس فعليًا مؤكدًا");
   for (const [v, w] of [[price,"السعر غير مذكور بوضوح"],[income,"الدخل السنوي غير مذكور"],[meters,"عدد العدادات غير مذكور"],[floors,"عدد الأدوار غير مذكور"],[street,"عرض الشارع غير مذكور"],[area,"المساحة غير مذكورة"]] as [number|null,string][]) if (v == null) warnings.push(w);
   return { listingId, url, title, city, neighborhood, propertyType, price, area, sqmPrice: price && area ? price / area : null,
-    apartments, rooms: ROOM_TYPES.has(propertyType) ? rooms : null, totalRooms: propertyType === "عمارة" ? totalRooms : null, bedrooms, majlis, maqlat, meters, floors, street, age, income,
+    apartments, housingUnits, rooms: ROOM_TYPES.has(propertyType) ? rooms : null, totalRooms: propertyType === "عمارة" ? totalRooms : null, bedrooms, majlis, maqlat, meters, floors, street, age, income,
     incomeKind, yieldPct: income && price ? income / price * 100 : null, density: apartments && area ? apartments / area * 100 : null,
     warnings, status: "بيانات ناقصة", score: 0, nearEligible: true, description: desc.slice(0, 2200) };
 }
