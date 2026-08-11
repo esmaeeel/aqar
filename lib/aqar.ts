@@ -300,7 +300,7 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const areaPatterns = [labeled(`المساحة\\s+حسب\\s+الصك|مساحة\\s+الأرض|المساحة|مساحتها|مساحته`), `([\\d,.]+)[^\\S\\n]*م(?:²|2)`];
   const da = first(desc, areaPatterns).value, sa = first(structured, areaPatterns).value, area = da ?? sa;
 
-  const apartmentPatterns = [labeled(`عدد\\s+الشقق|عدد\\s+الوحدات\\s+السكنية`), `([\\d,.]+)\\s*(?:شقة|شقق)(?:\\s|،|\\.|$)`, `([\\d,.]+)\\s*وحد(?:ة|ات)\\s*سكنية`];
+  const apartmentPatterns = [labeled(`عدد\\s+الشقق|عدد\\s+الوحدات(?:\\s+السكنية)?`), `([\\d,.]+)\\s*(?:شقة|شقق)(?:\\s|،|\\.|$)`, `([\\d,.]+)\\s*وحد(?:ة|ات)\\s*سكنية`, `(?:^|[\\n*•\\-])\\s*([\\d,.]+)\\s*وحد(?:ة|ات)(?=\\s|،|\\.|$)`];
   const descriptionApartments = first(desc, apartmentPatterns).value, structuredApartments = first(structured, apartmentPatterns).value;
   const apartments = descriptionApartments ?? structuredApartments;
 
