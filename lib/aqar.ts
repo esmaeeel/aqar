@@ -339,7 +339,7 @@ export function parseListing(html: string, url: string, propertyType: string): L
 export function evaluate(item: Listing, f: Filters) {
   const count = ROOM_TYPES.has(f.propertyType) ? item.rooms : item.apartments;
   const rentalHousing = f.purpose === "rent" && ["عمارة", "فيلا", "شقة", "دور"].includes(f.propertyType);
-  const sqmMin = rentalHousing ? 0 : f.sqmMin, sqmMax = rentalHousing ? 0 : f.sqmMax;
+  const sqmMin = f.propertyType === "أرض" ? f.sqmMin : 0, sqmMax = f.propertyType === "أرض" ? f.sqmMax : 0;
   const yieldMin = rentalHousing ? 0 : f.yieldMin, minDensity = rentalHousing ? 0 : f.minDensity;
   const checks: [boolean, number|null, (x:number)=>boolean, number][] = [
     [f.priceMin>0,item.price,x=>x>=f.priceMin,12],[f.priceMax>0,item.price,x=>x<=f.priceMax,16],

@@ -11,7 +11,7 @@ const nums: {key:keyof Filters;label:string;hint?:string}[] = [
   {key:"priceMin",label:"السعر من"},{key:"priceMax",label:"السعر إلى"},{key:"yieldMin",label:"أقل عائد فعلي %"},
   {key:"minMeters",label:"أقل عدادات"},{key:"minCount",label:"أقل شقق / غرف"},{key:"minFloors",label:"أقل أدوار"},
   {key:"minStreet",label:"أقل عرض شارع"},{key:"areaMin",label:"المساحة من"},{key:"areaMax",label:"المساحة إلى"},
-  {key:"minDensity",label:"شقق لكل 100م²"},{key:"sqmMin",label:"سعر متر الأرض من"},{key:"sqmMax",label:"سعر متر الأرض إلى"},
+  {key:"minDensity",label:"شقق لكل 100م²"},{key:"sqmMin",label:"سعر المتر من"},{key:"sqmMax",label:"سعر المتر إلى"},
 ];
 const RENTAL_HOUSING_TYPES=new Set(["عمارة","فيلا","شقة","دور"]);
 const RENTAL_HIDDEN_FILTERS=new Set<keyof Filters>(["yieldMin","minDensity","sqmMin","sqmMax"]);
@@ -35,7 +35,7 @@ export default function Home(){
   useEffect(()=>{const timer=setTimeout(()=>{try{const x=localStorage.getItem(LAST_FILTERS_KEY);if(x)setFilters({...defaults,...JSON.parse(x)})}catch{/* تجاهل بيانات محلية تالفة */}void loadProfiles()},0);return()=>clearTimeout(timer)},[]);
   const countLabel=ROOM_TYPES.has(filters.propertyType)?"أقل غرف (مع المجلس والمقلط)":"أقل شقق";
   const rentalHousing=filters.purpose==="rent"&&RENTAL_HOUSING_TYPES.has(filters.propertyType);
-  const visibleNums=nums.filter(item=>!rentalHousing||!RENTAL_HIDDEN_FILTERS.has(item.key));
+  const visibleNums=nums.filter(item=>!(["sqmMin","sqmMax"] as (keyof Filters)[]).includes(item.key)?(!rentalHousing||!RENTAL_HIDDEN_FILTERS.has(item.key)):filters.propertyType==="أرض");
   function update<K extends keyof Filters>(key:K,value:Filters[K]){setFilters(f=>({...f,[key]:value}))}
   function addLocation(){update("locations",[...filters.locations,{city:"",neighborhoods:[]}])}
   function changeLocation(i:number,key:"city"|"neighborhoods",value:string){const next=filters.locations.map((l,j)=>j===i?{...l,[key]:key==="neighborhoods"?value.split(/[،,]/).map(x=>x.trim()).filter(Boolean):value}:l);update("locations",next as Location[])}
@@ -45,7 +45,7 @@ export default function Home(){
   function loadProfile(id:string){const p=profiles.find(x=>x.id===Number(id));if(p){setFilters({...defaults,...JSON.parse(p.filtersJson)});setMessage(`تم تحميل: ${p.name}`)}}
   async function search(){
     const locations=filters.locations.filter(l=>l.city.trim()).map(location=>{const city=canonicalCity(location.city);const neighborhoodOptions=cityNeighborhoods(city);return{city,neighborhoods:location.neighborhoods.map(value=>canonicalPlace(value,neighborhoodOptions)).filter(Boolean)}}),maxListings=Math.min(500,Math.max(5,filters.maxListings));
-    const clean={...filters,locations,maxListings,maxPages:automaticPageCount(filters,locations,maxListings),...(rentalHousing?{yieldMin:0,minDensity:0,sqmMin:0,sqmMax:0}:{})};
+    const clean={...filters,locations,maxListings,maxPages:automaticPageCount(filters,locations,maxListings),...(rentalHousing?{yieldMin:0,minDensity:0}:{}),...(filters.propertyType!=="أرض"?{sqmMin:0,sqmMax:0}:{})};
     if(!clean.locations.length){setMessage("أضف مدينة واحدة على الأقل.");return} localStorage.setItem(LAST_FILTERS_KEY,JSON.stringify(clean));setBusy(true);setResults([]);setWarnings([]);setProgress(0);
     const found=new Map<string,Listing>(),checked=new Set<string>();let discovered=0,stoppedAt=-1,stopReason="";const allSources=(()=>{const a:SearchSource[]=[];for(let page=1;page<=clean.maxPages;page++)for(const category of CATEGORIES[clean.propertyType]?.[clean.purpose]||[])for(const l of clean.locations)for(const neighborhood of(l.neighborhoods.length?l.neighborhoods:[""]))a.push({category,city:l.city,neighborhood,page});return a})();
     for(let i=0;i<allSources.length&&checked.size<clean.maxListings;i++){
@@ -57,7 +57,7 @@ export default function Home(){
   function exportCsv(){
     if(!results.length)return;
     const fields:[keyof Listing,string][]=[["listingId","رقم الإعلان"],["status","الحالة"],["propertyType","نوع العقار"],["age","العمر"],["city","المدينة"],["neighborhood","الحي"],["price","السعر"]];
-    if(!rentalHousing)fields.push(["sqmPrice","سعر متر الأرض"]);
+    if(filters.propertyType==="أرض")fields.push(["sqmPrice","سعر المتر"]);
     fields.push(["income","الدخل السنوي"]);
     if(!rentalHousing)fields.push(["yieldPct","العائد %"]);
     fields.push(["area","المساحة"],[ROOM_TYPES.has(filters.propertyType)?"rooms":"apartments",ROOM_TYPES.has(filters.propertyType)?"الغرف مع المجلس والمقلط":"الشقق"]);
@@ -138,7 +138,7 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled}
     {key:"street",label:"عرض الشارع",value:r=>r.street,render:r=>r.street==null?"غير مذكور":`${fmt(r.street)} م`},
     {key:"density",label:"شقق لكل 100م²",value:r=>r.density,render:r=>r.density==null?"غير مذكور":fmt(r.density,2)},
     {key:"age",label:"العمر",value:r=>r.age||null,render:r=>r.age?String(r.age).replace(/\s*(?:سنوات|سنة)\s*$/u,""):"غير مذكور"},
-  ].filter(column=>(propertyType==="عمارة"||column.key!=="totalRooms")&&(!rentalHousing||!["yieldPct","sqmPrice","density"].includes(column.key)));
+  ].filter(column=>(propertyType==="عمارة"||column.key!=="totalRooms")&&(propertyType==="أرض"||column.key!=="sqmPrice")&&(!rentalHousing||!["yieldPct","density"].includes(column.key)));
   const columnsByKey=new Map(columns.map(column=>[column.key,column]));
   const orderedColumns=columnOrder.map(key=>columnsByKey.get(key)).filter((column):column is TableColumn=>Boolean(column));
   const orderedRows=[...rows].sort((a,b)=>{

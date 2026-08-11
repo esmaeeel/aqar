@@ -144,3 +144,14 @@ test("يتجاهل شروط الاستثمار المخفية في إيجار ا
   const filters = {propertyType:"شقة",purpose:"rent",locations:[],keywords:[],mode:"strict",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:99,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minDensity:99,sqmMin:99_999,sqmMax:100_000};
   assert.equal(evaluate(listing, filters).status, "مطابقة");
 });
+
+test("يطبق شرط سعر المتر على الأراضي فقط", () => {
+  const listing = parseListing(
+    `<h1>عقار للبيع في مدينة الرياض، حي الشفا</h1><p>السعر 500,000 ريال - المساحة 500 م²</p>`,
+    "https://sa.aqar.fm/أراضي-للبيع/الرياض/حي-الشفا/أرض-7654323",
+    "أرض",
+  );
+  const filters = {propertyType:"عمارة",purpose:"sale",locations:[],keywords:[],mode:"strict",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minDensity:0,sqmMin:2_000,sqmMax:0};
+  assert.equal(evaluate({...listing}, filters).status, "مطابقة");
+  assert.equal(evaluate({...listing}, {...filters, propertyType:"أرض"}).status, "قريبة");
+});
