@@ -109,8 +109,8 @@ function LocationAutocomplete({location,index,onChange,onRemove}:{location:Locat
 
 type ColumnKey="price"|"income"|"yieldPct"|"area"|"sqmPrice"|"count"|"housingUnits"|"commercialShops"|"totalRooms"|"meters"|"floors"|"street"|"density"|"age";
 type TableColumn={key:ColumnKey;label:string;value:(row:Listing)=>string|number|null;render:(row:Listing)=>ReactNode;className?:string};
-const DEFAULT_COLUMN_ORDER:ColumnKey[]=["price","income","yieldPct","area","sqmPrice","count","housingUnits","commercialShops","totalRooms","meters","floors","street","density","age"];
-const COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v6";
+const DEFAULT_COLUMN_ORDER:ColumnKey[]=["count","housingUnits","commercialShops","totalRooms","meters","floors","street","area","price","income","yieldPct","density","age","sqmPrice"];
+const COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v7";
 
 function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled}:{rows:Listing[];roomMode:boolean;propertyType:string;purpose:Filters["purpose"];cities:string[];onSave:()=>void;saveDisabled:boolean}){
   const [preferredStatus,setPreferredStatus]=useState<Listing["status"]|null>(null);
@@ -171,16 +171,16 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled}
         </div>
       </div>
     </div>
-    {!rows.length?<div className="empty">ستظهر النتائج هنا بعد البحث.</div>:<>
+    <>
       <div className="tableTools"><p className="swipeHint">اضغط رأس العمود للفرز، أو أمسكه واسحبه يمينًا أو يسارًا لترتيب الأعمدة. اضغط صف الإعلان مرتين لفتحه.</p></div>
       <div className="resultsTableWrap" role="region" aria-label="جدول مقارنة نتائج العقارات" tabIndex={0}>
         <table className="resultsTable">
           <thead><tr>{orderedColumns.map(column=><th key={column.key} data-column-key={column.key} className={draggedColumn===column.key?"draggingColumn":undefined} aria-sort={sort?.key===column.key?(sort.direction==="asc"?"ascending":"descending"):"none"} onPointerDown={event=>beginPointerDrag(event,column.key)} onPointerMove={continuePointerDrag} onPointerUp={endPointerDrag} onPointerCancel={endPointerDrag}><button type="button" className="sortHeader" onClick={()=>sortBy(column.key)}>{column.label}<span aria-hidden="true">{sort?.key===column.key?(sort.direction==="asc"?"▲":"▼"):"↕"}</span></button></th>)}</tr></thead>
-          <tbody>{orderedRows.map(r=><tr className={rowClass(r.status)} key={r.listingId} tabIndex={0} title="اضغط مرتين لفتح الإعلان" onDoubleClick={()=>{if(Date.now()>=suppressDoubleOpenUntil.current)openListing(r)}} onPointerUp={event=>openOnRepeatedTouch(event,r)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();openListing(r)}}}>
+          <tbody>{!orderedRows.length?<tr><td className="emptyTableCell" colSpan={orderedColumns.length}>ستظهر النتائج هنا بعد البحث.</td></tr>:orderedRows.map(r=><tr className={rowClass(r.status)} key={r.listingId} tabIndex={0} title="اضغط مرتين لفتح الإعلان" onDoubleClick={()=>{if(Date.now()>=suppressDoubleOpenUntil.current)openListing(r)}} onPointerUp={event=>openOnRepeatedTouch(event,r)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();openListing(r)}}}>
             {orderedColumns.map(column=><td key={column.key} className={column.className}>{column.render(r)}</td>)}
           </tr>)}</tbody>
         </table>
       </div>
-    </>}
+    </>
   </section>
 }

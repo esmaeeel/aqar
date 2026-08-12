@@ -4,6 +4,7 @@ import test from "node:test";
 import ts from "typescript";
 
 const source = await readFile(new URL("../lib/aqar.ts", import.meta.url), "utf8");
+const pageSource = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 const javascript = ts.transpileModule(source, {
   compilerOptions: {
     module: ts.ModuleKind.ESNext,
@@ -155,6 +156,12 @@ test("يفصل عدد المحلات التجارية عن الشقق والوح
   assert.equal(listing.apartments, 4);
   assert.equal(listing.housingUnits, 20);
   assert.equal(listing.commercialShops, 6);
+});
+
+test("يعرض رأسي عمودي الوحدة السكنية والمحلات التجارية قبل وجود نتائج", () => {
+  assert.match(pageSource, /label:\"وحدة سكنية\"/);
+  assert.match(pageSource, /label:\"المحلات التجارية\"/);
+  assert.match(pageSource, /emptyTableCell/);
 });
 
 test("يعتبر مبلغ مؤجر به دخلا لا سعر البيع", () => {
