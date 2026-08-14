@@ -5,7 +5,7 @@ import type { Filters, Listing, Location } from "@/lib/aqar";
 import { CATEGORIES, ROOM_TYPES } from "@/lib/aqar";
 import { CITY_NAMES, canonicalCity, canonicalPlace, cityNeighborhoods, placeSuggestions } from "@/lib/locations";
 
-const LAST_FILTERS_KEY = "aqar-last-filters-clean-v2";
+const LEGACY_LAST_FILTERS_KEY = "aqar-last-filters-clean-v2";
 const defaults: Filters = { propertyType:"عمارة",purpose:"sale",locations:[{city:"",neighborhoods:[]}],keywords:[],mode:"near",maxPages:2,maxListings:200,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minDensity:0,sqmMin:0,sqmMax:0 };
 const nums: {key:keyof Filters;label:string;hint?:string}[] = [
   {key:"priceMin",label:"السعر من"},{key:"priceMax",label:"السعر إلى"},{key:"yieldMin",label:"أقل عائد فعلي %"},
@@ -35,7 +35,7 @@ export default function Home(){
   const [message,setMessage]=useState("عدّل المواصفات ثم اضغط «ابدأ البحث»"),[progress,setProgress]=useState(0),[warnings,setWarnings]=useState<string[]>([]);
   const [tab,setTab]=useState<"search"|"saved">("search"),[sets,setSets]=useState<SavedSet[]>([]),[profiles,setProfiles]=useState<Profile[]>([]);
   const [trial,setTrial]=useState<TrialStatus|null>(null);
-  useEffect(()=>{const timer=setTimeout(()=>{getDeviceId();try{const x=localStorage.getItem(LAST_FILTERS_KEY);if(x)setFilters({...defaults,...JSON.parse(x)})}catch{/* تجاهل بيانات محلية تالفة */}void loadProfiles();void loadTrialStatus()},0);return()=>clearTimeout(timer)},[]);
+  useEffect(()=>{const timer=setTimeout(()=>{getDeviceId();localStorage.removeItem(LEGACY_LAST_FILTERS_KEY);void loadProfiles();void loadTrialStatus()},0);return()=>clearTimeout(timer)},[]);
   const trialBlocked=trial?.remaining===0||trial?.globalRemaining===0;
   const countLabel=ROOM_TYPES.has(filters.propertyType)?"أقل غرف (مع المجلس والمقلط)":"أقل شقق";
   const rentalHousing=filters.purpose==="rent"&&RENTAL_HOUSING_TYPES.has(filters.propertyType);
@@ -43,7 +43,7 @@ export default function Home(){
   function update<K extends keyof Filters>(key:K,value:Filters[K]){setFilters(f=>({...f,[key]:value}))}
   function addLocation(){update("locations",[...filters.locations,{city:"",neighborhoods:[]}])}
   function changeLocation(i:number,key:"city"|"neighborhoods",value:string){const next=filters.locations.map((l,j)=>j===i?{...l,[key]:key==="neighborhoods"?value.split(/[،,]/).map(x=>x.trim()).filter(Boolean):value}:l);update("locations",next as Location[])}
-  function clearFields(){setFilters(defaults);localStorage.removeItem(LAST_FILTERS_KEY);setResults([]);setMessage("تم مسح جميع حقول البحث.")}
+  function clearFields(){setFilters(defaults);setResults([]);setMessage("تم مسح جميع حقول البحث.")}
   async function loadProfiles(){try{const r=await fetch("/api/profiles",{headers:deviceHeaders()});const data=await r.json() as {profiles:Profile[]};if(r.ok)setProfiles(data.profiles)}catch{/* يعمل البحث حتى لو تعذر التخزين */}}
   async function loadTrialStatus(){try{const r=await fetch("/api/trial",{cache:"no-store",headers:deviceHeaders()});const data=await r.json() as TrialStatus;if(r.ok)setTrial(data)}catch{/* يتحقق الخادم مرة أخرى عند بدء البحث */}}
   async function saveProfile(){const name=prompt("اسم مواصفات البحث:");if(!name)return;const r=await fetch("/api/profiles",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({name,filters})});if(r.ok){await loadProfiles();setMessage("حُفظت مواصفات البحث.")}else setMessage("تعذر حفظ المواصفات.")}
@@ -54,7 +54,7 @@ export default function Home(){
     if(!clean.locations.length){setMessage("أضف مدينة واحدة على الأقل.");return}
     let trialToken="";
     try{const reservationResponse=await fetch("/api/trial",{method:"POST",headers:deviceHeaders()});const reservation=await reservationResponse.json() as {token?:string|null;status:TrialStatus;error?:string};setTrial(reservation.status);if(!reservationResponse.ok||!reservation.token){setMessage(reservation.error||"لا يمكن بدء بحث جديد الآن.");return}trialToken=reservation.token}catch{setMessage("تعذر التحقق من المحاولات التجريبية. حاول مرة أخرى.");return}
-    localStorage.setItem(LAST_FILTERS_KEY,JSON.stringify(clean));setBusy(true);setResults([]);setWarnings([]);setProgress(0);
+    setBusy(true);setResults([]);setWarnings([]);setProgress(0);
     const found=new Map<string,Listing>(),checked=new Set<string>();let discovered=0,stoppedAt=-1,stopReason="";const allSources=(()=>{const a:SearchSource[]=[];for(let page=1;page<=clean.maxPages;page++)for(const category of CATEGORIES[clean.propertyType]?.[clean.purpose]||[])for(const l of clean.locations)for(const neighborhood of(l.neighborhoods.length?l.neighborhoods:[""]))a.push({category,city:l.city,neighborhood,page});return a})();
     for(let i=0;i<allSources.length&&checked.size<clean.maxListings;i++){
       const s=allSources[i];setMessage(`قراءة ${s.city}${s.neighborhood?` — ${s.neighborhood}`:""}، صفحة ${s.page}…`);setProgress(Math.round(i/allSources.length*100));
@@ -82,7 +82,7 @@ export default function Home(){
   return <main dir="rtl">
     <header className="top"><div><span className="eyebrow">نسخة الجوال المستقلة</span><h1>باحث العقارات</h1><p>ابحث في إعلانات عقار، واحسب العائد والكثافة تلقائيًا.</p></div><div className="topActions"><button className="ghost" onClick={loadSets}>المجموعات المحفوظة</button><button className="ghost" onClick={exportCsv}>تصدير CSV</button></div></header>
     {tab==="saved"?<section className="panel saved"><div className="sectionHead"><div><h2>المجموعات المحفوظة</h2><p>لا تُحفظ النتائج إلا عند ضغط زر الحفظ.</p></div><button className="ghost" onClick={()=>setTab("search")}>العودة للبحث</button></div>{sets.length?sets.map(s=><article className="savedRow" key={s.id}><div><strong>{s.name}</strong><small>{s.propertyType} · {s.count} نتيجة</small></div><div><button onClick={()=>openSet(s)}>فتح</button><button className="danger" onClick={()=>deleteSet(s.id)}>حذف المجموعة</button></div></article>):<div className="empty">لا توجد مجموعات محفوظة بعد.</div>}</section>:<>
-    <section className="panel"><div className="sectionHead"><div><h2>مواصفات البحث</h2><p>تُحفظ آخر مواصفات تلقائيًا على هذا الجوال فقط.</p></div><div className="inline"><select defaultValue="" onChange={e=>loadProfile(e.target.value)}><option value="">اختر بحثًا محفوظًا</option>{profiles.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><button className="ghost" onClick={saveProfile}>حفظ الشروط</button><button className="ghost" onClick={clearFields}>مسح الحقول</button></div></div>
+    <section className="panel"><div className="sectionHead"><div><h2>مواصفات البحث</h2><p>تبدأ الحقول فارغة عند كل فتح. يمكنك تحميل بحث محفوظ يدويًا.</p></div><div className="inline"><select defaultValue="" onChange={e=>loadProfile(e.target.value)}><option value="">اختر بحثًا محفوظًا</option>{profiles.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><button className="ghost" onClick={saveProfile}>حفظ الشروط</button><button className="ghost" onClick={clearFields}>مسح الحقول</button></div></div>
       <div className="choiceRow"><label>نوع العقار<select value={filters.propertyType} onChange={e=>update("propertyType",e.target.value)}>{Object.keys(CATEGORIES).map(x=><option key={x}>{x}</option>)}</select></label><fieldset><legend>الغرض</legend><label className="radio"><input type="radio" checked={filters.purpose==="sale"} onChange={()=>update("purpose","sale")}/> بيع</label><label className="radio"><input type="radio" checked={filters.purpose==="rent"} onChange={()=>update("purpose","rent")}/> تأجير</label></fieldset><fieldset><legend>طريقة المطابقة</legend><label className="radio"><input type="radio" checked={filters.mode==="strict"} onChange={()=>update("mode","strict")}/> جميع الشروط تمامًا</label><label className="radio"><input type="radio" checked={filters.mode==="near"} onChange={()=>update("mode","near")}/> القريبة والناقصة ±20%</label></fieldset></div>
       <h3>المدن والأحياء</h3><div className="locations">{filters.locations.map((location,index)=><LocationAutocomplete key={index} location={location} index={index} onChange={changeLocation} onRemove={()=>update("locations",filters.locations.filter((_,itemIndex)=>itemIndex!==index))}/>)}</div><button className="add" onClick={addLocation}>+ إضافة مدينة</button>
       <h3>الشروط الرقمية</h3><div className="grid">{visibleNums.map(n=><label key={String(n.key)}>{n.key==="minCount"?countLabel:n.label}<input inputMode="decimal" type="number" min="0" value={String(filters[n.key]||"")} onChange={e=>update(n.key,inputNumber(e.target.value) as never)}/></label>)}</div>

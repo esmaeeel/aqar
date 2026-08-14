@@ -51,6 +51,9 @@ test("requires one reservation before the search requests are sent", async () =>
   assert.doesNotMatch(page, /يمكن بدء بحث جديد الآن دون مهلة انتظار/);
   assert.doesNotMatch(page, /نسخ معرّف المتصفح|جارٍ تحديد المتصفح|navigator\.clipboard\.writeText\(browserId\)/);
   assert.doesNotMatch(page, /cooldownSeconds|nextAllowedAt|retryAfterSeconds/);
+  assert.match(page, /تبدأ الحقول فارغة عند كل فتح/);
+  assert.match(page, /localStorage\.removeItem\(LEGACY_LAST_FILTERS_KEY\)/);
+  assert.doesNotMatch(page, /localStorage\.(?:getItem|setItem)\(LEGACY_LAST_FILTERS_KEY/);
 
   const tokenCheck = searchRoute.indexOf("isTrialTokenValid");
   const externalFetch = searchRoute.indexOf("const searchHtml = await fetchAqar");
