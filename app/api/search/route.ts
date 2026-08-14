@@ -1,4 +1,5 @@
 import { CATEGORIES, evaluate, Filters, keywordMatches, listingLinks, listingMatchesRequestedLocation, locationUrl, parseListing } from "@/lib/aqar";
+import { isTrialTokenValid } from "@/lib/trial";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,9 @@ const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function POST(request: Request) {
   try {
+    if (!await isTrialTokenValid(request.headers.get("x-aqar-trial-token"))) {
+      return Response.json({ error: "ابدأ البحث من الصفحة للحصول على محاولة تجريبية صالحة." }, { status: 403 });
+    }
     const body = await request.json() as { filters: Filters; city: string; neighborhood?: string; category: string; page: number; remaining: number; excludeListingIds?: string[] };
     const { filters, city, category } = body; const neighborhood = body.neighborhood || "";
     if (!CATEGORIES[filters.propertyType]?.[filters.purpose]?.includes(category)) return Response.json({ error: "نوع البحث غير صالح." }, { status: 400 });

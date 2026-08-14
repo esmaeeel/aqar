@@ -15,6 +15,13 @@
       "when": 1786181301723,
       "tag": "0001_premium_mimic",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786708043260,
+      "tag": "0002_redundant_warbound",
+      "breakpoints": true
     }
   ]
 }

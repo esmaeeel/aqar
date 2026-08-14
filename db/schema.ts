@@ -18,3 +18,9 @@ export const savedResultSets = sqliteTable("saved_result_sets", {
   resultsJson: text("results_json").notNull(),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, table => [index("saved_sets_user_created_idx").on(table.userId, table.createdAt)]);
+
+export const trialSearches = sqliteTable("trial_searches", {
+  token: text("token").primaryKey(),
+  startedAtMs: integer("started_at_ms").notNull(),
+  expiresAtMs: integer("expires_at_ms").notNull(),
+});
