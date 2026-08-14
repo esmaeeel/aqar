@@ -11,7 +11,7 @@ const javascript = ts.transpileModule(source, {
     target: ts.ScriptTarget.ES2022,
   },
 }).outputText;
-const { evaluate, parseListing } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
+const { evaluate, listingMatchesRequestedLocation, parseListing } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
 
 function priceFrom(description) {
   const html = `<h1>عمارة للبيع في مدينة الرياض، حي العوالي</h1><p>${description}</p>`;
@@ -195,6 +195,11 @@ test("يتجاهل شروط الاستثمار المخفية في إيجار ا
   );
   const filters = {propertyType:"شقة",purpose:"rent",locations:[],keywords:[],mode:"strict",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:99,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minDensity:99,sqmMin:99_999,sqmMax:100_000};
   assert.equal(evaluate(listing, filters).status, "مطابقة");
+});
+
+test("يعامل الشفا والشفاء كحي واحد عند التحقق النهائي", () => {
+  assert.equal(listingMatchesRequestedLocation("الرياض", "الشفاء", "الرياض", "الشفا"), true);
+  assert.equal(listingMatchesRequestedLocation("الرياض", "العوالي", "الرياض", "الشفا"), false);
 });
 
 test("يطبق شرط سعر المتر على الأراضي فقط", () => {

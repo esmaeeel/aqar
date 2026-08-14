@@ -263,7 +263,8 @@ export function locationUrl(category: string, city: string, neighborhood: string
   return `${AQAR_ORIGIN}/${parts.map(encodeURIComponent).join("/")}`;
 }
 function normalizedLocation(value: string, neighborhood = false) {
-  let result = normalizeText(value).replace(/-/g, " ").replace(/\s+/g, " ").trim();
+  let result = normalizeText(value).replace(/ة/g, "ه").replace(/[ؤئ]/g, "ء").replace(/ء$/g, "")
+    .replace(/-/g, " ").replace(/\s+/g, " ").trim();
   if (neighborhood) result = result.replace(/^حي\s+/, "");
   return result;
 }
