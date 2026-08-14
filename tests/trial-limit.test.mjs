@@ -48,9 +48,8 @@ test("requires one reservation before the search requests are sent", async () =>
   assert.ok(reservation >= 0 && reservation < sourceLoop);
   assert.match(page, /deviceHeaders\(true\).*"x-aqar-trial-token":trialToken/);
   assert.match(page, /fetch\("\/api\/trial",\{method:"POST",headers:deviceHeaders\(\)\}\)/);
-  assert.match(page, /يمكن بدء بحث جديد الآن دون مهلة انتظار/);
-  assert.match(page, /نسخ معرّف المتصفح/);
-  assert.match(page, /navigator\.clipboard\.writeText\(browserId\)/);
+  assert.doesNotMatch(page, /يمكن بدء بحث جديد الآن دون مهلة انتظار/);
+  assert.doesNotMatch(page, /نسخ معرّف المتصفح|جارٍ تحديد المتصفح|navigator\.clipboard\.writeText\(browserId\)/);
   assert.doesNotMatch(page, /cooldownSeconds|nextAllowedAt|retryAfterSeconds/);
 
   const tokenCheck = searchRoute.indexOf("isTrialTokenValid");
