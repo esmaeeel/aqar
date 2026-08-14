@@ -25,3 +25,9 @@ export const trialSearches = sqliteTable("trial_searches", {
   startedAtMs: integer("started_at_ms").notNull(),
   expiresAtMs: integer("expires_at_ms").notNull(),
 }, table => [index("trial_searches_browser_started_idx").on(table.browserId, table.startedAtMs)]);
+
+export const trialBrowserLimits = sqliteTable("trial_browser_limits", {
+  browserId: text("browser_id").primaryKey(),
+  searchLimit: integer("search_limit").notNull(),
+  updatedAtMs: integer("updated_at_ms").notNull(),
+});
