@@ -19,7 +19,7 @@ const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function POST(request: Request) {
   try {
-    if (!await isTrialTokenValid(request.headers.get("x-aqar-trial-token"))) {
+    if (!await isTrialTokenValid(request.headers.get("x-aqar-trial-token"), request.headers.get("x-aqar-device-id"))) {
       return Response.json({ error: "ابدأ البحث من الصفحة للحصول على محاولة تجريبية صالحة." }, { status: 403 });
     }
     const body = await request.json() as { filters: Filters; city: string; neighborhood?: string; category: string; page: number; remaining: number; excludeListingIds?: string[] };

@@ -1,11 +1,13 @@
 import { getD1 } from "@/db";
 
-export const TRIAL_SEARCH_LIMIT = 100;
+export const TRIAL_BROWSER_LIMIT = 25;
+export const TRIAL_GLOBAL_LIMIT = 1000;
 export const TRIAL_COOLDOWN_MS = 10 * 60 * 1000;
 const TRIAL_TOKEN_TTL_MS = 6 * 60 * 60 * 1000;
 
 type TrialSummaryRow = {
-  used: number;
+  globalUsed: number;
+  browserUsed: number;
   lastStartedAtMs: number | null;
 };
 
@@ -13,68 +15,81 @@ export type TrialStatus = {
   limit: number;
   used: number;
   remaining: number;
+  globalLimit: number;
+  globalUsed: number;
+  globalRemaining: number;
   canStart: boolean;
   retryAfterSeconds: number;
   nextAllowedAt: number | null;
 };
 
-async function readSummary(): Promise<TrialSummaryRow> {
+async function readSummary(browserId: string): Promise<TrialSummaryRow> {
   const row = await getD1().prepare(`
     SELECT
-      COUNT(*) AS used,
+      COUNT(*) AS globalUsed,
+      SUM(CASE WHEN browser_id = ? THEN 1 ELSE 0 END) AS browserUsed,
       MAX(started_at_ms) AS lastStartedAtMs
     FROM trial_searches
-  `).first<TrialSummaryRow>();
-  return row ?? { used: 0, lastStartedAtMs: null };
+  `).bind(browserId).first<TrialSummaryRow>();
+  return row ?? { globalUsed: 0, browserUsed: 0, lastStartedAtMs: null };
 }
 
 function toStatus(summary: TrialSummaryRow, now: number): TrialStatus {
-  const used = Number(summary.used) || 0;
+  const used = Number(summary.browserUsed) || 0;
+  const globalUsed = Number(summary.globalUsed) || 0;
   const lastStartedAtMs = summary.lastStartedAtMs == null ? null : Number(summary.lastStartedAtMs);
   const nextAllowedAt = lastStartedAtMs == null ? null : lastStartedAtMs + TRIAL_COOLDOWN_MS;
   const retryAfterSeconds = nextAllowedAt == null ? 0 : Math.max(0, Math.ceil((nextAllowedAt - now) / 1000));
-  const remaining = Math.max(0, TRIAL_SEARCH_LIMIT - used);
+  const remaining = Math.max(0, TRIAL_BROWSER_LIMIT - used);
+  const globalRemaining = Math.max(0, TRIAL_GLOBAL_LIMIT - globalUsed);
   return {
-    limit: TRIAL_SEARCH_LIMIT,
+    limit: TRIAL_BROWSER_LIMIT,
     used,
     remaining,
-    canStart: remaining > 0 && retryAfterSeconds === 0,
+    globalLimit: TRIAL_GLOBAL_LIMIT,
+    globalUsed,
+    globalRemaining,
+    canStart: remaining > 0 && globalRemaining > 0 && retryAfterSeconds === 0,
     retryAfterSeconds,
     nextAllowedAt,
   };
 }
 
-export async function getTrialStatus(now = Date.now()): Promise<TrialStatus> {
-  return toStatus(await readSummary(), now);
+export async function getTrialStatus(browserId: string, now = Date.now()): Promise<TrialStatus> {
+  return toStatus(await readSummary(browserId), now);
 }
 
-export async function reserveTrialSearch(now = Date.now()) {
+export async function reserveTrialSearch(browserId: string, now = Date.now()) {
   const token = crypto.randomUUID();
   const inserted = await getD1().prepare(`
-    INSERT INTO trial_searches (token, started_at_ms, expires_at_ms)
-    SELECT ?, ?, ?
+    INSERT INTO trial_searches (token, browser_id, started_at_ms, expires_at_ms)
+    SELECT ?, ?, ?, ?
     WHERE (SELECT COUNT(*) FROM trial_searches) < ?
+      AND (SELECT COUNT(*) FROM trial_searches WHERE browser_id = ?) < ?
       AND COALESCE((SELECT MAX(started_at_ms) FROM trial_searches), 0) <= ?
     RETURNING token
   `).bind(
     token,
+    browserId,
     now,
     now + TRIAL_TOKEN_TTL_MS,
-    TRIAL_SEARCH_LIMIT,
+    TRIAL_GLOBAL_LIMIT,
+    browserId,
+    TRIAL_BROWSER_LIMIT,
     now - TRIAL_COOLDOWN_MS,
   ).first<{ token: string }>();
 
-  if (!inserted) return { token: null, status: await getTrialStatus(now) };
-  return { token, status: await getTrialStatus(now) };
+  if (!inserted) return { token: null, status: await getTrialStatus(browserId, now) };
+  return { token, status: await getTrialStatus(browserId, now) };
 }
 
-export async function isTrialTokenValid(token: string | null, now = Date.now()) {
-  if (!token) return false;
+export async function isTrialTokenValid(token: string | null, browserId: string | null, now = Date.now()) {
+  if (!token || !browserId) return false;
   const row = await getD1().prepare(`
     SELECT token
     FROM trial_searches
-    WHERE token = ? AND expires_at_ms >= ?
+    WHERE token = ? AND browser_id = ? AND expires_at_ms >= ?
     LIMIT 1
-  `).bind(token, now).first<{ token: string }>();
+  `).bind(token, browserId, now).first<{ token: string }>();
   return Boolean(row);
 }

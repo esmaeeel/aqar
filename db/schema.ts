@@ -21,6 +21,7 @@ export const savedResultSets = sqliteTable("saved_result_sets", {
 
 export const trialSearches = sqliteTable("trial_searches", {
   token: text("token").primaryKey(),
+  browserId: text("browser_id").notNull(),
   startedAtMs: integer("started_at_ms").notNull(),
   expiresAtMs: integer("expires_at_ms").notNull(),
-});
+}, table => [index("trial_searches_browser_started_idx").on(table.browserId, table.startedAtMs)]);

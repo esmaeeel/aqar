@@ -22,6 +22,13 @@
       "when": 1786708043260,
       "tag": "0002_redundant_warbound",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1786719828130,
+      "tag": "0003_solid_maestro",
+      "breakpoints": true
     }
   ]
 }
