@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 const read = path => readFile(new URL(path, root), "utf8");
 
-test("limits each browser to 25 searches and the group to 1000 with a ten-minute global cooldown", async () => {
+test("limits each browser to 25 searches and the group to 1000 without a cooldown", async () => {
   const [trial, schema, initialMigration, browserMigration] = await Promise.all([
     read("lib/trial.ts"),
     read("db/schema.ts"),
@@ -15,10 +15,9 @@ test("limits each browser to 25 searches and the group to 1000 with a ten-minute
 
   assert.match(trial, /TRIAL_BROWSER_LIMIT\s*=\s*25/);
   assert.match(trial, /TRIAL_GLOBAL_LIMIT\s*=\s*1000/);
-  assert.match(trial, /TRIAL_COOLDOWN_MS\s*=\s*10\s*\*\s*60\s*\*\s*1000/);
+  assert.doesNotMatch(trial, /TRIAL_COOLDOWN_MS|MAX\(started_at_ms\)/);
   assert.match(trial, /COUNT\(\*\)\s+FROM trial_searches\)\s*<\s*\?/s);
   assert.match(trial, /COUNT\(\*\)\s+FROM trial_searches WHERE browser_id = \?\)\s*<\s*\?/s);
-  assert.match(trial, /MAX\(started_at_ms\).*<=\s*\?/s);
   assert.match(trial, /RETURNING token/);
   assert.match(schema, /sqliteTable\("trial_searches"/);
   assert.match(schema, /browserId: text\("browser_id"\)\.notNull\(\)/);
@@ -38,6 +37,8 @@ test("requires one reservation before the search requests are sent", async () =>
   assert.ok(reservation >= 0 && reservation < sourceLoop);
   assert.match(page, /deviceHeaders\(true\).*"x-aqar-trial-token":trialToken/);
   assert.match(page, /fetch\("\/api\/trial",\{method:"POST",headers:deviceHeaders\(\)\}\)/);
+  assert.match(page, /يمكن بدء بحث جديد الآن دون مهلة انتظار/);
+  assert.doesNotMatch(page, /cooldownSeconds|nextAllowedAt|retryAfterSeconds/);
 
   const tokenCheck = searchRoute.indexOf("isTrialTokenValid");
   const externalFetch = searchRoute.indexOf("const searchHtml = await fetchAqar");

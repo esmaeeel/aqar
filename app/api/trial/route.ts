@@ -35,12 +35,9 @@ export async function POST(request: Request) {
       ? "انتهى الحد الإجمالي للتجربة."
       : browserExhausted
         ? "استخدم هذا المتصفح جميع عملياته التجريبية المتاحة."
-      : `يلزم الانتظار ${Math.max(1, Math.ceil(reservation.status.retryAfterSeconds / 60))} دقيقة قبل بدء بحث جديد.`,
+        : "تعذر حجز محاولة جديدة. حاول مرة أخرى.",
   }, {
-    status: exhausted ? 403 : 429,
-    headers: {
-      "cache-control": "no-store",
-      ...(exhausted ? {} : { "retry-after": String(reservation.status.retryAfterSeconds) }),
-    },
+    status: exhausted ? 403 : 409,
+    headers: { "cache-control": "no-store" },
   });
 }
