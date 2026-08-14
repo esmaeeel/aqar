@@ -6,12 +6,13 @@ const root = new URL("../", import.meta.url);
 const read = path => readFile(new URL(path, root), "utf8");
 
 test("supports a server-side per-browser override while keeping 25 as the default and 1000 globally", async () => {
-  const [trial, schema, initialMigration, browserMigration, overrideMigration] = await Promise.all([
+  const [trial, schema, initialMigration, browserMigration, overrideMigration, browserLimitMigration] = await Promise.all([
     read("lib/trial.ts"),
     read("db/schema.ts"),
     read("drizzle/0002_redundant_warbound.sql"),
     read("drizzle/0003_solid_maestro.sql"),
     read("drizzle/0004_blushing_invisible_woman.sql"),
+    read("drizzle/0005_browser-limit-100.sql"),
   ]);
 
   assert.match(trial, /TRIAL_BROWSER_LIMIT\s*=\s*25/);
@@ -31,6 +32,9 @@ test("supports a server-side per-browser override while keeping 25 as the defaul
   assert.match(browserMigration, /CREATE INDEX `trial_searches_browser_started_idx`/);
   assert.match(overrideMigration, /CREATE TABLE `trial_browser_limits`/);
   assert.match(overrideMigration, /`browser_id` text PRIMARY KEY NOT NULL/);
+  assert.match(browserLimitMigration, /d56408b2-63ca-414c-a6b5-db165485d509/);
+  assert.match(browserLimitMigration, /VALUES \('d56408b2-63ca-414c-a6b5-db165485d509', 100,/);
+  assert.match(browserLimitMigration, /ON CONFLICT \(`browser_id`\) DO UPDATE SET/);
 });
 
 test("requires one reservation before the search requests are sent", async () => {
