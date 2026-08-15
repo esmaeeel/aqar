@@ -243,10 +243,19 @@ function totalBuildingRooms(source: string) {
   ]).value;
 }
 function ageFromSource(source: string) {
-  const n = normalizeText(source), labels = `عمر\\s*(?:العقار|العمارة|العماره|الفيلا|الشقة|الشقه|الدور|الورشة|الورشه)|عمرها|عمره|العمر`;
-  const m = n.match(new RegExp(`(?:${labels})${gap}([\\d][\\d,.]*)`, "i"));
-  if (m) { const years = Number(m[1].replace(/,/g, "")); return { years, label: /اكثر\s+من|فوق/.test(m[0]) ? `أكثر من ${years} سنوات` : `${years} سنة` }; }
-  if (new RegExp(`(?:${labels})${gap}(?:جديد|جديدة)`).test(n)) return { years: 0, label: "جديد" };
+  const n = normalizeDigits(source).toLowerCase().replace(/ـ/g, "").replace(/[\u064b-\u065f\u0670]/g, "")
+    .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/[^\S\n]+/g, " ").replace(/\n +/g, "\n").trim();
+  const labels = `عمر\\s*(?:العقار|العمارة|العماره|الفيلا|الشقة|الشقه|الدور|الورشة|الورشه)|عمرها|عمره|العمر`;
+  const qualified = n.match(new RegExp(`(?:${labels})[^\\d\\n]{0,24}?(?:(اكثر\\s+من|فوق)\\s*)?([\\d]{1,3})\\s*(?:سنه|سنوات|عام|اعوام)`, "i"));
+  const fieldGap = `[ \\t:：\\-–—]*(?:\\n[ \\t]*)?`;
+  const bareField = n.match(new RegExp(`(?:${labels})${fieldGap}(?:(اكثر\\s+من|فوق)\\s*)?([\\d]{1,3})(?=\\s*(?:\\n|$))`, "i"));
+  const m = qualified ?? bareField;
+  if (m) {
+    const years = Number(m[2]);
+    if (Number.isInteger(years) && years >= 0 && years <= 100)
+      return { years, label: m[1] ? `أكثر من ${years} سنوات` : `${years} سنة` };
+  }
+  if (new RegExp(`(?:${labels})${fieldGap}(?:جديد|جديده)(?=\\s*(?:\\n|$))`).test(n)) return { years: 0, label: "جديد" };
   return { years: null as number | null, label: null as string | null };
 }
 function conflicts(values: number[], tolerance = .02) {

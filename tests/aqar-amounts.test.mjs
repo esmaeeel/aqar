@@ -126,6 +126,40 @@ test("لا يعتبر اختلاف التنسيق أو فرق المساحة ا�
   assert.ok(!listing.warnings.some(w => w.startsWith("المساحة مختلفة")));
 });
 
+test("لا يلتقط السعر أو المساحة عمرًا عند غياب قيمة العمر", () => {
+  const missingAgeHtml = `
+    <h1>شقة للبيع في مدينة الخبر، حي الثقبة</h1>
+    <div>450,000 §</div>
+    <div>استكشف خيارات التمويل</div>
+    <h3>تفاصيل الإعلان</h3>
+    <p>العمر<br>غير مذكور<br>المساحة<br>137 م²<br>السعر<br>450000 ريال</p>
+  `;
+  const missingAge = parseListing(missingAgeHtml, "https://sa.aqar.fm/شقق-للبيع/الخبر/حي-الثقبة/شقة-7654330", "شقة");
+  assert.equal(missingAge.age, null);
+
+  const impossibleAgeHtml = `
+    <h1>شقة للبيع في مدينة الخبر، حي الثقبة</h1>
+    <div>450,000 §</div>
+    <div>استكشف خيارات التمويل</div>
+    <h3>تفاصيل الإعلان</h3>
+    <p>عمر العقار: 137 سنة</p>
+  `;
+  const impossibleAge = parseListing(impossibleAgeHtml, "https://sa.aqar.fm/شقق-للبيع/الخبر/حي-الثقبة/شقة-7654331", "شقة");
+  assert.equal(impossibleAge.age, null);
+});
+
+test("يقبل العمر الرقمي المحصور في حقل العمر", () => {
+  const html = `
+    <h1>شقة للبيع في مدينة الخبر، حي الثقبة</h1>
+    <div>450,000 §</div>
+    <div>استكشف خيارات التمويل</div>
+    <h3>تفاصيل الإعلان</h3>
+    <div>عمر العقار</div><div>10</div>
+  `;
+  const listing = parseListing(html, "https://sa.aqar.fm/شقق-للبيع/الخبر/حي-الثقبة/شقة-7654332", "شقة");
+  assert.equal(listing.age, "10 سنة");
+});
+
 test("يفهم صيغ الآحاد والعشرات والمئات والآلاف والملايين المكتوبة بالكلمات", () => {
   assert.equal(priceFrom("سعر البيع: مئتان وخمسون ألف ريال"), 250_000);
   assert.equal(priceFrom("سعر البيع: مليون ومئتي ألف ريال"), 1_200_000);
