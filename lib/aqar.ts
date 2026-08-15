@@ -258,6 +258,23 @@ function ageFromSource(source: string) {
   if (new RegExp(`(?:${labels})${fieldGap}(?:جديد|جديده)(?=\\s*(?:\\n|$))`).test(n)) return { years: 0, label: "جديد" };
   return { years: null as number | null, label: null as string | null };
 }
+function embeddedAgeSource(html: string) {
+  const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(match => match[1]);
+  for (const script of scripts) {
+    const decoded = script.replace(/\\u([0-9a-f]{4})/gi, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)))
+      .replace(/\\"/g, '"').replace(/\\n/g, "\n").replace(/\\\\/g, "\\");
+    let start = 0;
+    while ((start = decoded.indexOf('"name":"age"', start)) >= 0) {
+      const tail = decoded.slice(start + 12);
+      const nextField = tail.search(/},\{"(?:icon|type|name)":/);
+      const field = tail.slice(0, nextField >= 0 ? nextField : 3000);
+      const value = field.match(/"value":"([^"\\]*(?:\\.[^"\\]*)*)"/)?.[1];
+      if (value) return `عمر العقار\n${value}\n`;
+      start += 12;
+    }
+  }
+  return "";
+}
 function conflicts(values: number[], tolerance = .02) {
   if (values.length <= 1 || Math.min(...values) === Math.max(...values)) return false;
   if (tolerance <= 0 || Math.min(...values) <= 0) return true;
@@ -344,7 +361,9 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const street = descriptionStreet ?? structuredStreet;
 
   const descriptionAge = ageFromSource(desc), structuredAge = ageFromSource(structured);
-  const age = descriptionAge.label ?? structuredAge.label;
+  const embeddedAge = ageFromSource(embeddedAgeSource(html));
+  const listingAge = structuredAge.label != null ? structuredAge : embeddedAge;
+  const age = descriptionAge.label ?? listingAge.label;
 
   const annualPatterns = [
     labeled(`الدخل\\s+السنوي(?:\\s+الحالي)?|الدخل\\s+الحالي|الايجار\\s+السنوي|الإيجار\\s+السنوي|صافي\\s+الدخل|الدخل(?:\\s+الصافي|\\s+الإجمالي|\\s+الاجمالي)?|المدخول|مدخول`),
@@ -376,7 +395,7 @@ export function parseListing(html: string, url: string, propertyType: string): L
   addConflict("عدد العدادات", descriptionMeters, structuredMeters);
   addConflict("عدد الأدوار", descriptionFloors, structuredFloors);
   addConflict("عرض الشارع", descriptionStreet, structuredStreet);
-  addConflict("عمر العقار", descriptionAge.years, structuredAge.years);
+  addConflict("عمر العقار", descriptionAge.years, listingAge.years);
   addConflict("الدخل السنوي", descriptionIncome.value, structuredIncome.value, .02);
   if (selectedIncome.monthly) warnings.push("حُوّل الدخل الشهري إلى سنوي بضربه في 12"); if (incomeKind === "expected") warnings.push("الدخل المذكور متوقع وليس فعليًا مؤكدًا");
   for (const [v, w] of [[price,"السعر غير مذكور بوضوح"],[income,"الدخل السنوي غير مذكور"],[meters,"عدد العدادات غير مذكور"],[floors,"عدد الأدوار غير مذكور"],[street,"عرض الشارع غير مذكور"],[area,"المساحة غير مذكورة"]] as [number|null,string][]) if (v == null) warnings.push(w);
