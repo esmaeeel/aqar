@@ -223,14 +223,20 @@ function splitDescription(text: string) {
 }
 function countNamed(text: string, word: "مجلس" | "مقلط") {
   const n = normalizeText(text); const numeric = [...n.matchAll(new RegExp(`([\\d][\\d,.]*)\\s*(?:ال)?${word}`, "g"))].map(m => Number(m[1].replace(/,/g, "")));
-  if (numeric.length) return Math.max(...numeric);
+  const plausible = numeric.filter(value => Number.isInteger(value) && value >= 1 && value <= 50);
+  if (plausible.length) return Math.max(...plausible);
   if (new RegExp(`${word}(?:ين|ان)`).test(n)) return 2;
   if (word === "مجلس") { const types = new Set([...n.matchAll(/مجلس\s+(رجال|نساء|خارجي|داخلي)/g)].map(m => m[1])); if (types.size) return types.size; return /مجلس|مجالس/.test(n) ? 1 : 0; }
   return /مقلط|مقالط/.test(n) ? 1 : 0;
 }
 function roomCounts(source: string) {
-  const patterns = [labeled(`عدد\\s+غرف\\s+النوم|عدد\\s+الغرف(?:\\s+النوم)?|غرف\\s+النوم`), `([\\d,.]+)\\s*(?:غرف(?:ة)?(?:\\s+نوم)?|غرفة\\s+نوم)(?!\\w)`];
-  let bedrooms = first(source, patterns).value;
+  const n = normalizeDigits(source).replace(/ـ/g, "").replace(/[\u064b-\u065f\u0670]/g, "")
+    .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/[^\S\n]+/g, " ").replace(/\n +/g, "\n");
+  const labels = `عدد\\s+غرف\\s+النوم|عدد\\s+الغرف(?:\\s+النوم)?|غرف\\s+النوم`;
+  const field = n.match(new RegExp(`(?:${labels})[ \\t:：\\-–—]*(?:\\n[ \\t]*)?([\\d][\\d,.]*)(?=\\s*(?:\\n|$|غرف(?:ة)?\\b))`, "i"));
+  const inline = n.match(/([\d][\d,.]*)\s*(?:غرف(?:ة)?(?:\s+نوم)?|غرفة\s+نوم)(?!\w)/i);
+  const parsedBedrooms = parseAmount(field?.[1] ?? inline?.[1]);
+  let bedrooms = parsedBedrooms != null && Number.isInteger(parsedBedrooms) && parsedBedrooms >= 1 && parsedBedrooms <= 100 ? parsedBedrooms : null;
   if (bedrooms == null) { const n = normalizeText(source); if (/غرفت(?:ين|ان)/.test(n)) bedrooms = 2; else if (/غرفة\s+(?:نوم|ماستر)/.test(n)) bedrooms = 1; }
   const majlis = countNamed(source, "مجلس"), maqlat = countNamed(source, "مقلط");
   return { rooms: bedrooms == null ? null : bedrooms + majlis + maqlat, bedrooms, majlis, maqlat };
