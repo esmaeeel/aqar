@@ -29,12 +29,14 @@ function automaticPageCount(filters:Filters,locations:Location[],maxListings:num
 }
 function getDeviceId(){let id=localStorage.getItem("aqar-device-id");if(!id){id=crypto.randomUUID();localStorage.setItem("aqar-device-id",id)}return id}
 function deviceHeaders(json=false){return {"x-aqar-device-id":getDeviceId(),...(json?{"content-type":"application/json"}:{})}}
+function keywordsFromDraft(value:string){return value.split(/[،,]/).map(item=>item.trim()).filter(Boolean)}
 
 export default function Home(){
   const [filters,setFilters]=useState<Filters>(defaults),[results,setResults]=useState<Listing[]>([]),[busy,setBusy]=useState(false);
   const [message,setMessage]=useState("عدّل المواصفات ثم اضغط «ابدأ البحث»"),[progress,setProgress]=useState(0),[warnings,setWarnings]=useState<string[]>([]);
   const [tab,setTab]=useState<"search"|"saved">("search"),[sets,setSets]=useState<SavedSet[]>([]),[profiles,setProfiles]=useState<Profile[]>([]);
   const [trial,setTrial]=useState<TrialStatus|null>(null);
+  const [keywordDraft,setKeywordDraft]=useState("");
   useEffect(()=>{const timer=setTimeout(()=>{getDeviceId();localStorage.removeItem(LEGACY_LAST_FILTERS_KEY);void loadProfiles();void loadTrialStatus()},0);return()=>clearTimeout(timer)},[]);
   const trialBlocked=trial?.remaining===0||trial?.globalRemaining===0;
   const countLabel=ROOM_TYPES.has(filters.propertyType)?"أقل غرف (مع المجلس والمقلط)":"أقل شقق";
@@ -43,11 +45,12 @@ export default function Home(){
   function update<K extends keyof Filters>(key:K,value:Filters[K]){setFilters(f=>({...f,[key]:value}))}
   function addLocation(){update("locations",[...filters.locations,{city:"",neighborhoods:[]}])}
   function changeLocation(i:number,key:"city"|"neighborhoods",value:string){const next=filters.locations.map((l,j)=>j===i?{...l,[key]:key==="neighborhoods"?value.split(/[،,]/).map(x=>x.trim()).filter(Boolean):value}:l);update("locations",next as Location[])}
-  function clearFields(){setFilters(defaults);setResults([]);setMessage("تم مسح جميع حقول البحث.")}
+  function changeKeywordDraft(value:string){setKeywordDraft(value);update("keywords",keywordsFromDraft(value))}
+  function clearFields(){setFilters(defaults);setKeywordDraft("");setResults([]);setMessage("تم مسح جميع حقول البحث.")}
   async function loadProfiles(){try{const r=await fetch("/api/profiles",{headers:deviceHeaders()});const data=await r.json() as {profiles:Profile[]};if(r.ok)setProfiles(data.profiles)}catch{/* يعمل البحث حتى لو تعذر التخزين */}}
   async function loadTrialStatus(){try{const r=await fetch("/api/trial",{cache:"no-store",headers:deviceHeaders()});const data=await r.json() as TrialStatus;if(r.ok)setTrial(data)}catch{/* يتحقق الخادم مرة أخرى عند بدء البحث */}}
   async function saveProfile(){const name=prompt("اسم مواصفات البحث:");if(!name)return;const r=await fetch("/api/profiles",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({name,filters})});if(r.ok){await loadProfiles();setMessage("حُفظت مواصفات البحث.")}else setMessage("تعذر حفظ المواصفات.")}
-  function loadProfile(id:string){const p=profiles.find(x=>x.id===Number(id));if(p){setFilters({...defaults,...JSON.parse(p.filtersJson)});setMessage(`تم تحميل: ${p.name}`)}}
+  function loadProfile(id:string){const p=profiles.find(x=>x.id===Number(id));if(p){const loaded={...defaults,...JSON.parse(p.filtersJson)} as Filters;setFilters(loaded);setKeywordDraft(loaded.keywords.join("، "));setMessage(`تم تحميل: ${p.name}`)}}
   async function search(){
     const locations=filters.locations.filter(l=>l.city.trim()).map(location=>{const city=canonicalCity(location.city);return{city,neighborhoods:location.neighborhoods.map(value=>canonicalNeighborhood(city,value)).filter(Boolean)}}),maxListings=Math.min(500,Math.max(5,filters.maxListings));
     const clean={...filters,locations,maxListings,maxPages:automaticPageCount(filters,locations,maxListings),...(rentalHousing?{yieldMin:0,minDensity:0}:{}),...(filters.propertyType!=="أرض"?{sqmMin:0,sqmMax:0}:{})};
@@ -86,7 +89,7 @@ export default function Home(){
       <div className="choiceRow"><label>نوع العقار<select value={filters.propertyType} onChange={e=>update("propertyType",e.target.value)}>{Object.keys(CATEGORIES).map(x=><option key={x}>{x}</option>)}</select></label><fieldset><legend>الغرض</legend><label className="radio"><input type="radio" checked={filters.purpose==="sale"} onChange={()=>update("purpose","sale")}/> بيع</label><label className="radio"><input type="radio" checked={filters.purpose==="rent"} onChange={()=>update("purpose","rent")}/> تأجير</label></fieldset><fieldset><legend>طريقة المطابقة</legend><label className="radio"><input type="radio" checked={filters.mode==="strict"} onChange={()=>update("mode","strict")}/> جميع الشروط تمامًا</label><label className="radio"><input type="radio" checked={filters.mode==="near"} onChange={()=>update("mode","near")}/> القريبة والناقصة ±20%</label></fieldset></div>
       <h3>المدن والأحياء</h3><div className="locations">{filters.locations.map((location,index)=><LocationAutocomplete key={index} location={location} index={index} onChange={changeLocation} onRemove={()=>update("locations",filters.locations.filter((_,itemIndex)=>itemIndex!==index))}/>)}</div><button className="add" onClick={addLocation}>+ إضافة مدينة</button>
       <h3>الشروط الرقمية</h3><div className="grid">{visibleNums.map(n=><label key={String(n.key)}>{n.key==="minCount"?countLabel:n.label}<input inputMode="decimal" type="number" min="0" value={String(filters[n.key]||"")} onChange={e=>update(n.key,inputNumber(e.target.value) as never)}/></label>)}</div>
-      <h3>البحث في الوصف</h3><label>كلمات مطلوبة (بفواصل)<input value={filters.keywords.join("، ")} onChange={e=>update("keywords",e.target.value.split(/[،,]/).map(x=>x.trim()).filter(Boolean))} placeholder="مثال: مكيفات، مدخل سيارة، صناعات"/><small>يشمل اللواصق مثل: الصناعات، للصناعات، والصناعات.</small></label>
+      <h3>البحث في الوصف</h3><label>كلمات مطلوبة (بفواصل)<input value={keywordDraft} onChange={e=>changeKeywordDraft(e.target.value)} placeholder="مثال: مكيفات، مدخل سيارة، صناعات"/><small>يمكن استخدام الفاصلة العربية «،» أو الإنجليزية «,». وتُقبل المسافات داخل العبارة مثل: مدخل سيارة.</small></label>
       <div className="limits"><label>أقصى إعلانات<input type="number" min="5" max="500" value={filters.maxListings} onChange={e=>update("maxListings",inputNumber(e.target.value))}/></label><span>يحسب البرنامج عدد الصفحات تلقائيًا بحسب عدد الإعلانات والمدن والأحياء، وقد يتوقف البحث إذا طلب الموقع تحققًا.</span></div>
       <div className="trialNotice" aria-live="polite"><strong>التجربة المرتبطة بالمتصفح</strong><span>{trial?`متبقّي لهذا المتصفح ${trial.remaining} من ${trial.limit} عملية بحث`:`حد هذا المتصفح 25 عملية بحث`}</span><span>{trial?`المتبقي الإجمالي ${trial.globalRemaining} من ${trial.globalLimit}`:`الحد الإجمالي 1000 عملية بحث`}</span>{trial?.globalRemaining===0?<span>انتهى الحد الإجمالي للتجربة.</span>:trial?.remaining===0?<span>استخدم هذا المتصفح جميع عملياته.</span>:null}</div>
       <div className="run"><button className="primary" disabled={busy||trialBlocked} onClick={search}>{busy?"جارٍ البحث…":trial?.globalRemaining===0?"انتهت التجربة":trial?.remaining===0?"انتهى حد هذا المتصفح":"ابدأ البحث في عقار"}</button></div>{busy&&<progress value={progress} max="100"/>}<div className="status">{message}</div>{warnings.length>0&&<details className="warnings"><summary>ملاحظات أثناء القراءة ({warnings.length})</summary>{warnings.map((w,i)=><p key={i}>{w}</p>)}</details>}

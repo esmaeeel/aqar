@@ -48,6 +48,11 @@ test("removes the disposable starter preview from the finished site", async () =
 
   assert.doesNotMatch(page, /SkeletonPreview|_sites-preview|codex-preview/);
   assert.match(page, /maxListings:\s*200/);
+  assert.match(page, /value=\{keywordDraft\}/);
+  assert.match(page, /changeKeywordDraft\(e\.target\.value\)/);
+  assert.match(page, /update\("keywords",keywordsFromDraft\(value\)\)/);
+  assert.match(page, /split\(\/\[،,\]\//);
+  assert.doesNotMatch(page, /value=\{filters\.keywords\.join/);
   assert.match(layout, /title:\s*"باحث العقارات"/);
   assert.doesNotMatch(layout, /Starter Project|codex-preview|_sites-preview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
