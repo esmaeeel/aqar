@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { Filters, Listing, Location } from "@/lib/aqar";
 import { CATEGORIES, ROOM_TYPES } from "@/lib/aqar";
-import { CITY_NAMES, canonicalCity, canonicalPlace, cityNeighborhoods, placeSuggestions } from "@/lib/locations";
+import { CITY_NAMES, canonicalCity, canonicalNeighborhood, neighborhoodSuggestions, placeSuggestions } from "@/lib/locations";
 
 const LEGACY_LAST_FILTERS_KEY = "aqar-last-filters-clean-v2";
 const defaults: Filters = { propertyType:"عمارة",purpose:"sale",locations:[{city:"",neighborhoods:[]}],keywords:[],mode:"near",maxPages:2,maxListings:200,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minDensity:0,sqmMin:0,sqmMax:0 };
@@ -49,7 +49,7 @@ export default function Home(){
   async function saveProfile(){const name=prompt("اسم مواصفات البحث:");if(!name)return;const r=await fetch("/api/profiles",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({name,filters})});if(r.ok){await loadProfiles();setMessage("حُفظت مواصفات البحث.")}else setMessage("تعذر حفظ المواصفات.")}
   function loadProfile(id:string){const p=profiles.find(x=>x.id===Number(id));if(p){setFilters({...defaults,...JSON.parse(p.filtersJson)});setMessage(`تم تحميل: ${p.name}`)}}
   async function search(){
-    const locations=filters.locations.filter(l=>l.city.trim()).map(location=>{const city=canonicalCity(location.city);const neighborhoodOptions=cityNeighborhoods(city);return{city,neighborhoods:location.neighborhoods.map(value=>canonicalPlace(value,neighborhoodOptions)).filter(Boolean)}}),maxListings=Math.min(500,Math.max(5,filters.maxListings));
+    const locations=filters.locations.filter(l=>l.city.trim()).map(location=>{const city=canonicalCity(location.city);return{city,neighborhoods:location.neighborhoods.map(value=>canonicalNeighborhood(city,value)).filter(Boolean)}}),maxListings=Math.min(500,Math.max(5,filters.maxListings));
     const clean={...filters,locations,maxListings,maxPages:automaticPageCount(filters,locations,maxListings),...(rentalHousing?{yieldMin:0,minDensity:0}:{}),...(filters.propertyType!=="أرض"?{sqmMin:0,sqmMax:0}:{})};
     if(!clean.locations.length){setMessage("أضف مدينة واحدة على الأقل.");return}
     let trialToken="";
@@ -101,14 +101,13 @@ function LocationAutocomplete({location,index,onChange,onRemove}:{location:Locat
   const joinedNeighborhoods=location.neighborhoods.join("، "),[neighborhoodDraft,setNeighborhoodDraft]=useState(joinedNeighborhoods);
   useEffect(()=>{if(!editingNeighborhoods)setNeighborhoodDraft(joinedNeighborhoods)},[joinedNeighborhoods,editingNeighborhoods]);
   const cityMatches=placeSuggestions(location.city,CITY_NAMES);
-  const neighborhoodOptions=cityNeighborhoods(location.city);
   const neighborhoodToken=(neighborhoodDraft.split(/[،,]/).at(-1)||"").trim();
-  const neighborhoodMatches=placeSuggestions(neighborhoodToken,neighborhoodOptions);
+  const neighborhoodMatches=neighborhoodSuggestions(location.city,neighborhoodToken);
   function selectCity(value:string){onChange(index,"city",value);setCityOpen(false)}
   function finishCity(){onChange(index,"city",canonicalCity(location.city));setCityOpen(false)}
   function updateNeighborhoodDraft(value:string){setNeighborhoodDraft(value);onChange(index,"neighborhoods",value)}
   function selectNeighborhood(value:string){const parts=neighborhoodDraft.split(/[،,]/);parts[parts.length-1]=value;const joined=parts.map(item=>item.trim()).filter(Boolean).join("، ");setNeighborhoodDraft(joined);onChange(index,"neighborhoods",joined);setNeighborhoodOpen(false)}
-  function finishNeighborhoods(){const joined=neighborhoodDraft.split(/[،,]/).map(value=>canonicalPlace(value,neighborhoodOptions)).filter(Boolean).join("، ");setNeighborhoodDraft(joined);onChange(index,"neighborhoods",joined);setEditingNeighborhoods(false);setNeighborhoodOpen(false)}
+  function finishNeighborhoods(){const joined=neighborhoodDraft.split(/[،,]/).map(value=>canonicalNeighborhood(location.city,value)).filter(Boolean).join("، ");setNeighborhoodDraft(joined);onChange(index,"neighborhoods",joined);setEditingNeighborhoods(false);setNeighborhoodOpen(false)}
   return <div className="location">
     <label className="autocomplete">المدينة<input value={location.city} autoComplete="off" onFocus={()=>setCityOpen(true)} onBlur={finishCity} onChange={event=>{onChange(index,"city",event.target.value);setCityOpen(true)}} onKeyDown={event=>{if(event.key==="Enter"&&cityMatches[0]){event.preventDefault();selectCity(cityMatches[0])}else if(event.key==="Escape")setCityOpen(false)}} placeholder="ابدأ الكتابة: جد…"/>{cityOpen&&location.city.trim()&&cityMatches.length>0&&<span className="suggestions" role="listbox">{cityMatches.map(value=><button type="button" key={value} role="option" onMouseDown={event=>event.preventDefault()} onClick={()=>selectCity(value)}>{value}</button>)}</span>}</label>
     <label className="autocomplete">الأحياء (بفواصل)<input value={neighborhoodDraft} autoComplete="off" onFocus={()=>{setEditingNeighborhoods(true);setNeighborhoodOpen(true)}} onBlur={finishNeighborhoods} onChange={event=>{updateNeighborhoodDraft(event.target.value);setNeighborhoodOpen(true)}} onKeyDown={event=>{if(event.key==="Enter"&&neighborhoodMatches[0]){event.preventDefault();selectNeighborhood(neighborhoodMatches[0])}else if(event.key==="Escape")setNeighborhoodOpen(false)}} placeholder={location.city?"ابدأ الكتابة: الشف…":"اختر المدينة أولًا"}/>{neighborhoodOpen&&neighborhoodToken&&neighborhoodMatches.length>0&&<span className="suggestions" role="listbox">{neighborhoodMatches.map(value=><button type="button" key={value} role="option" onMouseDown={event=>event.preventDefault()} onClick={()=>selectNeighborhood(value)}>{value}</button>)}</span>}</label>

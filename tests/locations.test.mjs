@@ -20,5 +20,26 @@ test("يقترح تكملة المدينة والحي أثناء الكتابة"
 });
 
 test("يصحح الشفاء إلى الشفا داخل الرياض", () => {
-  assert.equal(locations.canonicalPlace("الشفاء", locations.cityNeighborhoods("الرياض")), "الشفا");
+  assert.equal(locations.canonicalNeighborhood("الرياض", "الشفاء"), "الشفا");
+  assert.equal(locations.neighborhoodsMatch("الرياض", "حي الشفاء", "الشفا"), true);
+});
+
+test("يعتمد المسميات البديلة داخل المدينة الصحيحة فقط", () => {
+  assert.equal(locations.canonicalNeighborhood("الرياض", "لبن"), "ظهرة لبن");
+  assert.equal(locations.canonicalNeighborhood("جدة", "شمال أبحر"), "أبحر الشمالية");
+  assert.equal(locations.canonicalNeighborhood("الدمام", "عبد الله فؤاد"), "عبدالله فؤاد");
+  assert.equal(locations.canonicalNeighborhood("الخبر", "الراكة شمال"), "الراكة الشمالية");
+  assert.equal(locations.canonicalNeighborhood("جدة", "لبن"), "لبن");
+});
+
+test("يفهم صيغ الاتجاه دون توسيع المطابقة إلى أحياء مختلفة", () => {
+  assert.equal(locations.neighborhoodsMatch("جدة", "أبحر الشمال", "أبحر الشمالية"), true);
+  assert.equal(locations.neighborhoodsMatch("الخبر", "الراكة جنوب", "الراكة الجنوبية"), true);
+  assert.equal(locations.neighborhoodsMatch("الرياض", "نمار", "ظهرة نمار"), false);
+  assert.equal(locations.neighborhoodsMatch("جدة", "الصفا", "الشفا"), false);
+});
+
+test("تعيد اقتراح الاسم المعتمد عند الكتابة بالاسم البديل", () => {
+  assert.equal(locations.neighborhoodSuggestions("جدة", "شمال أبحر")[0], "أبحر الشمالية");
+  assert.equal(locations.neighborhoodSuggestions("الخبر", "الراكة شمال")[0], "الراكة الشمالية");
 });

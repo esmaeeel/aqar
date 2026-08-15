@@ -1,3 +1,5 @@
+import { canonicalCity, neighborhoodsMatch } from "@/lib/locations";
+
 export const AQAR_ORIGIN = "https://sa.aqar.fm";
 const NEAR_TOLERANCE = 0.20;
 export const ROOM_TYPES = new Set(["فيلا", "شقة", "دور"]);
@@ -269,15 +271,16 @@ function normalizedLocation(value: string, neighborhood = false) {
   return result;
 }
 export function listingMatchesRequestedLocation(parsedCity: string, parsedNeighborhood: string, city: string, neighborhood = "") {
-  if (parsedCity && normalizedLocation(parsedCity) !== normalizedLocation(city)) return false;
-  return !(neighborhood && parsedNeighborhood && normalizedLocation(parsedNeighborhood, true) !== normalizedLocation(neighborhood, true));
+  const requestedCity = canonicalCity(city);
+  if (parsedCity && canonicalCity(parsedCity) !== requestedCity) return false;
+  return !(neighborhood && parsedNeighborhood && !neighborhoodsMatch(requestedCity, parsedNeighborhood, neighborhood));
 }
 function linkInRequestedLocation(url: string, category: string, city: string, neighborhood = "") {
   let parts: string[];
   try { parts = new URL(url).pathname.split("/").filter(Boolean).map(decodeURIComponent); } catch { return false; }
   const index = parts.findIndex(part => normalizedLocation(part) === normalizedLocation(category));
   if (index < 0 || normalizedLocation(parts[index + 1] || "") !== normalizedLocation(city)) return false;
-  return !neighborhood || parts.slice(index + 2).some(part => normalizedLocation(part, true) === normalizedLocation(neighborhood, true));
+  return !neighborhood || parts.slice(index + 2).some(part => neighborhoodsMatch(city, part, neighborhood));
 }
 export function listingLinks(html: string, category: string, city: string, neighborhood = "") {
   const out = new Map<string, string>(); const decoded = html.replace(/&amp;/g, "&");
