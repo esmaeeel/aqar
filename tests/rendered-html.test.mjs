@@ -36,6 +36,7 @@ test("server-renders the Arabic property search site and browser limits", async 
   assert.match(html, /حد هذا المتصفح 25 عملية بحث/);
   assert.match(html, /الحد الإجمالي 1000 عملية بحث/);
   assert.match(html, /جدول مقارنة نتائج العقارات/);
+  assert.match(html, /مستودع/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|Building your site/i);
 });
 
