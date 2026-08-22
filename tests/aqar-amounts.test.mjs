@@ -331,6 +331,12 @@ test("يطبق شرط سعر المتر على الأراضي فقط", () => {
   assert.equal(evaluate({...listing}, {...filters, propertyType:"أرض"}).status, "قريبة");
 });
 
+test("يعرض عمود سعر المتر للأراضي والشقق والمستودعات في البيع والتأجير", () => {
+  assert.match(pageSource, /PRICE_PER_SQM_TYPES=new Set\(\["مستودع","شقة","أرض"\]\)/);
+  assert.match(pageSource, /PRICE_PER_SQM_TYPES\.has\(filters\.propertyType\)\)fields\.push\(\["sqmPrice","سعر المتر"\]\)/);
+  assert.match(pageSource, /PRICE_PER_SQM_TYPES\.has\(propertyType\)\|\|column\.key!=="sqmPrice"/);
+});
+
 test("يحصر النتائج القريبة في عشرين بالمئة", () => {
   const listing = {
     listingId:"1",url:"",title:"",city:"",neighborhood:"",propertyType:"عمارة",price:1_000_000,area:500,sqmPrice:2_000,
