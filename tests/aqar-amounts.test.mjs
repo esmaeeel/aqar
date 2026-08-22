@@ -270,6 +270,21 @@ test("لا يخترع دخلا من عبارة غير مؤجر", () => {
   assert.equal(listing.income, null);
 });
 
+test("لا ينسب سعر البيع إلى الدخل عندما تكون عبارة الدخل بلا رقم", () => {
+  const html = `<h1>عمارة للبيع في مدينة الخبر، حي الخبر الجنوبية</h1><div>1,600,000 ﷼</div><div>استكشف خيارات التمويل</div><p>الدخل ضعيف<br>المطلوب مليون و600</p>`;
+  const listing = parseListing(html, "https://sa.aqar.fm/عمائر-للبيع/الخبر/حي-الخبر-الجنوبية/عمارة-6636763", "عمارة");
+  assert.equal(listing.price, 1_600_000);
+  assert.equal(listing.income, null);
+  assert.equal(listing.yieldPct, null);
+});
+
+test("يقرأ قيمة الدخل الصحيحة إذا وردت في السطر التالي", () => {
+  const html = `<h1>عمارة للبيع في مدينة الخبر، حي الخبر الجنوبية</h1><div>2,000,000 ﷼</div><div>استكشف خيارات التمويل</div><p>الدخل السنوي:<br>120,000 ريال</p>`;
+  const listing = parseListing(html, "https://sa.aqar.fm/عمائر-للبيع/الخبر/حي-الخبر-الجنوبية/عمارة-7654326", "عمارة");
+  assert.equal(listing.income, 120_000);
+  assert.equal(listing.yieldPct, 6);
+});
+
 test("يتجاهل شروط الاستثمار المخفية في إيجار السكن", () => {
   const listing = parseListing(
     `<h1>شقة للإيجار في مدينة الرياض، حي الشفا</h1><p>الإيجار السنوي 30,000 ريال</p>`,

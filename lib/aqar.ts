@@ -168,6 +168,8 @@ function parseAmount(raw?: string | null, unit = "") {
 }
 const amount = `([\\d][\\d,.]*|(?:مليون(?:ين|ان)?|الف|ألف)(?!\\w))[^\\S\\n]*(مليون(?:ين|ان)?|الف|ألف)?(?:[^\\d\\n]{0,8}و[^\\d\\n]{0,8}([\\d][\\d,.]*)[^\\S\\n]*(مليون(?:ين|ان)?|الف|ألف)?)?`;
 const gap = `[^\\d\\n]{0,40}?(?:\\n[^\\d\\n]{0,24}?)?`;
+const incomeStopLabels = `السعر(?:\\s+المطلوب)?|سعر\\s+(?:البيع|العقار)|المطلوب|الحد|قيمة\\s+العقار`;
+const incomeGap = `(?:(?!(?:${incomeStopLabels}))[^\\d\\n]){0,40}?(?:\\n(?:(?!(?:${incomeStopLabels}))[^\\d\\n]){0,24}?)?`;
 function matchedAmount(m: RegExpMatchArray) {
   const firstScale = m[2] || "", secondScale = m[4] || "";
   const a = parseAmount(m[1], firstScale);
@@ -177,6 +179,7 @@ function matchedAmount(m: RegExpMatchArray) {
   return a == null ? null : a + (b || 0);
 }
 function labeled(labels: string) { return `(?:${labels})${gap}${amount}`; }
+function incomeLabeled(labels: string) { return `(?:${labels})${incomeGap}${amount}`; }
 function first(text: string, patterns: string[]) {
   for (const p of patterns) { const m = text.match(new RegExp(p, "i")); if (m) return { value: matchedAmount(m), index: m.index || 0, raw: m[0], source: text }; }
   return { value: null as number | null, index: -1, raw: "", source: text };
@@ -373,10 +376,10 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const age = descriptionAge.label ?? listingAge.label;
 
   const annualPatterns = [
-    labeled(`الدخل\\s+السنوي(?:\\s+الحالي)?|الدخل\\s+الحالي|الايجار\\s+السنوي|الإيجار\\s+السنوي|صافي\\s+الدخل|الدخل(?:\\s+الصافي|\\s+الإجمالي|\\s+الاجمالي)?|المدخول|مدخول`),
+    incomeLabeled(`الدخل\\s+السنوي(?:\\s+الحالي)?|الدخل\\s+الحالي|الايجار\\s+السنوي|الإيجار\\s+السنوي|صافي\\s+الدخل|الدخل(?:\\s+الصافي|\\s+الإجمالي|\\s+الاجمالي)?|المدخول|مدخول`),
     `(?<!غير\\s)(?:العقار\\s+)?مؤجر(?:ة)?(?:\\s+حاليا)?\\s*(?:ب(?:مبلغ|قيمة|(?:ـ|[\\u064b-\\u065f])*))?\\s*[:\\-]?\\s*${amount}`,
   ];
-  const monthlyPatterns = [labeled(`(?:إجمالي\\s+)?(?:الدخل|الإيجار)\\s+الشهري(?:\\s+الحالي)?`)];
+  const monthlyPatterns = [incomeLabeled(`(?:إجمالي\\s+)?(?:الدخل|الإيجار)\\s+الشهري(?:\\s+الحالي)?`)];
   const incomeFrom = (source: string) => {
     const annual = first(source, annualPatterns); if (annual.value != null) return { value: annual.value, match: annual, monthly: false };
     const monthly = first(source, monthlyPatterns); return { value: monthly.value == null ? null : monthly.value * 12, match: monthly, monthly: monthly.value != null };
