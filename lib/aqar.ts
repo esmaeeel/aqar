@@ -389,6 +389,7 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const income = selectedIncome.value, match = selectedIncome.match;
   const context = match.index >= 0 ? match.source.slice(Math.max(0, match.index - 55), match.index + match.raw.length + 70) : "";
   const incomeKind = income == null ? "unknown" : /متوقع|المتوقع|يمكن|قابل للزيادة|بعد|يصل|يوصل|تقريبي/.test(context) ? "expected" : "actual";
+  const rentalListing = decodeURIComponent(new URL(url).pathname).includes("للإيجار");
   const city = title.match(/مدينة\s+([^,،|]+)/)?.[1]?.trim() || "", neighborhood = title.match(/حي\s+([^,،|]+)/)?.[1]?.trim() || "";
 
   const warnings: string[] = [];
@@ -411,15 +412,16 @@ export function parseListing(html: string, url: string, propertyType: string): L
   for (const [v, w] of [[price,"السعر غير مذكور بوضوح"],[income,"الدخل السنوي غير مذكور"],[meters,"عدد العدادات غير مذكور"],[floors,"عدد الأدوار غير مذكور"],[street,"عرض الشارع غير مذكور"],[area,"المساحة غير مذكورة"]] as [number|null,string][]) if (v == null) warnings.push(w);
   return { listingId, url, title, city, neighborhood, propertyType, price, area, sqmPrice: price && area ? price / area : null,
     apartments, housingUnits, commercialShops, rooms: ROOM_TYPES.has(propertyType) ? rooms : null, totalRooms: propertyType === "عمارة" ? totalRooms : null, bedrooms, majlis, maqlat, meters, floors, street, age, income,
-    incomeKind, yieldPct: income && price ? income / price * 100 : null, density: apartments && area ? apartments / area * 100 : null,
+    incomeKind, yieldPct: rentalListing ? null : income && price ? income / price * 100 : null, density: apartments && area ? apartments / area * 100 : null,
     warnings, status: "بيانات ناقصة", score: 0, nearEligible: true, description: desc.slice(0, 2200) };
 }
 
 export function evaluate(item: Listing, f: Filters) {
   const count = ROOM_TYPES.has(f.propertyType) ? item.rooms : item.apartments;
+  const rentalSearch = f.purpose === "rent";
   const rentalHousing = f.purpose === "rent" && ["عمارة", "فيلا", "شقة", "دور"].includes(f.propertyType);
   const sqmMin = f.propertyType === "أرض" ? f.sqmMin : 0, sqmMax = f.propertyType === "أرض" ? f.sqmMax : 0;
-  const yieldMin = rentalHousing ? 0 : f.yieldMin, minDensity = rentalHousing ? 0 : f.minDensity;
+  const yieldMin = rentalSearch ? 0 : f.yieldMin, minDensity = rentalHousing ? 0 : f.minDensity;
   const checks: [boolean, number|null, (x:number)=>boolean, number][] = [
     [f.priceMin>0,item.price,x=>x>=f.priceMin,12],[f.priceMax>0,item.price,x=>x<=f.priceMax,16],
     [sqmMin>0,item.sqmPrice,x=>x>=sqmMin,8],[sqmMax>0,item.sqmPrice,x=>x<=sqmMax,8],

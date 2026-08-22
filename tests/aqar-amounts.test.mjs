@@ -285,6 +285,14 @@ test("يقرأ قيمة الدخل الصحيحة إذا وردت في السط�
   assert.equal(listing.yieldPct, 6);
 });
 
+test("لا يحسب عائدا بنسبة مئة بالمئة من سعر إعلان التأجير نفسه", () => {
+  const html = `<h1>ورشة للإيجار في مدينة الدمام</h1><div>250,000 ﷼</div><div>استكشف خيارات التمويل</div><p>الإيجار السنوي 250,000 ريال</p>`;
+  const listing = parseListing(html, "https://sa.aqar.fm/ورش-للإيجار/الدمام/ورشة-7654327", "ورشة");
+  assert.equal(listing.price, 250_000);
+  assert.equal(listing.income, 250_000);
+  assert.equal(listing.yieldPct, null);
+});
+
 test("يتجاهل شروط الاستثمار المخفية في إيجار السكن", () => {
   const listing = parseListing(
     `<h1>شقة للإيجار في مدينة الرياض، حي الشفا</h1><p>الإيجار السنوي 30,000 ريال</p>`,
@@ -292,6 +300,16 @@ test("يتجاهل شروط الاستثمار المخفية في إيجار ا
     "شقة",
   );
   const filters = {propertyType:"شقة",purpose:"rent",locations:[],keywords:[],mode:"strict",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:99,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minDensity:99,sqmMin:99_999,sqmMax:100_000};
+  assert.equal(evaluate(listing, filters).status, "مطابقة");
+});
+
+test("يتجاهل شرط العائد في تأجير الورش", () => {
+  const listing = parseListing(
+    `<h1>ورشة للإيجار في مدينة الدمام</h1><div>250,000 ﷼</div><p>الإيجار السنوي 250,000 ريال</p>`,
+    "https://sa.aqar.fm/ورش-للإيجار/الدمام/ورشة-7654328",
+    "ورشة",
+  );
+  const filters = {propertyType:"ورشة",purpose:"rent",locations:[],keywords:[],mode:"strict",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:99,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minDensity:0,sqmMin:0,sqmMax:0};
   assert.equal(evaluate(listing, filters).status, "مطابقة");
 });
 
