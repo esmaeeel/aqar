@@ -84,6 +84,7 @@ test("يقدم وصف المعلن على قائمة التفاصيل عند ث�
     <p>
       السعر المطلوب: 3,500,000 ريال
       مساحة الأرض: 400 م²
+      عدد الشقق: 11
       عدد الوحدات السكنية: 12
       عدد العدادات: 13
       عدد الأدوار: 4
@@ -106,7 +107,7 @@ test("يقدم وصف المعلن على قائمة التفاصيل عند ث�
   const listing = parseListing(html, "https://sa.aqar.fm/عمائر-للبيع/الخبر/حي-الثقبة/عمارة-7654321", "عمارة");
   assert.equal(listing.price, 3_500_000);
   assert.equal(listing.area, 400);
-  assert.equal(listing.apartments, 10);
+  assert.equal(listing.apartments, 11);
   assert.equal(listing.housingUnits, 12);
   assert.equal(listing.meters, 13);
   assert.equal(listing.floors, 4);
@@ -115,6 +116,17 @@ test("يقدم وصف المعلن على قائمة التفاصيل عند ث�
   assert.equal(listing.income, 300_000);
   for (const label of ["السعر", "المساحة", "عدد العدادات", "عدد الأدوار", "عرض الشارع", "عمر العقار", "الدخل السنوي"])
     assert.ok(listing.warnings.some(w => w.startsWith(`${label} مختلف`)), label);
+});
+
+test("يتجاهل حد المساحات ويعتمد المساحة الصريحة في شرح المعلن", () => {
+  const html = `
+    <h1>ورشة للإيجار في حي الصناعية الجنوبية، مدينة الدمام</h1>
+    <div>استكشف خيارات التمويل</div>
+    <p>للإيجار ورشة بمساحة 12,000 متر مربع. لا توجد مساحات دون 1000 م².</p>
+    <h3>تفاصيل الإعلان</h3><p>المساحة 12,184 م²</p>
+  `;
+  const listing = parseListing(html, "https://sa.aqar.fm/ورش-للإيجار/الدمام/ورشة-7654341", "ورشة");
+  assert.equal(listing.area, 12_000);
 });
 
 test("لا يعتبر اختلاف التنسيق أو فرق المساحة الطفيف تعارضًا", () => {

@@ -166,7 +166,7 @@ function parseAmount(raw?: string | null, unit = "") {
   else if (u.includes("الف") && value < 100000) value *= 1_000;
   return value;
 }
-const amount = `([\\d][\\d,.]*|(?:مليون(?:ين|ان)?|الف|ألف)(?!\\w))[^\\S\\n]*(مليون(?:ين|ان)?|الف|ألف)?(?:[^\\d\\n]{0,8}و[^\\d\\n]{0,8}([\\d][\\d,.]*)[^\\S\\n]*(مليون(?:ين|ان)?|الف|ألف)?)?`;
+const amount = `([\\d][\\d,.]*|(?:مليون(?:ين|ان)?|الف|ألف)(?!\\w))[^\\S\\n]*(مليون(?:ين|ان)?|الف|ألف)?(?:[^\\d\\n]{0,8}(?<![ء-يA-Za-z_])و(?![ء-يA-Za-z_])[^\\d\\n]{0,8}([\\d][\\d,.]*)[^\\S\\n]*(مليون(?:ين|ان)?|الف|ألف)?)?`;
 const gap = `[^\\d\\n]{0,40}?(?:\\n[^\\d\\n]{0,24}?)?`;
 const incomeStopLabels = `السعر(?:\\s+المطلوب)?|سعر\\s+(?:البيع|العقار)|المطلوب|الحد|قيمة\\s+العقار`;
 const incomeGap = `(?:(?!(?:${incomeStopLabels}))[^\\d\\n]){0,40}?(?:\\n(?:(?!(?:${incomeStopLabels}))[^\\d\\n]){0,24}?)?`;
@@ -186,6 +186,26 @@ function first(text: string, patterns: string[]) {
 }
 function preferred(desc: string, structured: string, patterns: string[]) {
   const a = first(desc, patterns); return a.value != null ? a : first(structured, patterns);
+}
+function preferDescription<T>(descriptionValue: T | null | undefined, structuredValue: T | null | undefined) {
+  return descriptionValue ?? structuredValue ?? null;
+}
+function firstArea(source: string) {
+  const labels = `المساحة\\s+حسب\\s+الصك|مساحة\\s+الأرض|بمساح(?:ة|ه)|المساح(?:ة|ه)|مساحت(?:ها|ه)|مساح(?:ة|ه)`;
+  const patterns = [
+    labeled(`(?:${labels})(?![ء-يA-Za-z0-9_])`),
+    `${amount}[^\\S\\n]*(?:م(?:²|2)|متر(?:اً|ا)?\\s+مربع)`,
+  ];
+  const limitContext = /(?:لا\s+(?:توجد|يوجد)|دون|اقل\s+من|لا\s+تقل\s+عن|ابتداء\s+من|تبدا\s+من|الحد\s+الادني|حد\s+ادني)[^.،\n]{0,35}$/i;
+  for (const pattern of patterns) {
+    const re = new RegExp(pattern, "gi"); let match: RegExpExecArray | null;
+    while ((match = re.exec(source))) {
+      const before = normalizeText(source.slice(Math.max(0, match.index - 80), match.index));
+      if (limitContext.test(before)) continue;
+      return { value: matchedAmount(match), index: match.index, raw: match[0], source };
+    }
+  }
+  return { value: null as number | null, index: -1, raw: "", source };
 }
 function allAmounts(text: string, pattern: string, excludePercentages = false) {
   const values: number[] = []; const re = new RegExp(pattern, "gi"); let m: RegExpExecArray | null;
@@ -335,40 +355,39 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const dp = allAmounts(desc, pricePattern, true), sp = allAmounts(structured, pricePattern, true);
   const listedPrice = headerPrice ?? sp[0];
   const descriptionPrice = expandAbbreviatedAmount(dp[0], listedPrice);
-  const price = descriptionPrice ?? listedPrice ?? null;
+  const price = preferDescription(descriptionPrice, listedPrice);
 
-  const areaPatterns = [labeled(`المساحة\\s+حسب\\s+الصك|مساحة\\s+الأرض|المساحة|مساحتها|مساحته`), `([\\d,.]+)[^\\S\\n]*م(?:²|2)`];
-  const da = first(desc, areaPatterns).value, sa = first(structured, areaPatterns).value, area = da ?? sa;
+  const da = firstArea(desc).value, sa = firstArea(structured).value, area = preferDescription(da, sa);
 
   const apartmentPatterns = [labeled(`عدد\\s+الشقق`), `([\\d,.]+)\\s*(?:شقة|شقق)(?:\\s|،|\\.|$)`];
   const descriptionApartments = first(desc, apartmentPatterns).value, structuredApartments = first(structured, apartmentPatterns).value;
-  const apartments = descriptionApartments ?? structuredApartments;
+  const apartments = preferDescription(descriptionApartments, structuredApartments);
 
   const housingUnitPatterns = [labeled(`عدد\\s+الوحدات(?:\\s+السكنية)?`), `([\\d,.]+)\\s*وحد(?:ة|ات)\\s*سكنية`, `(?:^|[\\n*•\\-])\\s*([\\d,.]+)\\s*وحد(?:ة|ات)(?=\\s|،|\\.|$)`];
   const descriptionHousingUnits = first(desc, housingUnitPatterns).value, structuredHousingUnits = first(structured, housingUnitPatterns).value;
-  const housingUnits = descriptionHousingUnits ?? structuredHousingUnits;
+  const housingUnits = preferDescription(descriptionHousingUnits, structuredHousingUnits);
 
   const commercialShopPatterns = [labeled(`عدد\\s+المحلات(?:\\s+التجارية)?|المحلات\\s+التجارية`), `([\\d,.]+)\\s*محلات?(?:\\s+تجارية)?(?=\\s|،|\\.|$)`, `([\\d,.]+)\\s*محل(?:\\s+تجاري)?(?=\\s|،|\\.|$)`];
   const descriptionCommercialShops = first(desc, commercialShopPatterns).value, structuredCommercialShops = first(structured, commercialShopPatterns).value;
-  const commercialShops = descriptionCommercialShops ?? structuredCommercialShops;
+  const commercialShops = preferDescription(descriptionCommercialShops, structuredCommercialShops);
 
   const descriptionRooms = roomCounts(desc), structuredRooms = roomCounts(structured);
   const selectedRooms = descriptionRooms.rooms != null ? descriptionRooms : structuredRooms;
   const { rooms, bedrooms, majlis, maqlat } = selectedRooms;
   const descriptionTotalRooms = totalBuildingRooms(desc), structuredTotalRooms = totalBuildingRooms(structured);
-  const totalRooms = descriptionTotalRooms ?? structuredTotalRooms;
+  const totalRooms = preferDescription(descriptionTotalRooms, structuredTotalRooms);
 
   const meterPatterns = [labeled(`عدد\\s+عدادات\\s+الكهرباء|عدادات\\s+الكهرباء|عدد\\s+العدادات`), `([\\d,.]+)\\s*(?:عدادات|عداد)(?!\\s*مياه)`];
   const descriptionMeters = first(desc, meterPatterns).value, structuredMeters = first(structured, meterPatterns).value;
-  const meters = descriptionMeters ?? structuredMeters;
+  const meters = preferDescription(descriptionMeters, structuredMeters);
 
   const floorPatterns = [labeled(`عدد\\s+الأدوار|عدد\\s+الادوار`), `([\\d,.]+)\\s*(?:أدوار|ادوار|طوابق)`];
   const descriptionFloors = first(desc, floorPatterns).value, structuredFloors = first(structured, floorPatterns).value;
-  const floors = descriptionFloors ?? structuredFloors;
+  const floors = preferDescription(descriptionFloors, structuredFloors);
 
   const streetPatterns = [labeled(`عرض\\s+الشارع`), `شارع(?:ين)?\\s*(?:بعرض|عرض)?\\s*([\\d,.]+)\\s*م`];
   const descriptionStreet = first(desc, streetPatterns).value, structuredStreet = first(structured, streetPatterns).value;
-  const street = descriptionStreet ?? structuredStreet;
+  const street = preferDescription(descriptionStreet, structuredStreet);
 
   const descriptionAge = ageFromSource(desc), structuredAge = ageFromSource(structured);
   const embeddedAge = ageFromSource(embeddedAgeSource(html));
