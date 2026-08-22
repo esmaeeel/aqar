@@ -291,6 +291,8 @@ test("لا يحسب عائدا بنسبة مئة بالمئة من سعر إعل
   assert.equal(listing.price, 250_000);
   assert.equal(listing.income, 250_000);
   assert.equal(listing.yieldPct, null);
+  assert.match(pageSource, /!rentalSearch\)fields\.push\(\["income","الدخل السنوي"\],\["yieldPct","العائد %"\]\)/);
+  assert.match(pageSource, /!\["income","yieldPct"\]\.includes\(column\.key\)/);
 });
 
 test("يتجاهل شروط الاستثمار المخفية في إيجار السكن", () => {
