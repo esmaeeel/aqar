@@ -190,22 +190,35 @@ function preferred(desc: string, structured: string, patterns: string[]) {
 function preferDescription<T>(descriptionValue: T | null | undefined, structuredValue: T | null | undefined) {
   return descriptionValue ?? structuredValue ?? null;
 }
-function firstArea(source: string) {
-  const labels = `المساحة\\s+حسب\\s+الصك|مساحة\\s+الأرض|بمساح(?:ة|ه)|المساح(?:ة|ه)|مساحت(?:ها|ه)|مساح(?:ة|ه)`;
+function areaCandidates(source: string) {
+  const labels = `المساحة\\s+حسب\\s+الصك|مساحة\\s+الأرض|بمساح(?:ة|ه)|المساح(?:ة|ه|ات)|مساحت(?:ها|ه)|مساح(?:ة|ه|ات)`;
+  const areaCapture = `([\\d][\\d,.]*)`;
   const patterns = [
-    labeled(`(?:${labels})(?![ء-يA-Za-z0-9_])`),
-    `${amount}[^\\S\\n]*(?:م(?:²|2)|متر(?:اً|ا)?\\s+مربع)`,
+    `(?:${labels})(?![ء-يA-Za-z0-9_])${gap}${areaCapture}`,
+    `${areaCapture}[^\\S\\n]*(?:م(?:²|2)|متر(?:اً|ا)?\\s+مربع)`,
   ];
   const limitContext = /(?:لا\s+(?:توجد|يوجد)|دون|اقل\s+من|لا\s+تقل\s+عن|ابتداء\s+من|تبدا\s+من|الحد\s+الادني|حد\s+ادني)[^.،\n]{0,35}$/i;
+  const matches: { index: number; value: number }[] = [];
   for (const pattern of patterns) {
     const re = new RegExp(pattern, "gi"); let match: RegExpExecArray | null;
     while ((match = re.exec(source))) {
       const before = normalizeText(source.slice(Math.max(0, match.index - 80), match.index));
       if (limitContext.test(before)) continue;
-      return { value: matchedAmount(match), index: match.index, raw: match[0], source };
+      const value = parseAmount(match[1]);
+      if (value != null && value > 0) matches.push({ index: match.index, value });
     }
   }
-  return { value: null as number | null, index: -1, raw: "", source };
+  matches.sort((a, b) => a.index - b.index);
+  return matches.map(match => match.value).filter((value, index, values) => values.indexOf(value) === index);
+}
+function explicitUnitPrice(source: string) {
+  return first(source, [labeled(`سعر\\s*(?:المتر|متر)(?:\\s+المربع)?`)]).value;
+}
+function chooseArea(candidates: number[], price: number | null, unitPrice: number | null) {
+  if (!candidates.length) return null;
+  if (price != null && unitPrice != null && price > 0 && unitPrice > 0)
+    return candidates.reduce((best, value) => Math.abs(value * unitPrice - price) < Math.abs(best * unitPrice - price) ? value : best);
+  return candidates[0];
 }
 function allAmounts(text: string, pattern: string, excludePercentages = false) {
   const values: number[] = []; const re = new RegExp(pattern, "gi"); let m: RegExpExecArray | null;
@@ -357,7 +370,11 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const descriptionPrice = expandAbbreviatedAmount(dp[0], listedPrice);
   const price = preferDescription(descriptionPrice, listedPrice);
 
-  const da = firstArea(desc).value, sa = firstArea(structured).value, area = preferDescription(da, sa);
+  const descriptionUnitPrice = explicitUnitPrice(desc), structuredUnitPrice = explicitUnitPrice(structured);
+  const explicitSqmPrice = preferDescription(descriptionUnitPrice, structuredUnitPrice);
+  const da = chooseArea(areaCandidates(desc), price, explicitSqmPrice);
+  const sa = chooseArea(areaCandidates(structured), price, explicitSqmPrice);
+  const area = preferDescription(da, sa);
 
   const apartmentPatterns = [labeled(`عدد\\s+الشقق`), `([\\d,.]+)\\s*(?:شقة|شقق)(?:\\s|،|\\.|$)`];
   const descriptionApartments = first(desc, apartmentPatterns).value, structuredApartments = first(structured, apartmentPatterns).value;
@@ -429,7 +446,7 @@ export function parseListing(html: string, url: string, propertyType: string): L
   addConflict("الدخل السنوي", descriptionIncome.value, structuredIncome.value, .02);
   if (selectedIncome.monthly) warnings.push("حُوّل الدخل الشهري إلى سنوي بضربه في 12"); if (incomeKind === "expected") warnings.push("الدخل المذكور متوقع وليس فعليًا مؤكدًا");
   for (const [v, w] of [[price,"السعر غير مذكور بوضوح"],[income,"الدخل السنوي غير مذكور"],[meters,"عدد العدادات غير مذكور"],[floors,"عدد الأدوار غير مذكور"],[street,"عرض الشارع غير مذكور"],[area,"المساحة غير مذكورة"]] as [number|null,string][]) if (v == null) warnings.push(w);
-  return { listingId, url, title, city, neighborhood, propertyType, price, area, sqmPrice: price && area ? price / area : null,
+  return { listingId, url, title, city, neighborhood, propertyType, price, area, sqmPrice: explicitSqmPrice ?? (price && area ? price / area : null),
     apartments, housingUnits, commercialShops, rooms: ROOM_TYPES.has(propertyType) ? rooms : null, totalRooms: propertyType === "عمارة" ? totalRooms : null, bedrooms, majlis, maqlat, meters, floors, street, age, income,
     incomeKind, yieldPct: rentalListing ? null : income && price ? income / price * 100 : null, density: apartments && area ? apartments / area * 100 : null,
     warnings, status: "بيانات ناقصة", score: 0, nearEligible: true, description: desc.slice(0, 2200) };
