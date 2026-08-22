@@ -14,7 +14,7 @@ const nums: {key:keyof Filters;label:string;hint?:string}[] = [
   {key:"minDensity",label:"شقق لكل 100م²"},{key:"sqmMin",label:"سعر المتر من"},{key:"sqmMax",label:"سعر المتر إلى"},
 ];
 const RENTAL_HOUSING_TYPES=new Set(["عمارة","فيلا","شقة","دور"]);
-const PRICE_PER_SQM_TYPES=new Set(["مستودع","شقة","أرض"]);
+const PRICE_PER_SQM_TYPES=new Set(["مستودع","ورشة","أرض"]);
 type SavedSet={id:number;name:string;propertyType:string;createdAt:string;count:number;resultsJson:string};
 type Profile={id:number;name:string;filtersJson:string};
 type SearchSource={category:string;city:string;neighborhood:string;page:number};
