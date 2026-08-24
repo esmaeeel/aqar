@@ -64,3 +64,14 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.deepEqual(await readdir(previewRoot), []);
 });
+
+test("keeps a short header click for sorting and captures the pointer only after dragging", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const beginStart = page.indexOf("function beginPointerDrag");
+  const moveStart = page.indexOf("function continuePointerDrag");
+  const endStart = page.indexOf("function endPointerDrag");
+  assert.ok(beginStart >= 0 && moveStart > beginStart && endStart > moveStart);
+  assert.doesNotMatch(page.slice(beginStart, moveStart), /setPointerCapture/);
+  assert.match(page.slice(moveStart, endStart), /drag\.moved=true;.*setPointerCapture/);
+  assert.match(page, /className="sortHeader" onClick=\{\(\)=>sortBy\(column\.key\)\}/);
+});
