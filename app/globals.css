@@ -18,7 +18,7 @@
 
 /* Compact search layout: presentation only; search fields and handlers remain unchanged. */
 .top{max-width:980px;margin-inline:auto}
-.searchPanel{max-width:980px;margin-inline:auto;padding:16px}
+.searchPanel{width:100%;max-width:none;margin-inline:auto;padding:16px}
 .searchPanel .sectionHead{margin-bottom:10px}
 .searchPanel .sectionHead .inline{justify-content:flex-end}
 .searchPanel .sectionHead .inline select{min-width:210px}
