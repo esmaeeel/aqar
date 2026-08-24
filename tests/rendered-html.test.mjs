@@ -51,6 +51,7 @@ test("removes the disposable starter preview from the finished site", async () =
 
   assert.doesNotMatch(page, /SkeletonPreview|_sites-preview|codex-preview/);
   assert.match(page, /maxListings:\s*200/);
+  assert.match(page, /value=\{filters\.maxListings\|\|""\}/);
   assert.match(page, /propertyType:\s*"عام"/);
   assert.match(page, /value=\{keywordDraft\}/);
   assert.match(page, /changeKeywordDraft\(e\.target\.value\)/);
