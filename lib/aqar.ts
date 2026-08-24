@@ -2,7 +2,7 @@ import { canonicalCity, neighborhoodsMatch } from "@/lib/locations";
 
 export const AQAR_ORIGIN = "https://sa.aqar.fm";
 const NEAR_TOLERANCE = 0.20;
-export const ROOM_TYPES = new Set(["فيلا", "شقة", "دور"]);
+export const ROOM_TYPES = new Set(["فيلا", "شقة", "دور", "استراحة", "شاليه", "استوديو", "غرفة"]);
 export const CATEGORIES: Record<string, Record<string, string[]>> = {
   "عمارة": { sale: ["عمائر-للبيع"], rent: ["عمائر-للإيجار"] },
   "فيلا": { sale: ["فلل-للبيع"], rent: ["فلل-للإيجار"] },
@@ -14,6 +14,14 @@ export const CATEGORIES: Record<string, Record<string, string[]>> = {
     sale: ["ورش-للبيع", "مستودعات-للبيع", "محلات-للبيع", "أراضي-للبيع"],
     rent: ["ورش-للإيجار", "مستودع-للإيجار", "محلات-للإيجار", "أراضي-للإيجار"],
   },
+  "استراحة": { sale: ["استراحة-للبيع"], rent: ["استراحة-للإيجار"] },
+  // لا توجد فئة مستقلة لشاليهات البيع في عقار؛ تظهر ضمن استراحات البيع.
+  "شاليه": { sale: ["استراحة-للبيع"], rent: ["شاليه-للإيجار"] },
+  "محل": { sale: ["محلات-للبيع"], rent: ["محلات-للإيجار"] },
+  "مكتب": { sale: ["مكاتب-للبيع"], rent: ["مكتب-تجاري-للإيجار"] },
+  "استوديو": { sale: ["استوديوهات-للبيع"], rent: ["استوديوهات-للإيجار"] },
+  "غرفة": { sale: ["غرف-للبيع"], rent: ["غرف-للإيجار"] },
+  "عام": { sale: ["عقارات"], rent: ["عقارات"] },
 };
 
 export type Location = { city: string; neighborhoods: string[] };
@@ -25,7 +33,7 @@ export type Filters = {
   areaMax: number; minDensity: number; sqmMin: number; sqmMax: number;
 };
 
-export const PRICE_PER_SQM_TYPES = new Set(["عمارة", "فيلا", "شقة", "دور", "أرض", "مستودع", "ورشة"]);
+export const PRICE_PER_SQM_TYPES = new Set(["عمارة", "فيلا", "شقة", "دور", "أرض", "مستودع", "ورشة", "استراحة", "شاليه", "محل", "مكتب", "استوديو", "غرفة", "عام"]);
 const HIDDEN_FILTERS_BY_PROPERTY_TYPE: Record<string, (keyof Filters)[]> = {
   "عمارة": [],
   "فيلا": ["minMeters", "minDensity"],
@@ -34,7 +42,43 @@ const HIDDEN_FILTERS_BY_PROPERTY_TYPE: Record<string, (keyof Filters)[]> = {
   "أرض": ["minMeters", "minCount", "minFloors", "minDensity"],
   "مستودع": ["minMeters", "minCount", "minFloors", "minDensity"],
   "ورشة": ["minMeters", "minCount", "minFloors", "minDensity"],
+  "استراحة": ["minMeters", "minDensity"],
+  "شاليه": ["minMeters", "minDensity"],
+  "محل": ["minMeters", "minCount", "minFloors", "minDensity"],
+  "مكتب": ["minMeters", "minCount", "minFloors", "minDensity"],
+  "استوديو": ["minMeters", "minCount", "minFloors", "minDensity"],
+  "غرفة": ["minMeters", "minCount", "minFloors", "minDensity"],
+  "عام": ["minMeters", "minCount", "minFloors", "minDensity"],
 };
+
+const PROPERTY_TYPE_BY_CATEGORY: Record<string, string> = {
+  "عمائر-للبيع":"عمارة", "عمائر-للإيجار":"عمارة", "فلل-للبيع":"فيلا", "فلل-للإيجار":"فيلا",
+  "شقق-للبيع":"شقة", "شقق-للإيجار":"شقة", "دور-للبيع":"دور", "دور-للإيجار":"دور",
+  "أراضي-للبيع":"أرض", "أراضي-للإيجار":"أرض", "مستودعات-للبيع":"مستودع", "مستودع-للإيجار":"مستودع",
+  "ورش-للبيع":"ورشة", "ورش-للإيجار":"ورشة", "استراحة-للبيع":"استراحة", "استراحة-للإيجار":"استراحة",
+  "شاليه-للإيجار":"شاليه", "محلات-للبيع":"محل", "محلات-للإيجار":"محل",
+  "مكاتب-للبيع":"مكتب", "مكتب-تجاري-للإيجار":"مكتب", "استوديوهات-للبيع":"استوديو",
+  "استوديوهات-للإيجار":"استوديو", "غرف-للبيع":"غرفة", "غرف-للإيجار":"غرفة",
+};
+
+export function generalSearchHasRequiredKeywords(propertyType: string, keywords: string[] | undefined) {
+  return propertyType !== "عام" || Boolean(keywords?.length);
+}
+
+export function listingCategoryFromUrl(url: string) {
+  try { return new URL(url).pathname.split("/").filter(Boolean).map(decodeURIComponent).find(part => /-(?:للبيع|للإيجار)$/.test(part)) || ""; }
+  catch { return ""; }
+}
+
+export function propertyTypeFromListingUrl(url: string, fallback = "عام") {
+  return PROPERTY_TYPE_BY_CATEGORY[listingCategoryFromUrl(url)] || fallback;
+}
+
+export function requestedPropertyTypeMatches(propertyType: string, searchable: string) {
+  if (propertyType === "ورشة") return /(?:^|\s)(?:ورشة|ورش)(?:\s|$)|(?:مركز|مراكز)\s+(?:ال)?صيانة/.test(searchable);
+  if (propertyType === "شاليه") return /(?:^|\s)(?:شالي[هة]|شاليهات)(?:\s|$)/.test(searchable);
+  return true;
+}
 
 export function hiddenNumericFilterKeys(propertyType: string, purpose: Filters["purpose"]) {
   const hidden = new Set<keyof Filters>(HIDDEN_FILTERS_BY_PROPERTY_TYPE[propertyType] || []);
@@ -383,8 +427,18 @@ function linkInRequestedLocation(url: string, category: string, city: string, ne
   if (index < 0 || normalizedLocation(parts[index + 1] || "") !== normalizedLocation(city)) return false;
   return !neighborhood || parts.slice(index + 2).some(part => neighborhoodsMatch(city, part, neighborhood));
 }
-export function listingLinks(html: string, category: string, city: string, neighborhood = "") {
+export function listingLinks(html: string, category: string, city: string, neighborhood = "", purpose: Filters["purpose"] | "" = "") {
   const out = new Map<string, string>(); const decoded = html.replace(/&amp;/g, "&");
+  if (category === "عقارات") {
+    const general = /href=["']([^"'#?]*-(\d{5,})(?:\/[^"'#?]*)?)["']/gi; let match;
+    while ((match = general.exec(decoded))) {
+      const url = match[1].startsWith("http") ? match[1] : `${AQAR_ORIGIN}${match[1].startsWith("/") ? "" : "/"}${match[1]}`;
+      const actualCategory = listingCategoryFromUrl(url);
+      if (!actualCategory || purpose === "sale" && !actualCategory.endsWith("للبيع") || purpose === "rent" && !actualCategory.endsWith("للإيجار")) continue;
+      if (linkInRequestedLocation(url, actualCategory, city, neighborhood)) out.set(match[2], encodeURI(url));
+    }
+    return [...out.entries()].map(([listingId, url]) => ({ listingId, url }));
+  }
   const escaped = category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); const re = new RegExp(`href=["']([^"']*\\/${escaped}\\/[^"'#?]+-(\\d{5,})(?:\\/${escaped})?)["']`, "gi"); let m;
   while ((m = re.exec(decoded))) { const url = m[1].startsWith("http") ? m[1] : `${AQAR_ORIGIN}${m[1].startsWith("/") ? "" : "/"}${m[1]}`; if (linkInRequestedLocation(url, category, city, neighborhood)) out.set(m[2], encodeURI(url)); }
   return [...out.entries()].map(([listingId, url]) => ({ listingId, url }));

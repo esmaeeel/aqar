@@ -19,7 +19,7 @@ const javascript = ts.transpileModule(source.replace('"@/lib/locations"', JSON.s
     target: ts.ScriptTarget.ES2022,
   },
 }).outputText;
-const { CATEGORIES, PRICE_PER_SQM_TYPES, evaluate, hiddenNumericFilterKeys, hiddenResultColumnKeys, listingMatchesRequestedLocation, parseListing } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
+const { CATEGORIES, PRICE_PER_SQM_TYPES, evaluate, generalSearchHasRequiredKeywords, hiddenNumericFilterKeys, hiddenResultColumnKeys, listingLinks, listingMatchesRequestedLocation, parseListing, propertyTypeFromListingUrl, requestedPropertyTypeMatches } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
 
 function priceFrom(description) {
   const html = `<h1>عمارة للبيع في مدينة الرياض، حي العوالي</h1><p>${description}</p>`;
@@ -141,6 +141,35 @@ test("يعرض مساحة واحدة ويرجح الأقرب إلى السعر �
   assert.equal(listing.price, 148_000);
   assert.equal(listing.area, 424);
   assert.ok(Math.abs(listing.sqmPrice - 148_000 / 424) < 0.0001);
+});
+
+test("يضيف الأنواع الجديدة وخيار البحث العام بمساراتهما الصحيحة", () => {
+  const expected = {
+    "استراحة": {sale:["استراحة-للبيع"],rent:["استراحة-للإيجار"]},
+    "شاليه": {sale:["استراحة-للبيع"],rent:["شاليه-للإيجار"]},
+    "محل": {sale:["محلات-للبيع"],rent:["محلات-للإيجار"]},
+    "مكتب": {sale:["مكاتب-للبيع"],rent:["مكتب-تجاري-للإيجار"]},
+    "استوديو": {sale:["استوديوهات-للبيع"],rent:["استوديوهات-للإيجار"]},
+    "غرفة": {sale:["غرف-للبيع"],rent:["غرف-للإيجار"]},
+    "عام": {sale:["عقارات"],rent:["عقارات"]},
+  };
+  for (const [propertyType, categories] of Object.entries(expected)) assert.deepEqual(CATEGORIES[propertyType], categories);
+  assert.equal(requestedPropertyTypeMatches("شاليه", "شاليهات فاخرة للبيع"), true);
+  assert.equal(requestedPropertyTypeMatches("شاليه", "استراحة عائلية للبيع"), false);
+});
+
+test("البحث العام يلزم كلمات مطلوبة ويحتفظ بغرض البيع أو التأجير", () => {
+  assert.equal(generalSearchHasRequiredKeywords("عام", []), false);
+  assert.equal(generalSearchHasRequiredKeywords("عام", ["مزرعة"]), true);
+  assert.equal(generalSearchHasRequiredKeywords("فيلا", []), true);
+  const html = `
+    <a href="/مزارع-للبيع/الرياض/حي-العوالي/مزرعة-123456">بيع</a>
+    <a href="/فنادق-للإيجار/الرياض/حي-العوالي/فندق-234567">إيجار</a>`;
+  assert.deepEqual(listingLinks(html, "عقارات", "الرياض", "العوالي", "sale").map(item => item.listingId), ["123456"]);
+  assert.deepEqual(listingLinks(html, "عقارات", "الرياض", "العوالي", "rent").map(item => item.listingId), ["234567"]);
+  assert.equal(propertyTypeFromListingUrl("https://sa.aqar.fm/استوديوهات-للبيع/جدة/استوديو-123456"), "استوديو");
+  assert.equal(propertyTypeFromListingUrl("https://sa.aqar.fm/مزارع-للبيع/الرياض/مزرعة-123456"), "عام");
+  assert.match(pageSource, /generalSearchHasRequiredKeywords\(clean\.propertyType,clean\.keywords\)/);
 });
 
 test("يستخدم سعر المتر الصريح فقط عند تعذر حسابه ويتركه فارغًا عند غياب المصدرين", () => {
@@ -394,7 +423,7 @@ test("يطبق شرط سعر المتر على جميع أنواع العقار�
 });
 
 test("يعرض عمود سعر المتر لجميع أنواع العقارات في البيع والتأجير", () => {
-  assert.deepEqual([...PRICE_PER_SQM_TYPES], ["عمارة", "فيلا", "شقة", "دور", "أرض", "مستودع", "ورشة"]);
+  assert.deepEqual([...PRICE_PER_SQM_TYPES], ["عمارة", "فيلا", "شقة", "دور", "أرض", "مستودع", "ورشة", "استراحة", "شاليه", "محل", "مكتب", "استوديو", "غرفة", "عام"]);
   assert.match(pageSource, /PRICE_PER_SQM_TYPES\.has\(filters\.propertyType\)\)fields\.push\(\["sqmPrice","سعر المتر"\]\)/);
   assert.match(pageSource, /PRICE_PER_SQM_TYPES\.has\(propertyType\)\|\|column\.key!=="sqmPrice"/);
   assert.match(pageSource, /r\.sqmPrice==null\?"":fmt\(r\.sqmPrice,2\)/);
@@ -405,7 +434,9 @@ test("يخفي الشروط الرقمية غير المناسبة بحسب نو
   assert.deepEqual([...hiddenNumericFilterKeys("فيلا", "sale")].sort(), ["minDensity", "minMeters"]);
   assert.deepEqual([...hiddenNumericFilterKeys("شقة", "sale")].sort(), ["minDensity", "minFloors", "minMeters"]);
   assert.deepEqual([...hiddenNumericFilterKeys("دور", "sale")].sort(), ["minDensity", "minFloors", "minMeters"]);
-  for (const propertyType of ["أرض", "مستودع", "ورشة"])
+  for (const propertyType of ["استراحة", "شاليه"])
+    assert.deepEqual([...hiddenNumericFilterKeys(propertyType, "sale")].sort(), ["minDensity", "minMeters"]);
+  for (const propertyType of ["أرض", "مستودع", "ورشة", "محل", "مكتب", "استوديو", "غرفة", "عام"])
     assert.deepEqual([...hiddenNumericFilterKeys(propertyType, "sale")].sort(), ["minCount", "minDensity", "minFloors", "minMeters"]);
   for (const propertyType of PRICE_PER_SQM_TYPES)
     assert.ok(hiddenNumericFilterKeys(propertyType, "rent").has("yieldMin"), propertyType);
@@ -416,7 +447,9 @@ test("يطابق أعمدة النتائج الشروط الظاهرة لكل ن
   assert.deepEqual([...hiddenResultColumnKeys("فيلا", "sale")].sort(), ["density", "meters"]);
   assert.deepEqual([...hiddenResultColumnKeys("شقة", "sale")].sort(), ["density", "floors", "meters"]);
   assert.deepEqual([...hiddenResultColumnKeys("دور", "sale")].sort(), ["density", "floors", "meters"]);
-  for (const propertyType of ["أرض", "مستودع", "ورشة"])
+  for (const propertyType of ["استراحة", "شاليه"])
+    assert.deepEqual([...hiddenResultColumnKeys(propertyType, "sale")].sort(), ["density", "meters"]);
+  for (const propertyType of ["أرض", "مستودع", "ورشة", "محل", "مكتب", "استوديو", "غرفة", "عام"])
     assert.deepEqual([...hiddenResultColumnKeys(propertyType, "sale")].sort(), ["count", "density", "floors", "meters"]);
   for (const propertyType of PRICE_PER_SQM_TYPES)
     assert.ok(hiddenResultColumnKeys(propertyType, "rent").has("yieldPct"), propertyType);

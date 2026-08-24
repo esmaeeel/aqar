@@ -37,6 +37,8 @@ test("server-renders the Arabic property search site and browser limits", async 
   assert.match(html, /الحد الإجمالي 1000 عملية بحث/);
   assert.match(html, /جدول مقارنة نتائج العقارات/);
   assert.match(html, /مستودع/);
+  for (const propertyType of ["استراحة", "شاليه", "محل", "مكتب", "استوديو", "غرفة", "عام"])
+    assert.match(html, new RegExp(propertyType));
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|Building your site/i);
 });
 
@@ -53,6 +55,7 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(page, /changeKeywordDraft\(e\.target\.value\)/);
   assert.match(page, /update\("keywords",keywordsFromDraft\(value\)\)/);
   assert.match(page, /split\(\/\[،,\]\//);
+  assert.match(page, /عند اختيار «عام»/);
   assert.doesNotMatch(page, /value=\{filters\.keywords\.join/);
   assert.match(layout, /title:\s*"باحث العقارات"/);
   assert.doesNotMatch(layout, /Starter Project|codex-preview|_sites-preview/);
