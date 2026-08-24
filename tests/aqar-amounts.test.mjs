@@ -19,7 +19,7 @@ const javascript = ts.transpileModule(source.replace('"@/lib/locations"', JSON.s
     target: ts.ScriptTarget.ES2022,
   },
 }).outputText;
-const { CATEGORIES, PRICE_PER_SQM_TYPES, evaluate, generalSearchHasRequiredKeywords, hiddenNumericFilterKeys, hiddenResultColumnKeys, keywordMatches, listingLinks, listingMatchesRequestedLocation, parseListing, propertyTypeFromListingUrl, requestedPropertyTypeMatches } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
+const { CATEGORIES, PRICE_PER_SQM_TYPES, evaluate, generalSearchHasRequiredKeywords, hiddenNumericFilterKeys, hiddenResultColumnKeys, keywordMatches, listingKeywordSearchableText, listingLinks, listingMatchesRequestedLocation, parseListing, propertyTypeFromListingUrl, requestedPropertyTypeMatches, searchCategoriesFor } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
 
 function priceFrom(description) {
   const html = `<h1>عمارة للبيع في مدينة الرياض، حي العوالي</h1><p>${description}</p>`;
@@ -32,6 +32,13 @@ test("يتعرف على مشتقات الكلمات المطلوبة دون خل
   assert.equal(keywordMatches("فندق", "شقق فندقية راقية"), true);
   assert.equal(keywordMatches("موقف", "موقع مميز"), false);
   assert.equal(keywordMatches("موقف", "العقار موقوف مؤقتًا"), false);
+});
+
+test("يوجه البحث العام إلى مصادر النوع المعروف ويقبل النوع المستنتج من الرابط", () => {
+  assert.deepEqual(searchCategoriesFor("عام", "sale", ["ورش"]), CATEGORIES["ورشة"].sale);
+  assert.deepEqual(searchCategoriesFor("عام", "sale", ["مكيف"]), ["عقارات"]);
+  const searchable = listingKeywordSearchableText({propertyType:"ورشة",title:"عقار صناعي للبيع",description:"موقع مميز"});
+  assert.equal(keywordMatches("ورش", searchable), true);
 });
 
 test("يضيف المستودع كنوع مستقل للبيع والتأجير", () => {

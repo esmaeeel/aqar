@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { Filters, Listing, Location } from "@/lib/aqar";
-import { CATEGORIES, PRICE_PER_SQM_TYPES, ROOM_TYPES, generalSearchHasRequiredKeywords, hiddenNumericFilterKeys, hiddenResultColumnKeys } from "@/lib/aqar";
+import { CATEGORIES, PRICE_PER_SQM_TYPES, ROOM_TYPES, generalSearchHasRequiredKeywords, hiddenNumericFilterKeys, hiddenResultColumnKeys, searchCategoriesFor } from "@/lib/aqar";
 import { CITY_NAMES, canonicalCity, canonicalNeighborhood, neighborhoodSuggestions, placeSuggestions } from "@/lib/locations";
 
 const LEGACY_LAST_FILTERS_KEY = "aqar-last-filters-clean-v2";
@@ -21,7 +21,7 @@ const fmt=(v:number|null,d=0)=>v==null?"غير مذكور":new Intl.NumberFormat
 const inputNumber=(value:unknown)=>Number(value)||0;
 function automaticPageCount(filters:Filters,locations:Location[],maxListings:number){
   const scopes=Math.max(1,locations.reduce((total,location)=>total+Math.max(1,location.neighborhoods.length),0));
-  const categoryCount=Math.max(1,(CATEGORIES[filters.propertyType]?.[filters.purpose]||[]).length);
+  const categoryCount=Math.max(1,searchCategoriesFor(filters.propertyType,filters.purpose,filters.keywords).length);
   const basePages=Math.max(1,Math.ceil(maxListings/(20*scopes*categoryCount)));
   return Math.min(25,basePages<=2?2:basePages+2);
 }
@@ -61,7 +61,7 @@ export default function Home(){
     let trialToken="";
     try{const reservationResponse=await fetch("/api/trial",{method:"POST",headers:deviceHeaders()});const reservation=await reservationResponse.json() as {token?:string|null;status:TrialStatus;error?:string};setTrial(reservation.status);if(!reservationResponse.ok||!reservation.token){setMessage(reservation.error||"لا يمكن بدء بحث جديد الآن.");return}trialToken=reservation.token}catch{setMessage("تعذر التحقق من المحاولات التجريبية. حاول مرة أخرى.");return}
     setBusy(true);setResults([]);setWarnings([]);setProgress(0);
-    const found=new Map<string,Listing>(),checked=new Set<string>();let discovered=0,stoppedAt=-1,stopReason="";const allSources=(()=>{const a:SearchSource[]=[];for(let page=1;page<=clean.maxPages;page++)for(const category of CATEGORIES[clean.propertyType]?.[clean.purpose]||[])for(const l of clean.locations)for(const neighborhood of(l.neighborhoods.length?l.neighborhoods:[""]))a.push({category,city:l.city,neighborhood,page});return a})();
+    const found=new Map<string,Listing>(),checked=new Set<string>();let discovered=0,stoppedAt=-1,stopReason="";const allSources=(()=>{const a:SearchSource[]=[];for(let page=1;page<=clean.maxPages;page++)for(const category of searchCategoriesFor(clean.propertyType,clean.purpose,clean.keywords))for(const l of clean.locations)for(const neighborhood of(l.neighborhoods.length?l.neighborhoods:[""]))a.push({category,city:l.city,neighborhood,page});return a})();
     for(let i=0;i<allSources.length&&checked.size<clean.maxListings;i++){
       const s=allSources[i];setMessage(`قراءة ${s.city}${s.neighborhood?` — ${s.neighborhood}`:""}، صفحة ${s.page}…`);setProgress(Math.round(i/allSources.length*100));
       try{const r=await fetch("/api/search",{method:"POST",headers:{...deviceHeaders(true),"x-aqar-trial-token":trialToken},body:JSON.stringify({filters:clean,...s,remaining:Math.min(20,clean.maxListings-checked.size),excludeListingIds:[...checked]})});const data=await r.json() as {error?:string;discovered?:number;checkedListingIds?:string[];results?:Listing[];warnings?:string[]};if(!r.ok){if(r.status===401||r.status===403){stopReason=data.error||"انتهت صلاحية محاولة البحث.";stoppedAt=i;break}throw new Error(data.error||"تعذر البحث")}discovered+=data.discovered||0;for(const id of data.checkedListingIds||[])checked.add(id);for(const item of data.results||[])found.set(item.listingId,item);if(data.warnings?.length)setWarnings(w=>[...w,...data.warnings!].slice(-20));setResults([...found.values()].sort((a,b)=>b.score-a.score||(b.yieldPct||0)-(a.yieldPct||0)));const blocked=data.warnings?.find(w=>/429|منع|تحقق|تسجيل دخول/.test(w));if(blocked){stopReason=blocked;stoppedAt=i;break}}catch(e){const m=e instanceof Error?e.message:"تعذر البحث";setWarnings(w=>[...w,m]);if(/429|منع|تحقق|تسجيل دخول/.test(m)){stopReason=m;stoppedAt=i;break}}

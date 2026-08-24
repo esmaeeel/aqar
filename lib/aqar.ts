@@ -151,6 +151,27 @@ export function keywordMatches(keyword: string, description: string) {
   const dt = (d.match(/[\p{L}\p{N}]+/gu) || []).map(stripClitic);
   return kt.length > 0 && dt.some((_, i) => kt.every((v, j) => derivativeTokensMatch(v, dt[i + j] || "")));
 }
+
+const GENERAL_PROPERTY_TYPE_ALIASES: Record<string, string[]> = {
+  "عمارة":["عمارة","عمائر"], "فيلا":["فيلا","فلل"], "شقة":["شقة","شقق"], "دور":["دور","أدوار"],
+  "أرض":["أرض","أراضي"], "مستودع":["مستودع","مستودعات"], "ورشة":["ورشة","ورش"],
+  "استراحة":["استراحة","استراحات"], "شاليه":["شاليه","شاليهات"], "محل":["محل","محلات"],
+  "مكتب":["مكتب","مكاتب"], "استوديو":["استوديو","استوديوهات"], "غرفة":["غرفة","غرف"],
+};
+export function generalPropertyTypesFromKeywords(keywords: string[] = []) {
+  return Object.entries(GENERAL_PROPERTY_TYPE_ALIASES)
+    .filter(([, aliases]) => keywords.some(keyword => aliases.some(alias => keywordMatches(keyword, alias))))
+    .map(([propertyType]) => propertyType);
+}
+export function searchCategoriesFor(propertyType: string, purpose: Filters["purpose"], keywords: string[] = []) {
+  if (propertyType !== "عام") return CATEGORIES[propertyType]?.[purpose] || [];
+  const inferredTypes = generalPropertyTypesFromKeywords(keywords);
+  if (!inferredTypes.length) return CATEGORIES["عام"][purpose];
+  return [...new Set(inferredTypes.flatMap(inferredType => CATEGORIES[inferredType]?.[purpose] || []))];
+}
+export function listingKeywordSearchableText(item: Pick<Listing, "propertyType" | "title" | "description">) {
+  return `${item.propertyType} ${item.title} ${item.description}`;
+}
 function htmlText(html: string) {
   return normalizeColloquialAmounts(normalizeDigits(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ").replace(/<br\s*\/?\s*>/gi, "\n")

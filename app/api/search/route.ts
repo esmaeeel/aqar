@@ -1,4 +1,4 @@
-import { CATEGORIES, evaluate, Filters, generalSearchHasRequiredKeywords, keywordMatches, listingLinks, listingMatchesRequestedLocation, locationUrl, parseListing, propertyTypeFromListingUrl, requestedPropertyTypeMatches } from "@/lib/aqar";
+import { evaluate, Filters, generalSearchHasRequiredKeywords, keywordMatches, listingKeywordSearchableText, listingLinks, listingMatchesRequestedLocation, locationUrl, parseListing, propertyTypeFromListingUrl, requestedPropertyTypeMatches, searchCategoriesFor } from "@/lib/aqar";
 import { isTrialTokenValid } from "@/lib/trial";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     }
     const body = await request.json() as { filters: Filters; city: string; neighborhood?: string; category: string; page: number; remaining: number; excludeListingIds?: string[] };
     const { filters, city, category } = body; const neighborhood = body.neighborhood || "";
-    if (!CATEGORIES[filters.propertyType]?.[filters.purpose]?.includes(category)) return Response.json({ error: "نوع البحث غير صالح." }, { status: 400 });
+    if (!searchCategoriesFor(filters.propertyType, filters.purpose, filters.keywords).includes(category)) return Response.json({ error: "نوع البحث غير صالح." }, { status: 400 });
     if (!generalSearchHasRequiredKeywords(filters.propertyType, filters.keywords)) return Response.json({ error: "عند اختيار «عام»، اكتب نوع العقار أو وصفه في «كلمات مطلوبة» أولًا." }, { status: 400 });
     const sourceUrl = locationUrl(category, city, neighborhood, Math.max(1, Math.min(25, Number(body.page)||1)));
     const searchHtml = await fetchAqar(sourceUrl); const allLinks = listingLinks(searchHtml, category, city, neighborhood, filters.purpose); const excluded = new Set(body.excludeListingIds || []); const links = allLinks.filter(link => !excluded.has(link.listingId)).slice(0, Math.max(1, Math.min(20, Number(body.remaining)||20)));
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
           continue;
         }
         item.city ||= city; item.neighborhood ||= neighborhood;
-        const searchable = `${item.title} ${item.description}`;
+        const searchable = listingKeywordSearchableText(item);
         if (!requestedPropertyTypeMatches(filters.propertyType, searchable)) continue;
         if (filters.keywords?.length) {
           const matched = filters.keywords.filter(k => keywordMatches(k, searchable));
