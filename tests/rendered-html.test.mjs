@@ -43,11 +43,12 @@ test("server-renders the Arabic property search site and browser limits", async 
 });
 
 test("removes the disposable starter preview from the finished site", async () => {
-  const [page, layout, packageJson, styles] = await Promise.all([
+  const [page, layout, packageJson, styles, profilesRoute] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/profiles/route.ts", import.meta.url), "utf8"),
   ]);
 
   assert.doesNotMatch(page, /SkeletonPreview|_sites-preview|codex-preview/);
@@ -57,6 +58,12 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.doesNotMatch(page, /className="topActions"/);
   assert.match(page, /شروط البحث المحفوظة/);
   assert.doesNotMatch(page, /اختر بحثًا محفوظًا/);
+  assert.match(page, /className="profileItemActions"/);
+  assert.match(page, /onContextMenu=\{event=>\{event\.preventDefault\(\);setContextProfileId\(profile\.id\)\}\}/);
+  assert.match(page, />تعديل المسمى<\/button>/);
+  assert.match(page, />حذف<\/button>/);
+  assert.match(page, /onClick=\{\(\)=>loadProfile\(profile\)\}/);
+  assert.match(profilesRoute, /export async function PUT/);
   assert.match(page, /"ابدأ البحث"/);
   assert.doesNotMatch(page, /ابدأ البحث في عقار/);
   assert.match(page, /propertyType:\s*"عام"/);

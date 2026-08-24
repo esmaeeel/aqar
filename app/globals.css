@@ -22,7 +22,20 @@
 .searchPanel{width:100%;max-width:none;margin-inline:auto;padding:16px}
 .searchPanel .sectionHead{margin-bottom:8px}
 .profileControls{display:flex!important;flex-flow:row nowrap!important;align-items:stretch;gap:5px;width:min(100%,520px)}
-.profileControls select{flex:1 1 0!important;width:auto!important;min-width:0!important}
+.profileMenu{position:relative;flex:1 1 0;min-width:0}
+.profileMenu summary{cursor:pointer;list-style:none}
+.profileMenu summary::-webkit-details-marker{display:none}
+.profileMenu>summary{display:flex;align-items:center;gap:8px;min-height:34px;border:1px solid #bfcac5;border-radius:10px;background:#fff;padding:5px 10px;color:var(--ink);font-size:.8rem;font-weight:700}
+.profileMenu>summary::after{content:"⌄";margin-inline-start:auto;font-size:1rem}
+.profileMenu[open]>summary{border-color:var(--green2);box-shadow:0 0 0 3px #d7eee8}
+.profileMenuList{position:absolute;z-index:20;inset-inline:0;top:calc(100% + 4px);max-height:260px;overflow:auto;border:1px solid #bfcac5;border-radius:10px;background:#fff;padding:5px;box-shadow:0 12px 28px rgba(24,55,49,.16)}
+.profileItem{border-bottom:1px solid #e6ece8}
+.profileItem:last-child{border-bottom:0}
+.profileName{display:block;width:100%;border:0;border-radius:7px;background:transparent;color:var(--ink);padding:8px;text-align:start;font-size:.8rem;font-weight:700}
+.profileName:hover{background:#edf5f1}
+.profileItemActions{display:flex;gap:5px;padding:0 8px 8px}
+.profileItemActions button{flex:1;border:1px solid #b7c7c1;border-radius:7px;background:#fff;color:var(--green);padding:5px 8px;font-size:.72rem;font-weight:700}
+.profileEmpty{display:block;padding:9px;color:var(--muted);font-size:.76rem;text-align:center}
 .profileControls button{flex:0 0 auto!important;padding:7px 10px;font-size:.76rem;white-space:nowrap}
 .searchFields{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px;align-items:start}
 .formBlock{margin:0;padding:8px 10px;border:1px solid #dde5e0;border-radius:12px;background:#f9fbfa;min-width:0}
@@ -76,7 +89,7 @@
 
 @media(max-width:600px){
   .profileControls{width:100%;gap:4px}
-  .profileControls select{padding-inline:7px;font-size:.75rem}
+  .profileMenu>summary{padding-inline:7px;font-size:.75rem}
   .profileControls button{padding:6px 7px;font-size:.7rem}
   .formBlock{padding:10px}
   .choiceRow{display:grid;grid-template-columns:1fr}
