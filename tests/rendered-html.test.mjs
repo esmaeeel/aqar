@@ -54,6 +54,8 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(page, /value=\{filters\.maxListings\|\|""\}/);
   assert.match(page, /className="runActions"/);
   assert.doesNotMatch(page, /className="topActions"/);
+  assert.match(page, /شروط البحث المحفوظة/);
+  assert.doesNotMatch(page, /اختر بحثًا محفوظًا/);
   assert.match(page, /"ابدأ البحث"/);
   assert.doesNotMatch(page, /ابدأ البحث في عقار/);
   assert.match(page, /propertyType:\s*"عام"/);
