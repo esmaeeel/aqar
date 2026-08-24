@@ -1,6 +1,6 @@
 import { getD1 } from "@/db";
 
-export const TRIAL_BROWSER_LIMIT = 25;
+export const TRIAL_BROWSER_LIMIT = 100;
 export const TRIAL_GLOBAL_LIMIT = 1000;
 const TRIAL_TOKEN_TTL_MS = 6 * 60 * 60 * 1000;
 

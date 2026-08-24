@@ -5,7 +5,7 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 const read = path => readFile(new URL(path, root), "utf8");
 
-test("supports a server-side per-browser override while keeping 25 as the default and 1000 globally", async () => {
+test("supports a server-side per-browser override while keeping 100 as the default and 1000 globally", async () => {
   const [trial, schema, initialMigration, browserMigration, overrideMigration, browserLimitMigration] = await Promise.all([
     read("lib/trial.ts"),
     read("db/schema.ts"),
@@ -15,7 +15,7 @@ test("supports a server-side per-browser override while keeping 25 as the defaul
     read("drizzle/0005_browser-limit-100.sql"),
   ]);
 
-  assert.match(trial, /TRIAL_BROWSER_LIMIT\s*=\s*25/);
+  assert.match(trial, /TRIAL_BROWSER_LIMIT\s*=\s*100/);
   assert.match(trial, /TRIAL_GLOBAL_LIMIT\s*=\s*1000/);
   assert.match(trial, /SELECT search_limit FROM trial_browser_limits WHERE browser_id = \?/);
   assert.match(trial, /Math\.max\(TRIAL_BROWSER_LIMIT, Math\.min\(TRIAL_GLOBAL_LIMIT/);

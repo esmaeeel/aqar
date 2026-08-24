@@ -33,7 +33,7 @@ test("server-renders the Arabic property search site and browser limits", async 
   const html = await response.text();
   assert.match(html, /<title>باحث العقارات<\/title>/i);
   assert.match(html, /التجربة المرتبطة بالمتصفح/);
-  assert.match(html, /حد هذا المتصفح 25 عملية بحث/);
+  assert.match(html, /حد هذا المتصفح 100 عملية بحث/);
   assert.match(html, /الحد الإجمالي 1000 عملية بحث/);
   assert.match(html, /جدول مقارنة نتائج العقارات/);
   assert.match(html, /مستودع/);
