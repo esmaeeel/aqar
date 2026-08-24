@@ -33,14 +33,16 @@
 .location{grid-template-columns:220px minmax(300px,420px) 42px;justify-content:start;gap:8px}
 .numericGrid{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:flex-start;gap:10px 14px}
 .numericGrid>label{flex:0 0 auto;width:max-content;max-width:100%}
-.numericGrid>label>input{width:14ch;min-width:110px;max-width:140px}
+.numericFieldShort>input{width:9ch;min-width:78px;max-width:96px}
+.numericFieldMedium>input{width:11ch;min-width:92px;max-width:116px}
+.numericFieldWide>input{width:14ch;min-width:110px;max-width:140px}
 .searchPanel label{gap:5px}
 .searchPanel input,.searchPanel select{min-height:42px}
 .searchPanel .add{margin-top:8px;padding:8px 12px}
 .descriptionBlock>label{max-width:none}
 .descriptionBlock small{font-weight:400;color:var(--muted);line-height:1.6}
 .descriptionBlock .limits{grid-template-columns:max-content minmax(260px,1fr);margin-top:14px;padding-top:12px;gap:12px}
-.descriptionBlock .limits input{width:12ch;min-width:100px}
+.descriptionBlock .limits input{width:8ch;min-width:72px}
 .descriptionBlock .limits span{padding-bottom:10px;line-height:1.6}
 .searchPanel .trialNotice{margin-top:14px}
 .searchPanel .run{margin-top:16px}
