@@ -53,6 +53,9 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(page, /maxListings:\s*200/);
   assert.match(page, /value=\{filters\.maxListings\|\|""\}/);
   assert.match(page, /propertyType:\s*"عام"/);
+  assert.match(page, /mode:\s*"strict"/);
+  assert.match(page, /> جميع الشروط<\/label>/);
+  assert.doesNotMatch(page, /جميع الشروط تمامًا/);
   assert.match(page, /value=\{keywordDraft\}/);
   assert.match(page, /changeKeywordDraft\(e\.target\.value\)/);
   assert.match(page, /update\("keywords",keywordsFromDraft\(value\)\)/);
