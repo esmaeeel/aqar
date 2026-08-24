@@ -43,10 +43,11 @@ test("server-renders the Arabic property search site and browser limits", async 
 });
 
 test("removes the disposable starter preview from the finished site", async () => {
-  const [page, layout, packageJson] = await Promise.all([
+  const [page, layout, packageJson, styles] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
   assert.doesNotMatch(page, /SkeletonPreview|_sites-preview|codex-preview/);
@@ -72,6 +73,8 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(layout, /title:\s*"باحث العقارات"/);
   assert.doesNotMatch(layout, /Starter Project|codex-preview|_sites-preview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
+  assert.match(styles, /input\[type="number"\].*appearance:textfield/);
+  assert.match(styles, /::-webkit-inner-spin-button/);
   assert.deepEqual(await readdir(previewRoot), []);
 });
 
