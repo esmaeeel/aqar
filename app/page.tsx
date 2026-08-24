@@ -15,6 +15,12 @@ const nums: {key:keyof Filters;label:string;hint?:string}[] = [
 ];
 const wideNumericKeys=new Set<keyof Filters>(["priceMin","priceMax"]);
 const mediumNumericKeys=new Set<keyof Filters>(["areaMin","areaMax","sqmMin","sqmMax"]);
+const numericGroups:{title:string;keys:(keyof Filters)[]}[]=[
+  {title:"السعر والعائد",keys:["priceMin","priceMax","yieldMin"]},
+  {title:"المساحة وسعر المتر",keys:["areaMin","areaMax","sqmMin","sqmMax"]},
+  {title:"المبنى والوحدات",keys:["minMeters","minCount","minFloors","minDensity"]},
+  {title:"الشارع",keys:["minStreet"]},
+];
 type SavedSet={id:number;name:string;propertyType:string;createdAt:string;count:number;resultsJson:string};
 type Profile={id:number;name:string;filtersJson:string};
 type SearchSource={category:string;city:string;neighborhood:string;page:number};
@@ -46,6 +52,7 @@ export default function Home(){
     if((["sqmMin","sqmMax"] as (keyof Filters)[]).includes(item.key))return PRICE_PER_SQM_TYPES.has(filters.propertyType);
     return !hiddenNumericKeys.has(item.key);
   });
+  const visibleNumericGroups=numericGroups.map(group=>({...group,items:group.keys.map(key=>visibleNums.find(item=>item.key===key)).filter((item):item is (typeof nums)[number]=>Boolean(item))})).filter(group=>group.items.length>0);
   function update<K extends keyof Filters>(key:K,value:Filters[K]){setFilters(f=>({...f,[key]:value}))}
   function addLocation(){update("locations",[...filters.locations,{city:"",neighborhoods:[]}])}
   function changeLocation(i:number,key:"city"|"neighborhoods",value:string){const next=filters.locations.map((l,j)=>j===i?{...l,[key]:key==="neighborhoods"?value.split(/[،,]/).map(x=>x.trim()).filter(Boolean):value}:l);update("locations",next as Location[])}
@@ -96,7 +103,7 @@ export default function Home(){
     <section className="panel searchPanel"><div className="sectionHead"><div><h2>مواصفات البحث</h2><p>تبدأ الحقول فارغة عند كل فتح. يمكنك تحميل بحث محفوظ يدويًا.</p></div><div className="inline"><select defaultValue="" onChange={e=>loadProfile(e.target.value)}><option value="">اختر بحثًا محفوظًا</option>{profiles.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><button className="ghost" onClick={saveProfile}>حفظ الشروط</button><button className="ghost" onClick={clearFields}>مسح الحقول</button></div></div>
       <div className="formBlock choiceBlock"><div className="choiceRow"><label>نوع العقار<select value={filters.propertyType} onChange={e=>update("propertyType",e.target.value)}>{Object.keys(CATEGORIES).map(x=><option key={x}>{x}</option>)}</select></label><fieldset><legend>الغرض</legend><label className="radio"><input type="radio" checked={filters.purpose==="sale"} onChange={()=>update("purpose","sale")}/> بيع</label><label className="radio"><input type="radio" checked={filters.purpose==="rent"} onChange={()=>update("purpose","rent")}/> تأجير</label></fieldset><fieldset><legend>طريقة المطابقة</legend><label className="radio"><input type="radio" checked={filters.mode==="strict"} onChange={()=>update("mode","strict")}/> جميع الشروط تمامًا</label><label className="radio"><input type="radio" checked={filters.mode==="near"} onChange={()=>update("mode","near")}/> القريبة والناقصة ±20%</label></fieldset></div></div>
       <div className="formBlock"><h3>المدن والأحياء</h3><div className="locations">{filters.locations.map((location,index)=><LocationAutocomplete key={index} location={location} index={index} onChange={changeLocation} onRemove={()=>update("locations",filters.locations.filter((_,itemIndex)=>itemIndex!==index))}/>)}</div><button className="add" onClick={addLocation}>+ إضافة مدينة</button></div>
-      <div className="formBlock"><h3>الشروط الرقمية</h3><div className="grid numericGrid">{visibleNums.map(n=><label className={`numericField ${wideNumericKeys.has(n.key)?"numericFieldWide":mediumNumericKeys.has(n.key)?"numericFieldMedium":"numericFieldShort"}`} key={String(n.key)}>{n.key==="minCount"?countLabel:n.label}<input inputMode="decimal" type="number" min="0" value={String(filters[n.key]||"")} onChange={e=>update(n.key,inputNumber(e.target.value) as never)}/></label>)}</div></div>
+      <div className="formBlock"><h3>الشروط الرقمية</h3><div className="grid numericGrid">{visibleNumericGroups.map(group=><div className="numericGroup" key={group.title}><strong>{group.title}</strong>{group.items.map(n=><label className={`numericField ${wideNumericKeys.has(n.key)?"numericFieldWide":mediumNumericKeys.has(n.key)?"numericFieldMedium":"numericFieldShort"}`} key={String(n.key)}>{n.key==="minCount"?countLabel:n.label}<input inputMode="decimal" type="number" min="0" value={String(filters[n.key]||"")} onChange={e=>update(n.key,inputNumber(e.target.value) as never)}/></label>)}</div>)}</div></div>
       <div className="formBlock descriptionBlock"><h3>البحث في الوصف</h3><label>كلمات مطلوبة (بفواصل)<input value={keywordDraft} onChange={e=>changeKeywordDraft(e.target.value)} placeholder={filters.propertyType==="عام"?"مثل: مكيف، موقف، سيارة. أو نوع العقار: مزرعة فندق":"مثال: مكيفات، مدخل سيارة، صناعات"}/><small>{filters.propertyType==="عام"?"إلزامية في البحث العام؛ يكفي أن يطابق الإعلان إحدى الكلمات أو العبارات.":"يمكن استخدام الفاصلة العربية «،» أو الإنجليزية «,». وتُقبل المسافات داخل العبارة مثل: مدخل سيارة."}</small></label>
         <div className="limits"><label>أقصى إعلانات<input type="number" min="5" max="500" value={filters.maxListings} onChange={e=>update("maxListings",inputNumber(e.target.value))}/></label><span>يحسب البرنامج عدد الصفحات تلقائيًا بحسب عدد الإعلانات والمدن والأحياء، وقد يتوقف البحث إذا طلب الموقع تحققًا.</span></div>
       </div>

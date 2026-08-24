@@ -26,13 +26,14 @@
 .formBlock:first-of-type{margin-top:0}
 .formBlock h3{margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid #e3e9e5;font-size:.9rem}
 .choiceBlock{padding:10px 12px}
-.choiceRow{display:flex;flex-wrap:wrap;align-items:stretch;justify-content:flex-start;gap:8px}
-.choiceRow>label{flex:0 0 190px}
-.choiceRow>fieldset{flex:0 0 auto}
+.choiceRow{display:grid;grid-template-columns:190px minmax(220px,.8fr) minmax(360px,1.4fr);align-items:stretch;gap:8px}
+.choiceRow>label,.choiceRow>fieldset{width:100%}
 .choiceRow fieldset{min-height:44px;padding:6px 11px;background:#fff}
-.location{grid-template-columns:190px minmax(280px,360px) 38px;justify-content:start;gap:7px}
-.numericGrid{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:flex-start;gap:8px 10px}
-.numericGrid>label{flex:0 0 auto;width:max-content;max-width:100%}
+.location{grid-template-columns:190px minmax(280px,1fr) 38px;justify-content:start;gap:7px}
+.numericGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));align-items:stretch;gap:8px}
+.numericGroup{display:flex;flex-wrap:wrap;align-content:start;align-items:flex-end;gap:7px 9px;min-width:0;padding:8px;border:1px solid #e0e7e3;border-radius:9px;background:#fff}
+.numericGroup>strong{flex-basis:100%;font-size:.75rem;color:var(--green);padding-bottom:5px;border-bottom:1px solid #edf1ef}
+.numericGroup>label{flex:0 0 auto;width:max-content;max-width:100%}
 .numericFieldShort>input{width:9ch;min-width:78px;max-width:96px}
 .numericFieldMedium>input{width:11ch;min-width:92px;max-width:116px}
 .numericFieldWide>input{width:14ch;min-width:110px;max-width:140px}
@@ -49,7 +50,7 @@
 .searchPanel .status{margin-top:8px;padding:10px}
 
 @media(min-width:701px){
-  .searchPanel>.formBlock:not(.choiceBlock):not(.descriptionBlock){display:grid;grid-template-columns:105px auto;align-items:start;column-gap:12px;row-gap:7px;width:fit-content;max-width:100%}
+  .searchPanel>.formBlock:not(.choiceBlock):not(.descriptionBlock){display:grid;grid-template-columns:105px minmax(0,1fr);align-items:start;column-gap:12px;row-gap:7px;width:100%;max-width:100%}
   .searchPanel>.formBlock:not(.choiceBlock):not(.descriptionBlock)>h3{grid-column:1;grid-row:1/span 2;align-self:stretch;margin:0;padding:7px 0 0 10px;border-bottom:0;border-left:1px solid #e3e9e5;white-space:nowrap}
   .searchPanel>.formBlock:not(.choiceBlock):not(.descriptionBlock)>.locations,
   .searchPanel>.formBlock:not(.choiceBlock):not(.descriptionBlock)>.numericGrid{grid-column:2}
@@ -58,9 +59,15 @@
 
 @media(max-width:900px){
   .searchPanel{padding:14px}
-  .choiceRow>label{flex-basis:180px}
-  .location{grid-template-columns:180px minmax(240px,320px) 38px}
+  .choiceRow{grid-template-columns:180px minmax(210px,.8fr) minmax(330px,1.4fr)}
+  .location{grid-template-columns:180px minmax(240px,1fr) 38px}
   .descriptionBlock .limits{grid-template-columns:150px 1fr}
+}
+
+@media(max-width:760px){
+  .choiceRow{grid-template-columns:1fr 1fr}
+  .choiceRow>fieldset:last-child{grid-column:1/-1}
+  .numericGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
 @media(max-width:600px){
@@ -68,6 +75,8 @@
   .formBlock{padding:10px}
   .choiceRow{display:grid;grid-template-columns:1fr}
   .choiceRow>label,.choiceRow>fieldset{width:100%}
+  .choiceRow>fieldset:last-child{grid-column:auto}
+  .numericGrid{grid-template-columns:1fr}
   .location{grid-template-columns:1fr 42px}
   .location label:nth-child(2){grid-column:1/2}
   .location button{grid-column:2;grid-row:1/3;align-self:stretch;height:auto}
