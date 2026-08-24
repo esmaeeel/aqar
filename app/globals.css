@@ -21,9 +21,9 @@
 .top h1{font-size:clamp(2rem,4vw,3.2rem)}
 .searchPanel{width:100%;max-width:none;margin-inline:auto;padding:16px}
 .searchPanel .sectionHead{margin-bottom:8px}
-.searchPanel .sectionHead .inline{display:grid;grid-template-columns:minmax(0,1fr) auto auto;justify-content:stretch;gap:5px;width:min(100%,520px)}
-.searchPanel .sectionHead .inline select{min-width:0}
-.searchPanel .sectionHead .inline button{padding:7px 10px;font-size:.76rem;white-space:nowrap}
+.profileControls{display:flex!important;flex-flow:row nowrap!important;align-items:stretch;gap:5px;width:min(100%,520px)}
+.profileControls select{flex:1 1 0!important;width:auto!important;min-width:0!important}
+.profileControls button{flex:0 0 auto!important;padding:7px 10px;font-size:.76rem;white-space:nowrap}
 .searchFields{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px;align-items:start}
 .formBlock{margin:0;padding:8px 10px;border:1px solid #dde5e0;border-radius:12px;background:#f9fbfa;min-width:0}
 .formBlock h3{margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid #e3e9e5;font-size:.9rem}
@@ -72,9 +72,9 @@
 }
 
 @media(max-width:600px){
-  .searchPanel .sectionHead .inline{width:100%;gap:4px}
-  .searchPanel .sectionHead .inline select{min-width:0;padding-inline:7px;font-size:.75rem}
-  .searchPanel .sectionHead .inline button{padding:6px 7px;font-size:.7rem}
+  .profileControls{width:100%;gap:4px}
+  .profileControls select{padding-inline:7px;font-size:.75rem}
+  .profileControls button{padding:6px 7px;font-size:.7rem}
   .formBlock{padding:10px}
   .choiceRow{display:grid;grid-template-columns:1fr}
   .choiceRow>label,.choiceRow>fieldset{width:100%}
