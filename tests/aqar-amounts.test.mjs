@@ -133,6 +133,18 @@ test("يقدم وصف المعلن على قائمة التفاصيل عند ث�
     assert.ok(listing.warnings.some(w => w.startsWith(`${label} مختلف`)), label);
 });
 
+test("لا يلتقط مساحة العقار عددًا للعدادات عندما تكون العدادات مسروقة", () => {
+  const html = `
+    <h1>عمارة للبيع في حي العدامة، مدينة الدمام</h1>
+    <div>استكشف خيارات التمويل</div>
+    <p>عدادات الكهرباء مسروقة، مساحة 297 متر، الدخل المتوقع 180 ألف.</p>
+  `;
+  const listing = parseListing(html, "https://sa.aqar.fm/عمائر-للبيع/الدمام/عمارة-6571021", "عمارة");
+  assert.equal(listing.area, 297);
+  assert.equal(listing.meters, null);
+  assert.ok(listing.warnings.includes("عدد العدادات غير مذكور"));
+});
+
 test("يتجاهل حد المساحات ويعتمد المساحة الصريحة في شرح المعلن", () => {
   const html = `
     <h1>ورشة للإيجار في حي الصناعية الجنوبية، مدينة الدمام</h1>

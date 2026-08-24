@@ -519,7 +519,9 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const descriptionTotalRooms = totalBuildingRooms(desc), structuredTotalRooms = totalBuildingRooms(structured);
   const totalRooms = preferDescription(descriptionTotalRooms, structuredTotalRooms);
 
-  const meterPatterns = [labeled(`عدد\\s+عدادات\\s+الكهرباء|عدادات\\s+الكهرباء|عدد\\s+العدادات`), `([\\d,.]+)\\s*(?:عدادات|عداد)(?!\\s*مياه)`];
+  const meterLabels = `عدد\\s+عدادات\\s+الكهرباء|عدادات\\s+الكهرباء|عدد\\s+العدادات`;
+  const meterFieldGap = `[ \\t:：\\-–—]*(?:\\n[ \\t]*)?`;
+  const meterPatterns = [`(?:${meterLabels})${meterFieldGap}([\\d][\\d,.]*)`, `([\\d,.]+)\\s*(?:عدادات|عداد)(?!\\s*مياه)`];
   const descriptionMeters = first(desc, meterPatterns).value, structuredMeters = first(structured, meterPatterns).value;
   const meters = preferDescription(descriptionMeters, structuredMeters);
 
