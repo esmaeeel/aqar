@@ -41,7 +41,8 @@
 .blockTitle .add{margin:0 0 4px;padding:4px 8px;font-size:.75rem}
 .location{grid-template-columns:minmax(120px,.8fr) minmax(170px,1.4fr) 34px;justify-content:start;gap:6px}
 .numericGrid{display:flex;flex-wrap:nowrap;align-items:flex-end;gap:7px}
-.numericGrid>label{flex:1 1 76px;width:auto;min-width:76px;max-width:140px}
+.numericGrid>label{flex:1 1 0;width:auto;min-width:70px;max-width:none}
+.numericGrid>.numericFieldWide{flex-grow:1.5}
 .numericGrid .numericField>input{width:100%;min-width:0;max-width:none}
 .numericFieldShort>input{width:9ch;min-width:78px;max-width:96px}
 .numericFieldMedium>input{width:11ch;min-width:92px;max-width:116px}
