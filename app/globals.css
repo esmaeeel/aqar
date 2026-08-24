@@ -17,46 +17,55 @@
 .resultsTable tbody tr .emptyTableCell{position:static!important;min-width:0!important;padding:30px 12px;text-align:center!important;background:#fff!important;color:var(--muted);font-weight:700}
 
 /* Compact search layout: presentation only; search fields and handlers remain unchanged. */
-.top{max-width:1120px;margin-inline:auto}
-.searchPanel{max-width:1120px;margin-inline:auto;padding:22px}
-.searchPanel .sectionHead{margin-bottom:14px}
+.top{max-width:980px;margin-inline:auto}
+.searchPanel{max-width:980px;margin-inline:auto;padding:16px}
+.searchPanel .sectionHead{margin-bottom:10px}
 .searchPanel .sectionHead .inline{justify-content:flex-end}
 .searchPanel .sectionHead .inline select{min-width:210px}
-.formBlock{margin-top:12px;padding:14px;border:1px solid #dde5e0;border-radius:14px;background:#f9fbfa}
+.formBlock{margin-top:8px;padding:10px 12px;border:1px solid #dde5e0;border-radius:12px;background:#f9fbfa}
 .formBlock:first-of-type{margin-top:0}
-.formBlock h3{margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid #e3e9e5;font-size:.94rem}
-.choiceBlock{padding:12px 14px}
-.choiceRow{display:flex;flex-wrap:wrap;align-items:stretch;justify-content:flex-start;gap:12px}
+.formBlock h3{margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid #e3e9e5;font-size:.9rem}
+.choiceBlock{padding:10px 12px}
+.choiceRow{display:flex;flex-wrap:wrap;align-items:stretch;justify-content:flex-start;gap:8px}
 .choiceRow>label{flex:0 0 190px}
 .choiceRow>fieldset{flex:0 0 auto}
 .choiceRow fieldset{min-height:44px;padding:6px 11px;background:#fff}
-.location{grid-template-columns:220px minmax(300px,420px) 42px;justify-content:start;gap:8px}
-.numericGrid{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:flex-start;gap:10px 14px}
+.location{grid-template-columns:190px minmax(280px,360px) 38px;justify-content:start;gap:7px}
+.numericGrid{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:flex-start;gap:8px 10px}
 .numericGrid>label{flex:0 0 auto;width:max-content;max-width:100%}
 .numericFieldShort>input{width:9ch;min-width:78px;max-width:96px}
 .numericFieldMedium>input{width:11ch;min-width:92px;max-width:116px}
 .numericFieldWide>input{width:14ch;min-width:110px;max-width:140px}
 .searchPanel label{gap:5px}
-.searchPanel input,.searchPanel select{min-height:42px}
-.searchPanel .add{margin-top:8px;padding:8px 12px}
+.searchPanel input,.searchPanel select{min-height:38px}
+.searchPanel .add{margin-top:6px;padding:7px 10px}
 .descriptionBlock>label{max-width:none}
 .descriptionBlock small{font-weight:400;color:var(--muted);line-height:1.6}
-.descriptionBlock .limits{grid-template-columns:max-content minmax(260px,1fr);margin-top:14px;padding-top:12px;gap:12px}
+.descriptionBlock .limits{grid-template-columns:max-content minmax(260px,1fr);margin-top:10px;padding-top:9px;gap:10px}
 .descriptionBlock .limits input{width:8ch;min-width:72px}
 .descriptionBlock .limits span{padding-bottom:10px;line-height:1.6}
-.searchPanel .trialNotice{margin-top:14px}
-.searchPanel .run{margin-top:16px}
+.searchPanel .trialNotice{margin-top:10px;padding:9px 12px}
+.searchPanel .run{margin-top:12px}
+.searchPanel .status{margin-top:8px;padding:10px}
+
+@media(min-width:701px){
+  .searchPanel>.formBlock:not(.choiceBlock):not(.descriptionBlock){display:grid;grid-template-columns:105px auto;align-items:start;column-gap:12px;row-gap:7px;width:fit-content;max-width:100%}
+  .searchPanel>.formBlock:not(.choiceBlock):not(.descriptionBlock)>h3{grid-column:1;grid-row:1/span 2;align-self:stretch;margin:0;padding:7px 0 0 10px;border-bottom:0;border-left:1px solid #e3e9e5;white-space:nowrap}
+  .searchPanel>.formBlock:not(.choiceBlock):not(.descriptionBlock)>.locations,
+  .searchPanel>.formBlock:not(.choiceBlock):not(.descriptionBlock)>.numericGrid{grid-column:2}
+  .searchPanel>.formBlock:not(.choiceBlock):not(.descriptionBlock)>.add{grid-column:2;justify-self:start}
+}
 
 @media(max-width:900px){
-  .searchPanel{padding:16px}
+  .searchPanel{padding:14px}
   .choiceRow>label{flex-basis:180px}
-  .location{grid-template-columns:190px minmax(240px,1fr) 42px}
+  .location{grid-template-columns:180px minmax(240px,320px) 38px}
   .descriptionBlock .limits{grid-template-columns:150px 1fr}
 }
 
 @media(max-width:600px){
   .searchPanel .sectionHead .inline select{min-width:100%}
-  .formBlock{padding:12px}
+  .formBlock{padding:10px}
   .choiceRow{display:grid;grid-template-columns:1fr}
   .choiceRow>label,.choiceRow>fieldset{width:100%}
   .location{grid-template-columns:1fr 42px}
