@@ -36,7 +36,6 @@
 .choiceDetailsRow{margin-top:7px;padding-top:7px;border-top:1px solid #e3e9e5}
 .choiceDetailsRow small{font-weight:400;color:var(--muted);line-height:1.35}
 .listingLimit input{width:8ch;min-width:72px}
-.locationListingLimit{width:90px;margin-top:7px;margin-right:auto;margin-left:0}
 .blockTitle{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;border-bottom:1px solid #e3e9e5}
 .blockTitle h3{margin:0;border:0;padding:0 0 5px}
 .blockTitle .add{margin:0 0 4px;padding:4px 8px;font-size:.75rem}
@@ -51,7 +50,9 @@
 .searchPanel input,.searchPanel select{min-height:34px;padding-block:5px}
 .searchPanel .add{margin-top:6px;padding:7px 10px}
 .searchPanel .trialNotice{margin-top:8px;padding:7px 10px}
-.searchPanel .run{margin-top:8px}
+.searchPanel .run{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:10px;margin-top:8px}
+.runListingLimit{grid-column:1;grid-row:1;justify-self:end;width:90px}
+.searchPanel .run .primary{grid-column:2;grid-row:1}
 .searchPanel .primary{padding:10px 24px}
 .searchPanel .status{margin-top:6px;padding:8px}
 
