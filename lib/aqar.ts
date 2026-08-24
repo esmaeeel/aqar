@@ -125,13 +125,31 @@ function stripClitic(token: string) {
     if (token.startsWith(p) && token.length - p.length >= 3) return token.slice(p.length);
   return token;
 }
+
+const derivativeSuffixes = ["يات", "ات", "ية", "يه", "ون", "ين", "ان", "ها", "هم", "هن", "ة", "ه"];
+function lightArabicStem(token: string) {
+  const bare = stripClitic(token);
+  for (const suffix of derivativeSuffixes)
+    if (bare.endsWith(suffix) && bare.length - suffix.length >= 3) return bare.slice(0, -suffix.length);
+  return bare;
+}
+function derivativeTokensMatch(keywordToken: string, descriptionToken: string) {
+  const keywordBare = stripClitic(keywordToken), descriptionBare = stripClitic(descriptionToken);
+  const keywordStem = lightArabicStem(keywordBare), descriptionStem = lightArabicStem(descriptionBare);
+  if (keywordStem === descriptionStem) return true;
+  // يغطي نمط جمع التكسير بإضافة ألف ثالثة مثل «موقف/مواقف» و«مكتب/مكاتب».
+  const withoutBrokenPluralAlif = (value: string) => value.length >= 5 && value[2] === "ا"
+    ? value.slice(0, 2) + value.slice(3) : value;
+  return withoutBrokenPluralAlif(keywordStem) === descriptionStem
+    || keywordStem === withoutBrokenPluralAlif(descriptionStem);
+}
 export function keywordMatches(keyword: string, description: string) {
   const k = normalizeText(keyword), d = normalizeText(description);
   if (!k) return false;
   if (d.includes(k)) return true;
   const kt = (k.match(/[\p{L}\p{N}]+/gu) || []).map(stripClitic);
   const dt = (d.match(/[\p{L}\p{N}]+/gu) || []).map(stripClitic);
-  return kt.length > 0 && dt.some((_, i) => kt.every((v, j) => dt[i + j] === v));
+  return kt.length > 0 && dt.some((_, i) => kt.every((v, j) => derivativeTokensMatch(v, dt[i + j] || "")));
 }
 function htmlText(html: string) {
   return normalizeColloquialAmounts(normalizeDigits(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")

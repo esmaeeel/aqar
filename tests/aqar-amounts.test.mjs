@@ -19,12 +19,20 @@ const javascript = ts.transpileModule(source.replace('"@/lib/locations"', JSON.s
     target: ts.ScriptTarget.ES2022,
   },
 }).outputText;
-const { CATEGORIES, PRICE_PER_SQM_TYPES, evaluate, generalSearchHasRequiredKeywords, hiddenNumericFilterKeys, hiddenResultColumnKeys, listingLinks, listingMatchesRequestedLocation, parseListing, propertyTypeFromListingUrl, requestedPropertyTypeMatches } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
+const { CATEGORIES, PRICE_PER_SQM_TYPES, evaluate, generalSearchHasRequiredKeywords, hiddenNumericFilterKeys, hiddenResultColumnKeys, keywordMatches, listingLinks, listingMatchesRequestedLocation, parseListing, propertyTypeFromListingUrl, requestedPropertyTypeMatches } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
 
 function priceFrom(description) {
   const html = `<h1>عمارة للبيع في مدينة الرياض، حي العوالي</h1><p>${description}</p>`;
   return parseListing(html, "https://sa.aqar.fm/عمائر-للبيع/الرياض/حي-العوالي/عمارة-123456", "عمارة").price;
 }
+
+test("يتعرف على مشتقات الكلمات المطلوبة دون خلط الكلمات المختلفة", () => {
+  assert.equal(keywordMatches("مكيف", "الفيلا مجهزة بالمكيفات"), true);
+  assert.equal(keywordMatches("موقف سيارة", "يتوفر بها مواقف سيارات"), true);
+  assert.equal(keywordMatches("فندق", "شقق فندقية راقية"), true);
+  assert.equal(keywordMatches("موقف", "موقع مميز"), false);
+  assert.equal(keywordMatches("موقف", "العقار موقوف مؤقتًا"), false);
+});
 
 test("يضيف المستودع كنوع مستقل للبيع والتأجير", () => {
   assert.deepEqual(CATEGORIES["مستودع"].sale, ["مستودعات-للبيع"]);
