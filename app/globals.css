@@ -29,11 +29,13 @@
 .formBlock h3{margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid #e3e9e5;font-size:.9rem}
 .choiceBlock{grid-column:span 7;padding:8px 10px}
 .locationsBlock{grid-column:span 5}
-.numericBlock{grid-column:span 8}
-.descriptionBlock{grid-column:span 4}
+.numericBlock{grid-column:span 12}
 .choiceRow{display:grid;grid-template-columns:minmax(140px,.8fr) minmax(180px,1fr) minmax(310px,1.5fr);align-items:stretch;gap:7px}
 .choiceRow>label,.choiceRow>fieldset{width:100%}
 .choiceRow fieldset{min-height:38px;padding:4px 9px;background:#fff;gap:9px}
+.choiceDetailsRow{display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:start;gap:8px;margin-top:7px;padding-top:7px;border-top:1px solid #e3e9e5}
+.choiceDetailsRow small{font-weight:400;color:var(--muted);line-height:1.35}
+.listingLimit input{width:8ch;min-width:72px}
 .blockTitle{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;border-bottom:1px solid #e3e9e5}
 .blockTitle h3{margin:0;border:0;padding:0 0 5px}
 .blockTitle .add{margin:0 0 4px;padding:4px 8px;font-size:.75rem}
@@ -46,12 +48,6 @@
 .searchPanel label{gap:5px}
 .searchPanel input,.searchPanel select{min-height:34px;padding-block:5px}
 .searchPanel .add{margin-top:6px;padding:7px 10px}
-.descriptionFields{display:grid;grid-template-columns:minmax(0,1fr) max-content;gap:8px;align-items:start}
-.descriptionFields>label{max-width:none}
-.descriptionBlock small{font-weight:400;color:var(--muted);line-height:1.35}
-.descriptionBlock .limits{display:grid;grid-template-columns:max-content;align-items:start;margin:0;padding:0 8px 0 0;border-top:0;border-right:1px solid #e3e9e5;gap:3px}
-.descriptionBlock .limits input{width:8ch;min-width:72px}
-.descriptionBlock .limits span{max-width:150px;padding:0;line-height:1.3;font-size:.68rem}
 .searchPanel .trialNotice{margin-top:8px;padding:7px 10px}
 .searchPanel .run{margin-top:8px}
 .searchPanel .primary{padding:10px 24px}
@@ -59,16 +55,13 @@
 
 @media(max-width:900px){
   .searchPanel{padding:14px}
-  .choiceBlock,.locationsBlock,.numericBlock,.descriptionBlock{grid-column:span 12}
+  .choiceBlock,.locationsBlock,.numericBlock{grid-column:span 12}
   .choiceRow{grid-template-columns:minmax(150px,.8fr) minmax(190px,1fr) minmax(320px,1.5fr)}
 }
 
 @media(max-width:760px){
   .choiceRow{grid-template-columns:1fr 1fr}
   .choiceRow>fieldset:last-child{grid-column:1/-1}
-  .descriptionFields{grid-template-columns:1fr}
-  .descriptionBlock .limits{grid-template-columns:max-content minmax(0,1fr);border-right:0;border-top:1px solid #e3e9e5;padding:7px 0 0}
-  .descriptionBlock .limits span{max-width:none}
 }
 
 @media(max-width:600px){
@@ -82,6 +75,5 @@
   .location{grid-template-columns:1fr 42px}
   .location label:nth-child(2){grid-column:1/2}
   .location button{grid-column:2;grid-row:1/3;align-self:stretch;height:auto}
-  .descriptionBlock .limits{grid-template-columns:1fr}
-  .descriptionBlock .limits span{padding-bottom:0}
+  .choiceDetailsRow{grid-template-columns:minmax(0,1fr) max-content}
 }
