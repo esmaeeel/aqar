@@ -25,6 +25,23 @@ export type Filters = {
   areaMax: number; minDensity: number; sqmMin: number; sqmMax: number;
 };
 
+export const PRICE_PER_SQM_TYPES = new Set(["عمارة", "فيلا", "شقة", "دور", "أرض", "مستودع", "ورشة"]);
+const HIDDEN_FILTERS_BY_PROPERTY_TYPE: Record<string, (keyof Filters)[]> = {
+  "عمارة": [],
+  "فيلا": ["minMeters", "minDensity"],
+  "شقة": ["minMeters", "minFloors", "minDensity"],
+  "دور": ["minMeters", "minFloors", "minDensity"],
+  "أرض": ["minMeters", "minCount", "minFloors", "minDensity"],
+  "مستودع": ["minMeters", "minCount", "minFloors", "minDensity"],
+  "ورشة": ["minMeters", "minCount", "minFloors", "minDensity"],
+};
+
+export function hiddenNumericFilterKeys(propertyType: string, purpose: Filters["purpose"]) {
+  const hidden = new Set<keyof Filters>(HIDDEN_FILTERS_BY_PROPERTY_TYPE[propertyType] || []);
+  if (purpose === "rent") hidden.add("yieldMin");
+  return hidden;
+}
+
 export type Listing = {
   listingId: string; url: string; title: string; city: string; neighborhood: string;
   propertyType: string; price: number | null; area: number | null; sqmPrice: number | null;
@@ -446,7 +463,7 @@ export function parseListing(html: string, url: string, propertyType: string): L
   addConflict("الدخل السنوي", descriptionIncome.value, structuredIncome.value, .02);
   if (selectedIncome.monthly) warnings.push("حُوّل الدخل الشهري إلى سنوي بضربه في 12"); if (incomeKind === "expected") warnings.push("الدخل المذكور متوقع وليس فعليًا مؤكدًا");
   for (const [v, w] of [[price,"السعر غير مذكور بوضوح"],[income,"الدخل السنوي غير مذكور"],[meters,"عدد العدادات غير مذكور"],[floors,"عدد الأدوار غير مذكور"],[street,"عرض الشارع غير مذكور"],[area,"المساحة غير مذكورة"]] as [number|null,string][]) if (v == null) warnings.push(w);
-  return { listingId, url, title, city, neighborhood, propertyType, price, area, sqmPrice: explicitSqmPrice ?? (price && area ? price / area : null),
+  return { listingId, url, title, city, neighborhood, propertyType, price, area, sqmPrice: price && area ? price / area : explicitSqmPrice,
     apartments, housingUnits, commercialShops, rooms: ROOM_TYPES.has(propertyType) ? rooms : null, totalRooms: propertyType === "عمارة" ? totalRooms : null, bedrooms, majlis, maqlat, meters, floors, street, age, income,
     incomeKind, yieldPct: rentalListing ? null : income && price ? income / price * 100 : null, density: apartments && area ? apartments / area * 100 : null,
     warnings, status: "بيانات ناقصة", score: 0, nearEligible: true, description: desc.slice(0, 2200) };
@@ -455,21 +472,25 @@ export function parseListing(html: string, url: string, propertyType: string): L
 export function evaluate(item: Listing, f: Filters) {
   const count = ROOM_TYPES.has(f.propertyType) ? item.rooms : item.apartments;
   const rentalSearch = f.purpose === "rent";
-  const rentalHousing = f.purpose === "rent" && ["عمارة", "فيلا", "شقة", "دور"].includes(f.propertyType);
-  const sqmMin = f.propertyType === "أرض" ? f.sqmMin : 0, sqmMax = f.propertyType === "أرض" ? f.sqmMax : 0;
-  const yieldMin = rentalSearch ? 0 : f.yieldMin, minDensity = rentalHousing ? 0 : f.minDensity;
+  const hidden = hiddenNumericFilterKeys(f.propertyType, f.purpose);
+  const sqmMin = PRICE_PER_SQM_TYPES.has(f.propertyType) ? f.sqmMin : 0, sqmMax = PRICE_PER_SQM_TYPES.has(f.propertyType) ? f.sqmMax : 0;
+  const yieldMin = rentalSearch ? 0 : f.yieldMin;
+  const minMeters = hidden.has("minMeters") ? 0 : f.minMeters;
+  const minCount = hidden.has("minCount") ? 0 : f.minCount;
+  const minFloors = hidden.has("minFloors") ? 0 : f.minFloors;
+  const minDensity = hidden.has("minDensity") ? 0 : f.minDensity;
   const checks: [boolean, number|null, (x:number)=>boolean, number][] = [
     [f.priceMin>0,item.price,x=>x>=f.priceMin,12],[f.priceMax>0,item.price,x=>x<=f.priceMax,16],
     [sqmMin>0,item.sqmPrice,x=>x>=sqmMin,8],[sqmMax>0,item.sqmPrice,x=>x<=sqmMax,8],
     [yieldMin>0,item.yieldPct,x=>x>=yieldMin&&item.incomeKind==="actual",22],
-    [f.minMeters>0,item.meters,x=>x>=f.minMeters,10],[f.minCount>0,count,x=>x>=f.minCount,10],
-    [f.minFloors>0,item.floors,x=>x>=f.minFloors,7],[f.minStreet>0,item.street,x=>x>=f.minStreet,8],
+    [minMeters>0,item.meters,x=>x>=minMeters,10],[minCount>0,count,x=>x>=minCount,10],
+    [minFloors>0,item.floors,x=>x>=minFloors,7],[f.minStreet>0,item.street,x=>x>=f.minStreet,8],
     [f.areaMin>0,item.area,x=>x>=f.areaMin,5],[f.areaMax>0,item.area,x=>x<=f.areaMax,5],[minDensity>0,item.density,x=>x>=minDensity,10],
   ];
   let score=100, failed=false, missing=false; for(const [active,value,pass,weight] of checks){if(!active)continue;if(value==null){missing=true;score-=weight}else if(!pass(value)){failed=true;score-=weight}}
   // «مطابقة» تتطلب اجتياز كل شرط مفعّل بقيمته الفعلية؛ سماحية 20% للنتائج القريبة فقط.
   item.score=Math.max(0,score); item.status=!failed&&!missing?"مطابقة":missing?"بيانات ناقصة":"قريبة";
   let near=true; for(const [v,lo,hi] of [[item.price,f.priceMin,f.priceMax],[item.sqmPrice,sqmMin,sqmMax],[item.area,f.areaMin,f.areaMax]] as [number|null,number,number][]){if(v==null)continue;if(lo>0&&v<lo*(1-NEAR_TOLERANCE))near=false;if(hi>0&&v>hi*(1+NEAR_TOLERANCE))near=false}
-  for(const [v,min] of [[item.yieldPct,yieldMin],[item.meters,f.minMeters],[count,f.minCount],[item.floors,f.minFloors],[item.street,f.minStreet],[item.density,minDensity]] as [number|null,number][]){if(v!=null&&min>0&&v<min*(1-NEAR_TOLERANCE))near=false}
+  for(const [v,min] of [[item.yieldPct,yieldMin],[item.meters,minMeters],[count,minCount],[item.floors,minFloors],[item.street,f.minStreet],[item.density,minDensity]] as [number|null,number][]){if(v!=null&&min>0&&v<min*(1-NEAR_TOLERANCE))near=false}
   item.nearEligible=near; return item;
 }

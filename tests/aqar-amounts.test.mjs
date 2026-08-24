@@ -19,7 +19,7 @@ const javascript = ts.transpileModule(source.replace('"@/lib/locations"', JSON.s
     target: ts.ScriptTarget.ES2022,
   },
 }).outputText;
-const { CATEGORIES, evaluate, listingMatchesRequestedLocation, parseListing } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
+const { CATEGORIES, PRICE_PER_SQM_TYPES, evaluate, hiddenNumericFilterKeys, listingMatchesRequestedLocation, parseListing } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
 
 function priceFrom(description) {
   const html = `<h1>عمارة للبيع في مدينة الرياض، حي العوالي</h1><p>${description}</p>`;
@@ -140,7 +140,23 @@ test("يعرض مساحة واحدة ويرجح الأقرب إلى السعر �
   const listing = parseListing(html, "https://sa.aqar.fm/ورش-للإيجار/الدمام/ورشة-7654342", "ورشة");
   assert.equal(listing.price, 148_000);
   assert.equal(listing.area, 424);
-  assert.equal(listing.sqmPrice, 350);
+  assert.ok(Math.abs(listing.sqmPrice - 148_000 / 424) < 0.0001);
+});
+
+test("يستخدم سعر المتر الصريح فقط عند تعذر حسابه ويتركه فارغًا عند غياب المصدرين", () => {
+  const explicit = parseListing(
+    `<h1>أرض للبيع في مدينة الرياض</h1><p>سعر المتر 2,500 ريال، المساحة 400 م²</p>`,
+    "https://sa.aqar.fm/أراضي-للبيع/الرياض/أرض-7654390",
+    "أرض",
+  );
+  const missing = parseListing(
+    `<h1>أرض للبيع في مدينة الرياض</h1><p>المساحة 400 م²</p>`,
+    "https://sa.aqar.fm/أراضي-للبيع/الرياض/أرض-7654391",
+    "أرض",
+  );
+  assert.equal(explicit.price, null);
+  assert.equal(explicit.sqmPrice, 2_500);
+  assert.equal(missing.sqmPrice, null);
 });
 
 test("لا يهمل المساحة الصريحة عند التصاق كلمة متر بما بعدها", () => {
@@ -332,13 +348,13 @@ test("لا يحسب عائدا بنسبة مئة بالمئة من سعر إعل
   assert.match(pageSource, /!\["income","yieldPct"\]\.includes\(column\.key\)/);
 });
 
-test("يتجاهل شروط الاستثمار المخفية في إيجار السكن", () => {
+test("يتجاهل الشروط غير المناسبة للشقة المؤجرة", () => {
   const listing = parseListing(
     `<h1>شقة للإيجار في مدينة الرياض، حي الشفا</h1><p>الإيجار السنوي 30,000 ريال</p>`,
     "https://sa.aqar.fm/شقق-للإيجار/الرياض/حي-الشفا/شقة-7654322",
     "شقة",
   );
-  const filters = {propertyType:"شقة",purpose:"rent",locations:[],keywords:[],mode:"strict",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:99,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minDensity:99,sqmMin:99_999,sqmMax:100_000};
+  const filters = {propertyType:"شقة",purpose:"rent",locations:[],keywords:[],mode:"strict",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:99,minMeters:99,minCount:0,minFloors:99,minStreet:0,areaMin:0,areaMax:0,minDensity:99,sqmMin:0,sqmMax:0};
   assert.equal(evaluate(listing, filters).status, "مطابقة");
 });
 
@@ -357,21 +373,33 @@ test("يعامل الشفا والشفاء كحي واحد عند التحقق �
   assert.equal(listingMatchesRequestedLocation("الرياض", "العوالي", "الرياض", "الشفا"), false);
 });
 
-test("يطبق شرط سعر المتر على الأراضي فقط", () => {
+test("يطبق شرط سعر المتر على جميع أنواع العقارات", () => {
   const listing = parseListing(
     `<h1>عقار للبيع في مدينة الرياض، حي الشفا</h1><p>السعر 500,000 ريال - المساحة 500 م²</p>`,
     "https://sa.aqar.fm/أراضي-للبيع/الرياض/حي-الشفا/أرض-7654323",
     "أرض",
   );
   const filters = {propertyType:"عمارة",purpose:"sale",locations:[],keywords:[],mode:"strict",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minDensity:0,sqmMin:2_000,sqmMax:0};
-  assert.equal(evaluate({...listing}, filters).status, "مطابقة");
-  assert.equal(evaluate({...listing}, {...filters, propertyType:"أرض"}).status, "قريبة");
+  for (const propertyType of PRICE_PER_SQM_TYPES)
+    assert.equal(evaluate({...listing}, {...filters, propertyType}).status, "قريبة", propertyType);
 });
 
-test("يعرض عمود سعر المتر للأراضي والورش والمستودعات في البيع والتأجير", () => {
-  assert.match(pageSource, /PRICE_PER_SQM_TYPES=new Set\(\["مستودع","ورشة","أرض"\]\)/);
+test("يعرض عمود سعر المتر لجميع أنواع العقارات في البيع والتأجير", () => {
+  assert.deepEqual([...PRICE_PER_SQM_TYPES], ["عمارة", "فيلا", "شقة", "دور", "أرض", "مستودع", "ورشة"]);
   assert.match(pageSource, /PRICE_PER_SQM_TYPES\.has\(filters\.propertyType\)\)fields\.push\(\["sqmPrice","سعر المتر"\]\)/);
   assert.match(pageSource, /PRICE_PER_SQM_TYPES\.has\(propertyType\)\|\|column\.key!=="sqmPrice"/);
+  assert.match(pageSource, /r\.sqmPrice==null\?"":fmt\(r\.sqmPrice,2\)/);
+});
+
+test("يخفي الشروط الرقمية غير المناسبة بحسب نوع العقار والعائد في كل تأجير", () => {
+  assert.deepEqual([...hiddenNumericFilterKeys("عمارة", "sale")], []);
+  assert.deepEqual([...hiddenNumericFilterKeys("فيلا", "sale")].sort(), ["minDensity", "minMeters"]);
+  assert.deepEqual([...hiddenNumericFilterKeys("شقة", "sale")].sort(), ["minDensity", "minFloors", "minMeters"]);
+  assert.deepEqual([...hiddenNumericFilterKeys("دور", "sale")].sort(), ["minDensity", "minFloors", "minMeters"]);
+  for (const propertyType of ["أرض", "مستودع", "ورشة"])
+    assert.deepEqual([...hiddenNumericFilterKeys(propertyType, "sale")].sort(), ["minCount", "minDensity", "minFloors", "minMeters"]);
+  for (const propertyType of PRICE_PER_SQM_TYPES)
+    assert.ok(hiddenNumericFilterKeys(propertyType, "rent").has("yieldMin"), propertyType);
 });
 
 test("يحصر النتائج القريبة في عشرين بالمئة", () => {
