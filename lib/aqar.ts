@@ -443,9 +443,10 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const listingAge = structuredAge.label != null ? structuredAge : embeddedAge;
   const age = descriptionAge.label ?? listingAge.label;
 
+  const annualWording = `(?:سنويين|سنوين|سنويا|سنوي(?:اً|ًا)?|بالسن(?:ة|ه))`;
   const annualPatterns = [
     incomeLabeled(`الدخل\\s+السنوي(?:\\s+الحالي)?|الدخل\\s+الحالي|الايجار\\s+السنوي|الإيجار\\s+السنوي|صافي\\s+الدخل|الدخل(?:\\s+الصافي|\\s+الإجمالي|\\s+الاجمالي)?|المدخول|مدخول`),
-    `(?<!غير\\s)(?:العقار\\s+)?مؤجر(?:ة)?(?:\\s+حاليا)?\\s*(?:ب(?:مبلغ|قيمة|(?:ـ|[\\u064b-\\u065f])*))?\\s*[:\\-]?\\s*${amount}`,
+    `(?<!غير\\s)(?:العقار\\s+)?مؤجر(?:ة)?(?:\\s+حاليا)?(?:\\s+${annualWording})?\\s*(?:ب(?:مبلغ|قيمة|(?:ـ|[\\u064b-\\u065f])*))?\\s*[:\\-]?\\s*${amount}`,
   ];
   const monthlyPatterns = [incomeLabeled(`(?:إجمالي\\s+)?(?:الدخل|الإيجار)\\s+الشهري(?:\\s+الحالي)?`)];
   const incomeFrom = (source: string) => {

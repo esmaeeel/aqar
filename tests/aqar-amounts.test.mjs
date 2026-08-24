@@ -316,6 +316,15 @@ test("يعتبر مبلغ مؤجر به دخلا لا سعر البيع", () => 
   assert.ok(!listing.warnings.includes("الدخل السنوي غير مذكور"));
 });
 
+test("يقرأ دخل الإعلان 6556674 المكتوب بصيغة مؤجرة سنوين", () => {
+  const html = `<h1>عمارة للبيع في مدينة الرياض</h1><div>2,000,000 ﷼</div><div>استكشف خيارات التمويل</div><p>مؤجرة سنوين بمبلغ 200 الف ريال</p>`;
+  const listing = parseListing(html, "https://sa.aqar.fm/عمائر-للبيع/الرياض/عمارة-6556674", "عمارة");
+  assert.equal(listing.income, 200_000);
+  assert.equal(listing.incomeKind, "actual");
+  assert.equal(listing.yieldPct, 10);
+  assert.ok(!listing.warnings.includes("الدخل السنوي غير مذكور"));
+});
+
 test("لا يخترع دخلا من عبارة غير مؤجر", () => {
   const html = `<h1>عمارة للبيع في مدينة الدمام، حي البادية</h1><div>23,000,000 ﷼</div><div>استكشف خيارات التمويل</div><p>العقار غير مؤجر، السعر المطلوب 23 مليون</p>`;
   const listing = parseListing(html, "https://sa.aqar.fm/عمائر-للبيع/الدمام/حي-البادية/عمارة-7654325", "عمارة");
