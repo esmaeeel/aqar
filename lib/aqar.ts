@@ -42,6 +42,21 @@ export function hiddenNumericFilterKeys(propertyType: string, purpose: Filters["
   return hidden;
 }
 
+export function hiddenResultColumnKeys(propertyType: string, purpose: Filters["purpose"]): Set<string> {
+  const filterToColumn: Partial<Record<keyof Filters, string>> = {
+    minMeters: "meters",
+    minCount: "count",
+    minFloors: "floors",
+    minDensity: "density",
+    yieldMin: "yieldPct",
+  };
+  return new Set(
+    [...hiddenNumericFilterKeys(propertyType, purpose)]
+      .map(key => filterToColumn[key])
+      .filter((key): key is string => Boolean(key)),
+  );
+}
+
 export type Listing = {
   listingId: string; url: string; title: string; city: string; neighborhood: string;
   propertyType: string; price: number | null; area: number | null; sqmPrice: number | null;

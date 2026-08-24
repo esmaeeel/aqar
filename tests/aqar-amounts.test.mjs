@@ -19,7 +19,7 @@ const javascript = ts.transpileModule(source.replace('"@/lib/locations"', JSON.s
     target: ts.ScriptTarget.ES2022,
   },
 }).outputText;
-const { CATEGORIES, PRICE_PER_SQM_TYPES, evaluate, hiddenNumericFilterKeys, listingMatchesRequestedLocation, parseListing } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
+const { CATEGORIES, PRICE_PER_SQM_TYPES, evaluate, hiddenNumericFilterKeys, hiddenResultColumnKeys, listingMatchesRequestedLocation, parseListing } = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
 
 function priceFrom(description) {
   const html = `<h1>عمارة للبيع في مدينة الرياض، حي العوالي</h1><p>${description}</p>`;
@@ -400,6 +400,18 @@ test("يخفي الشروط الرقمية غير المناسبة بحسب نو
     assert.deepEqual([...hiddenNumericFilterKeys(propertyType, "sale")].sort(), ["minCount", "minDensity", "minFloors", "minMeters"]);
   for (const propertyType of PRICE_PER_SQM_TYPES)
     assert.ok(hiddenNumericFilterKeys(propertyType, "rent").has("yieldMin"), propertyType);
+});
+
+test("يطابق أعمدة النتائج الشروط الظاهرة لكل نوع عقار", () => {
+  assert.deepEqual([...hiddenResultColumnKeys("عمارة", "sale")], []);
+  assert.deepEqual([...hiddenResultColumnKeys("فيلا", "sale")].sort(), ["density", "meters"]);
+  assert.deepEqual([...hiddenResultColumnKeys("شقة", "sale")].sort(), ["density", "floors", "meters"]);
+  assert.deepEqual([...hiddenResultColumnKeys("دور", "sale")].sort(), ["density", "floors", "meters"]);
+  for (const propertyType of ["أرض", "مستودع", "ورشة"])
+    assert.deepEqual([...hiddenResultColumnKeys(propertyType, "sale")].sort(), ["count", "density", "floors", "meters"]);
+  for (const propertyType of PRICE_PER_SQM_TYPES)
+    assert.ok(hiddenResultColumnKeys(propertyType, "rent").has("yieldPct"), propertyType);
+  assert.match(pageSource, /!hiddenColumns\.has\(column\.key\)/);
 });
 
 test("يحصر النتائج القريبة في عشرين بالمئة", () => {
