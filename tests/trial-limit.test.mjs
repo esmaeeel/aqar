@@ -55,6 +55,8 @@ test("requires one reservation before the search requests are sent", async () =>
   assert.match(page, /locations:\[\{city:"الرياض",neighborhoods:\[\]\}\]/);
   assert.match(page, /function clearFields\(\)\{setFilters\(\{\.\.\.defaults,locations:\[\{city:"",neighborhoods:\[\]\}\]\}\)/);
   assert.match(page, /placeSuggestions\(location\.city,CITY_NAMES\)/);
+  assert.match(page, /!cityQuery\|\|CITY_NAMES\.includes\(cityQuery\)\?CITY_NAMES:placeSuggestions/);
+  assert.match(page, /cityOpen&&cityMatches\.length>0&&<span id=\{citySuggestionsId\}/);
   assert.match(page, /localStorage\.removeItem\(LEGACY_LAST_FILTERS_KEY\)/);
   assert.doesNotMatch(page, /localStorage\.(?:getItem|setItem)\(LEGACY_LAST_FILTERS_KEY/);
 
