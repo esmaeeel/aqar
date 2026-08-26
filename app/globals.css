@@ -117,3 +117,9 @@
 .columnDragHandle:active{cursor:grabbing}
 .columnDragHandle:hover::before,.columnDragHandle:focus-visible::before{color:var(--green2);opacity:1}
 .columnDragHandle:focus-visible{outline:2px solid var(--green2);outline-offset:-2px}
+
+.resultSave{position:relative;z-index:1;min-height:44px;touch-action:manipulation}
+.resultSaveStatus{flex:1 0 100%;color:var(--muted);font-size:.76rem;font-weight:700}
+.resultSaveStatus.working{color:#6d5b22}
+.resultSaveStatus.success{color:var(--green2)}
+.resultSaveStatus.error{color:#a33636}

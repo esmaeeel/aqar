@@ -19,6 +19,7 @@ type SavedSet={id:number;name:string;propertyType:string;createdAt:string;count:
 type Profile={id:number;name:string;filtersJson:string};
 type SearchSource={category:string;city:string;neighborhood:string;page:number};
 type TrialStatus={limit:number;used:number;remaining:number;globalLimit:number;globalUsed:number;globalRemaining:number;canStart:boolean};
+type ResultSaveFeedback={tone:"working"|"success"|"error";text:string};
 const fmt=(v:number|null,d=0)=>v==null?"غير مذكور":new Intl.NumberFormat("ar-SA",{maximumFractionDigits:d}).format(v);
 const inputNumber=(value:unknown)=>Number(value)||0;
 function automaticPageCount(filters:Filters,locations:Location[],maxListings:number){
@@ -33,6 +34,7 @@ function keywordsFromDraft(value:string){return value.split(/[،,]/).map(item=>i
 
 export default function Home(){
   const [filters,setFilters]=useState<Filters>(defaults),[results,setResults]=useState<Listing[]>([]),[busy,setBusy]=useState(false);
+  const [savingResults,setSavingResults]=useState(false),[resultSaveFeedback,setResultSaveFeedback]=useState<ResultSaveFeedback|null>(null);
   const [message,setMessage]=useState("عدّل المواصفات ثم اضغط «ابدأ البحث»"),[progress,setProgress]=useState(0),[warnings,setWarnings]=useState<string[]>([]);
   const [tab,setTab]=useState<"search"|"saved">("search"),[sets,setSets]=useState<SavedSet[]>([]),[profiles,setProfiles]=useState<Profile[]>([]),[contextProfileId,setContextProfileId]=useState<number|null>(null);
   const [trial,setTrial]=useState<TrialStatus|null>(null);
@@ -51,7 +53,7 @@ export default function Home(){
   function addLocation(){update("locations",[...filters.locations,{city:"",neighborhoods:[]}])}
   function changeLocation(i:number,key:"city"|"neighborhoods",value:string){const next=filters.locations.map((l,j)=>j===i?{...l,[key]:key==="neighborhoods"?value.split(/[،,]/).map(x=>x.trim()).filter(Boolean):value}:l);update("locations",next as Location[])}
   function changeKeywordDraft(value:string){setKeywordDraft(value);update("keywords",keywordsFromDraft(value))}
-  function clearFields(){setFilters({...defaults,locations:[{city:"",neighborhoods:[]}]});setKeywordDraft("");setResults([]);setContextProfileId(null);setMessage("تم مسح جميع حقول البحث.")}
+  function clearFields(){setFilters({...defaults,locations:[{city:"",neighborhoods:[]}]});setKeywordDraft("");setResults([]);setResultSaveFeedback(null);setContextProfileId(null);setMessage("تم مسح جميع حقول البحث.")}
   async function loadProfiles(){try{const r=await fetch("/api/profiles",{headers:deviceHeaders()});const data=await r.json() as {profiles:Profile[]};if(r.ok)setProfiles(data.profiles)}catch{/* يعمل البحث حتى لو تعذر التخزين */}}
   async function loadTrialStatus(){try{const r=await fetch("/api/trial",{cache:"no-store",headers:deviceHeaders()});const data=await r.json() as TrialStatus;if(r.ok)setTrial(data)}catch{/* يتحقق الخادم مرة أخرى عند بدء البحث */}}
   async function saveProfile(){const name=prompt("اسم مواصفات البحث:");if(!name)return;const r=await fetch("/api/profiles",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({name,filters})});if(r.ok){await loadProfiles();setMessage("حُفظت مواصفات البحث.")}else setMessage("تعذر حفظ المواصفات.")}
@@ -65,7 +67,7 @@ export default function Home(){
     if(!generalSearchHasRequiredKeywords(clean.propertyType,clean.keywords)){setMessage("عند اختيار «عام»، اكتب نوع العقار أو وصفه في «كلمات مطلوبة» أولًا.");return}
     let trialToken="";
     try{const reservationResponse=await fetch("/api/trial",{method:"POST",headers:deviceHeaders()});const reservation=await reservationResponse.json() as {token?:string|null;status:TrialStatus;error?:string};setTrial(reservation.status);if(!reservationResponse.ok||!reservation.token){setMessage(reservation.error||"لا يمكن بدء بحث جديد الآن.");return}trialToken=reservation.token}catch{setMessage("تعذر التحقق من المحاولات التجريبية. حاول مرة أخرى.");return}
-    setBusy(true);setResults([]);setWarnings([]);setProgress(0);
+    setBusy(true);setResults([]);setResultSaveFeedback(null);setWarnings([]);setProgress(0);
     const found=new Map<string,Listing>(),checked=new Set<string>();let discovered=0,stoppedAt=-1,stopReason="";const allSources=(()=>{const a:SearchSource[]=[];for(let page=1;page<=clean.maxPages;page++)for(const category of searchCategoriesFor(clean.propertyType,clean.purpose,clean.keywords))for(const l of clean.locations)for(const neighborhood of(l.neighborhoods.length?l.neighborhoods:[""]))a.push({category,city:l.city,neighborhood,page});return a})();
     for(let i=0;i<allSources.length&&checked.size<clean.maxListings;i++){
       const s=allSources[i];setMessage(`قراءة ${s.city}${s.neighborhood?` — ${s.neighborhood}`:""}، صفحة ${s.page}…`);setProgress(Math.round(i/allSources.length*100));
@@ -89,10 +91,10 @@ export default function Home(){
     fields.push(["url","الرابط"]);
     const csv="\ufeff"+[fields.map(x=>x[1]),...results.map(r=>fields.map(([k])=>String(r[k]??"")))].map(row=>row.map(x=>`"${x.replace(/"/g,'""')}"`).join(",")).join("\r\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download=`نتائج-${filters.propertyType}-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(a.href)
   }
-  async function saveResults(){if(!results.length){setMessage("لا توجد نتائج لحفظها.");return}const r=await fetch("/api/saved-results",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({propertyType:filters.propertyType,results})});const d=await r.json() as {set?:{name:string};error?:string};setMessage(r.ok?`حُفظت المجموعة: ${d.set?.name}`:d.error||"تعذر الحفظ")}
+  async function saveResults(){if(!results.length||savingResults){if(!results.length)setMessage("لا توجد نتائج لحفظها.");return}const savedCount=results.length;setSavingResults(true);setResultSaveFeedback({tone:"working",text:`جارٍ حفظ ${savedCount} نتيجة…`});try{const r=await fetch("/api/saved-results",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({propertyType:filters.propertyType,results})});const d=await r.json().catch(()=>({})) as {set?:{name:string};error?:string};const text=r.ok?`حُفظت ${savedCount} نتيجة في المجموعة: ${d.set?.name||"نتائج محفوظة"}`:d.error||"تعذر حفظ النتائج. حاول مجددًا.";setResultSaveFeedback({tone:r.ok?"success":"error",text});setMessage(text)}catch{const text="تعذر حفظ النتائج بسبب مشكلة في الاتصال. حاول مجددًا.";setResultSaveFeedback({tone:"error",text});setMessage(text)}finally{setSavingResults(false)}}
   async function loadSets(){const r=await fetch("/api/saved-results",{headers:deviceHeaders()});const data=await r.json() as {sets:SavedSet[]};if(r.ok)setSets(data.sets);setTab("saved")}
   async function deleteSet(id:number){if(!confirm("هل تريد حذف هذه المجموعة المحفوظة؟"))return;await fetch(`/api/saved-results?id=${id}`,{method:"DELETE",headers:deviceHeaders()});await loadSets()}
-  function openSet(s:SavedSet){setResults(JSON.parse(s.resultsJson));setTab("search");setMessage(`تم فتح المجموعة: ${s.name}`);setTimeout(()=>document.getElementById("results")?.scrollIntoView({behavior:"smooth"}),50)}
+  function openSet(s:SavedSet){setResults(JSON.parse(s.resultsJson));setResultSaveFeedback(null);setTab("search");setMessage(`تم فتح المجموعة: ${s.name}`);setTimeout(()=>document.getElementById("results")?.scrollIntoView({behavior:"smooth"}),50)}
   return <main dir="rtl">
     <header className="top"><div><span className="eyebrow">نسخة الجوال المستقلة</span><h1>باحث العقارات</h1><p>ابحث في إعلانات عقار، واحسب العائد والكثافة تلقائيًا.</p></div></header>
     {tab==="saved"?<section className="panel saved"><div className="sectionHead"><div><h2>المجموعات المحفوظة</h2><p>لا تُحفظ النتائج إلا عند ضغط زر الحفظ.</p></div><button className="ghost" onClick={()=>setTab("search")}>العودة للبحث</button></div>{sets.length?sets.map(s=><article className="savedRow" key={s.id}><div><strong>{s.name}</strong><small>{s.propertyType} · {s.count} نتيجة</small></div><div><button onClick={()=>openSet(s)}>فتح</button><button className="danger" onClick={()=>deleteSet(s.id)}>حذف المجموعة</button></div></article>):<div className="empty">لا توجد مجموعات محفوظة بعد.</div>}</section>:<>
@@ -105,7 +107,7 @@ export default function Home(){
       <div className="trialNotice" aria-live="polite"><strong>التجربة المرتبطة بالمتصفح</strong><span>{trial?`متبقّي لهذا المتصفح ${trial.remaining} من ${trial.limit} عملية بحث`:`حد هذا المتصفح 100 عملية بحث`}</span><span>{trial?`المتبقي الإجمالي ${trial.globalRemaining} من ${trial.globalLimit}`:`الحد الإجمالي 1000 عملية بحث`}</span>{trial?.globalRemaining===0?<span>انتهى الحد الإجمالي للتجربة.</span>:trial?.remaining===0?<span>استخدم هذا المتصفح جميع عملياته.</span>:null}</div>
       <div className="run"><label className="listingLimit runListingLimit">أقصى إعلانات<input type="number" min="5" max="500" value={filters.maxListings||""} onChange={e=>update("maxListings",inputNumber(e.target.value))}/></label><button className="primary" disabled={busy||trialBlocked} onClick={search}>{busy?"جارٍ البحث…":trial?.globalRemaining===0?"انتهت التجربة":trial?.remaining===0?"انتهى حد هذا المتصفح":"ابدأ البحث"}</button><div className="runActions"><button className="ghost" onClick={loadSets}>المجموعات المحفوظة</button><button className="ghost" onClick={exportCsv}>تصدير CSV</button></div></div>{busy&&<progress value={progress} max="100"/>}<div className="status">{message}</div>{warnings.length>0&&<details className="warnings"><summary>ملاحظات أثناء القراءة ({warnings.length})</summary>{warnings.map((w,i)=><p key={i}>{w}</p>)}</details>}
     </section>
-    <Results rows={results} roomMode={ROOM_TYPES.has(filters.propertyType)} propertyType={filters.propertyType} purpose={filters.purpose} cities={[...new Set(filters.locations.map(location=>location.city.trim()).filter(Boolean))]} onSave={saveResults} saveDisabled={!results.length||busy}/></>}
+    <Results rows={results} roomMode={ROOM_TYPES.has(filters.propertyType)} propertyType={filters.propertyType} purpose={filters.purpose} cities={[...new Set(filters.locations.map(location=>location.city.trim()).filter(Boolean))]} onSave={saveResults} saveDisabled={!results.length||savingResults} saving={savingResults} searchBusy={busy} saveFeedback={resultSaveFeedback}/></>}
     <footer>أداة مستقلة · لا تتجاوز تسجيل الدخول أو حماية موقع عقار · البيانات غير المذكورة تبقى «غير مذكور»</footer>
   </main>
 }
@@ -141,7 +143,7 @@ const DEFAULT_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:132,price:92,
 const MIN_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:92,price:72,income:96,yieldPct:68,area:78,sqmPrice:78,count:72,housingUnits:90,commercialShops:100,totalRooms:88,meters:70,floors:68,street:80,density:90,age:68};
 const clampColumnWidth=(key:ColumnKey,width:number)=>Math.max(MIN_COLUMN_WIDTHS[key],Math.min(MAX_COLUMN_WIDTH,Math.round(width)));
 
-function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled}:{rows:Listing[];roomMode:boolean;propertyType:string;purpose:Filters["purpose"];cities:string[];onSave:()=>void;saveDisabled:boolean}){
+function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,saving,searchBusy,saveFeedback}:{rows:Listing[];roomMode:boolean;propertyType:string;purpose:Filters["purpose"];cities:string[];onSave:()=>void;saveDisabled:boolean;saving:boolean;searchBusy:boolean;saveFeedback:ResultSaveFeedback|null}){
   const [preferredStatus,setPreferredStatus]=useState<Listing["status"]|null>(null);
   const [sort,setSort]=useState<{key:ColumnKey;direction:"asc"|"desc"}|null>(null);
   const [columnOrder,setColumnOrder]=useState<ColumnKey[]>(DEFAULT_COLUMN_ORDER);
@@ -206,7 +208,7 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled}
   const resultCities=[...new Set(rows.map(row=>(row.city||"").trim()).filter(Boolean))],displayCities=resultCities.length?resultCities:cities;
   return <section className="panel results" id="results">
     <div className="sectionHead resultsHead">
-      <div><span className="eyebrow">النتائج</span><div className="resultsSummary"><h2>{rows.length} عقار</h2>{displayCities.length>0&&<span>المدن: {displayCities.join("، ")}</span>}<button type="button" className="save resultSave" disabled={saveDisabled} onClick={onSave}>حفظ هذه النتائج</button></div></div>
+      <div><span className="eyebrow">النتائج</span><div className="resultsSummary"><h2>{rows.length} عقار</h2>{displayCities.length>0&&<span>المدن: {displayCities.join("، ")}</span>}<button type="button" className="save resultSave" disabled={saveDisabled} aria-busy={saving} onClick={onSave}>{saving?"جارٍ الحفظ…":searchBusy&&rows.length?"حفظ النتائج الحالية":"حفظ هذه النتائج"}</button>{saveFeedback&&<span className={`resultSaveStatus ${saveFeedback.tone}`} role="status" aria-live="polite">{saveFeedback.text}</span>}</div></div>
       <div className="resultKey" aria-label="نوع العقار ودليل ألوان المطابقة">
         <strong>نوع العقار: {propertyType}</strong>
         <div className="legend">

@@ -104,6 +104,20 @@ test("keeps table swiping native and reorders once from a dedicated drag handle"
   assert.match(styles, /columnDragHandle\{[^}]*touch-action:none/);
 });
 
+test("keeps visible results savable during a running search and shows mobile feedback", async () => {
+  const [page, styles] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /saveDisabled=\{!results\.length\|\|savingResults\}/);
+  assert.doesNotMatch(page, /saveDisabled=\{!results\.length\|\|busy\}/);
+  assert.match(page, /searchBusy&&rows\.length\?"حفظ النتائج الحالية"/);
+  assert.match(page, /aria-busy=\{saving\}/);
+  assert.match(page, /className=\{`resultSaveStatus \$\{saveFeedback\.tone\}`\}/);
+  assert.match(page, /جارٍ حفظ \$\{savedCount\} نتيجة/);
+  assert.match(styles, /resultSave\{[^}]*min-height:44px[^}]*touch-action:manipulation/);
+});
+
 test("shows the neighborhood and keeps resizable result-column widths locally", async () => {
   const [page, styles] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
