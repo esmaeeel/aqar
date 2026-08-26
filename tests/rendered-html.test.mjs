@@ -86,15 +86,22 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.deepEqual(await readdir(previewRoot), []);
 });
 
-test("keeps a short header click for sorting and captures the pointer only after dragging", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+test("keeps table swiping native and reorders once from a dedicated drag handle", async () => {
+  const [page, styles] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
   const beginStart = page.indexOf("function beginPointerDrag");
   const moveStart = page.indexOf("function continuePointerDrag");
   const endStart = page.indexOf("function endPointerDrag");
   assert.ok(beginStart >= 0 && moveStart > beginStart && endStart > moveStart);
-  assert.doesNotMatch(page.slice(beginStart, moveStart), /setPointerCapture/);
-  assert.match(page.slice(moveStart, endStart), /drag\.moved=true;.*setPointerCapture/);
+  assert.match(page.slice(beginStart, moveStart), /setPointerCapture/);
+  assert.doesNotMatch(page.slice(moveStart, endStart), /moveColumnTo/);
+  assert.match(page.slice(endStart), /moveColumnTo\(drag\.key,drag\.target\)/);
+  assert.match(page, /className="columnDragHandle"/);
   assert.match(page, /className="sortHeader" onClick=\{\(\)=>sortBy\(column\.key\)\}/);
+  assert.match(styles, /resultsTableWrap\{[^}]*touch-action:pan-x pan-y/);
+  assert.match(styles, /columnDragHandle\{[^}]*touch-action:none/);
 });
 
 test("shows the neighborhood and keeps resizable result-column widths locally", async () => {
