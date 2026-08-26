@@ -53,6 +53,8 @@ test("requires one reservation before the search requests are sent", async () =>
   assert.doesNotMatch(page, /cooldownSeconds|nextAllowedAt|retryAfterSeconds/);
   assert.match(page, /تبدأ المدينة بـ«الرياض» وبقية الحقول فارغة عند كل فتح/);
   assert.match(page, /locations:\[\{city:"الرياض",neighborhoods:\[\]\}\]/);
+  assert.match(page, /function clearFields\(\)\{setFilters\(\{\.\.\.defaults,locations:\[\{city:"",neighborhoods:\[\]\}\]\}\)/);
+  assert.match(page, /placeSuggestions\(location\.city,CITY_NAMES\)/);
   assert.match(page, /localStorage\.removeItem\(LEGACY_LAST_FILTERS_KEY\)/);
   assert.doesNotMatch(page, /localStorage\.(?:getItem|setItem)\(LEGACY_LAST_FILTERS_KEY/);
 

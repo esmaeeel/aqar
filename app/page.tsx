@@ -51,7 +51,7 @@ export default function Home(){
   function addLocation(){update("locations",[...filters.locations,{city:"",neighborhoods:[]}])}
   function changeLocation(i:number,key:"city"|"neighborhoods",value:string){const next=filters.locations.map((l,j)=>j===i?{...l,[key]:key==="neighborhoods"?value.split(/[،,]/).map(x=>x.trim()).filter(Boolean):value}:l);update("locations",next as Location[])}
   function changeKeywordDraft(value:string){setKeywordDraft(value);update("keywords",keywordsFromDraft(value))}
-  function clearFields(){setFilters(defaults);setKeywordDraft("");setResults([]);setContextProfileId(null);setMessage("تم مسح جميع حقول البحث.")}
+  function clearFields(){setFilters({...defaults,locations:[{city:"",neighborhoods:[]}]});setKeywordDraft("");setResults([]);setContextProfileId(null);setMessage("تم مسح جميع حقول البحث.")}
   async function loadProfiles(){try{const r=await fetch("/api/profiles",{headers:deviceHeaders()});const data=await r.json() as {profiles:Profile[]};if(r.ok)setProfiles(data.profiles)}catch{/* يعمل البحث حتى لو تعذر التخزين */}}
   async function loadTrialStatus(){try{const r=await fetch("/api/trial",{cache:"no-store",headers:deviceHeaders()});const data=await r.json() as TrialStatus;if(r.ok)setTrial(data)}catch{/* يتحقق الخادم مرة أخرى عند بدء البحث */}}
   async function saveProfile(){const name=prompt("اسم مواصفات البحث:");if(!name)return;const r=await fetch("/api/profiles",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({name,filters})});if(r.ok){await loadProfiles();setMessage("حُفظت مواصفات البحث.")}else setMessage("تعذر حفظ المواصفات.")}
