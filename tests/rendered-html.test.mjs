@@ -67,6 +67,7 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(page, /"ابدأ البحث"/);
   assert.doesNotMatch(page, /ابدأ البحث في عقار/);
   assert.match(page, /propertyType:\s*"عام"/);
+  assert.match(page, /locations:\[\{city:"الرياض",neighborhoods:\[\]\}\]/);
   assert.match(page, /mode:\s*"strict"/);
   assert.match(page, /> جميع الشروط<\/label>/);
   assert.doesNotMatch(page, /جميع الشروط تمامًا/);
