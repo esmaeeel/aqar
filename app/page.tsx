@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { Filters, Listing, Location } from "@/lib/aqar";
 import { CATEGORIES, PRICE_PER_SQM_TYPES, ROOM_TYPES, generalSearchHasRequiredKeywords, hiddenNumericFilterKeys, hiddenResultColumnKeys, searchCategoriesFor } from "@/lib/aqar";
 import { CITY_NAMES, canonicalCity, canonicalNeighborhood, neighborhoodSuggestions, placeSuggestions } from "@/lib/locations";
@@ -129,26 +129,37 @@ function LocationAutocomplete({location,index,onChange,onRemove}:{location:Locat
   </div>
 }
 
-type ColumnKey="price"|"income"|"yieldPct"|"area"|"sqmPrice"|"count"|"housingUnits"|"commercialShops"|"totalRooms"|"meters"|"floors"|"street"|"density"|"age";
+type ColumnKey="neighborhood"|"price"|"income"|"yieldPct"|"area"|"sqmPrice"|"count"|"housingUnits"|"commercialShops"|"totalRooms"|"meters"|"floors"|"street"|"density"|"age";
 type TableColumn={key:ColumnKey;label:string;value:(row:Listing)=>string|number|null;render:(row:Listing)=>ReactNode;className?:string};
-const DEFAULT_COLUMN_ORDER:ColumnKey[]=["count","housingUnits","commercialShops","totalRooms","meters","floors","street","area","price","income","yieldPct","density","age","sqmPrice"];
+const DEFAULT_COLUMN_ORDER:ColumnKey[]=["neighborhood","count","housingUnits","commercialShops","totalRooms","meters","floors","street","area","price","income","yieldPct","density","age","sqmPrice"];
 const COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v7";
+const COLUMN_WIDTHS_KEY="aqar-mobile-table-column-widths-v1";
+const MAX_COLUMN_WIDTH=360;
+const DEFAULT_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:132,price:92,income:108,yieldPct:76,area:88,sqmPrice:90,count:94,housingUnits:96,commercialShops:112,totalRooms:96,meters:76,floors:72,street:88,density:100,age:72};
+const MIN_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:92,price:72,income:96,yieldPct:68,area:78,sqmPrice:78,count:72,housingUnits:90,commercialShops:100,totalRooms:88,meters:70,floors:68,street:80,density:90,age:68};
+const clampColumnWidth=(key:ColumnKey,width:number)=>Math.max(MIN_COLUMN_WIDTHS[key],Math.min(MAX_COLUMN_WIDTH,Math.round(width)));
 
 function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled}:{rows:Listing[];roomMode:boolean;propertyType:string;purpose:Filters["purpose"];cities:string[];onSave:()=>void;saveDisabled:boolean}){
   const [preferredStatus,setPreferredStatus]=useState<Listing["status"]|null>(null);
   const [sort,setSort]=useState<{key:ColumnKey;direction:"asc"|"desc"}|null>(null);
   const [columnOrder,setColumnOrder]=useState<ColumnKey[]>(DEFAULT_COLUMN_ORDER);
   const [columnOrderLoaded,setColumnOrderLoaded]=useState(false);
+  const [columnWidths,setColumnWidths]=useState<Record<ColumnKey,number>>(DEFAULT_COLUMN_WIDTHS);
+  const [columnWidthsLoaded,setColumnWidthsLoaded]=useState(false);
   const [draggedColumn,setDraggedColumn]=useState<ColumnKey|null>(null);
   const pointerDrag=useRef<{key:ColumnKey;pointerId:number;startX:number;moved:boolean}|null>(null);
+  const resizeDrag=useRef<{key:ColumnKey;pointerId:number;startX:number;startWidth:number}|null>(null);
   const lastTouch=useRef<{listingId:string;at:number}|null>(null);
   const suppressDoubleOpenUntil=useRef(0);
   const suppressSortUntil=useRef(0);
   useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(COLUMN_ORDER_KEY)||"[]") as ColumnKey[];if(stored.length===DEFAULT_COLUMN_ORDER.length&&DEFAULT_COLUMN_ORDER.every(key=>stored.includes(key)))setColumnOrder(stored)}catch{/* تجاهل ترتيب محلي تالف */}setColumnOrderLoaded(true)},[]);
   useEffect(()=>{if(columnOrderLoaded)localStorage.setItem(COLUMN_ORDER_KEY,JSON.stringify(columnOrder))},[columnOrder,columnOrderLoaded]);
+  useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(COLUMN_WIDTHS_KEY)||"{}") as Partial<Record<ColumnKey,number>>;setColumnWidths(Object.fromEntries(DEFAULT_COLUMN_ORDER.map(key=>[key,typeof stored[key]==="number"?clampColumnWidth(key,stored[key]!):DEFAULT_COLUMN_WIDTHS[key]])) as Record<ColumnKey,number>)}catch{/* تجاهل مقاسات محلية تالفة */}setColumnWidthsLoaded(true)},[]);
+  useEffect(()=>{if(columnWidthsLoaded)localStorage.setItem(COLUMN_WIDTHS_KEY,JSON.stringify(columnWidths))},[columnWidths,columnWidthsLoaded]);
   const rentalSearch=purpose==="rent";
   const hiddenColumns=hiddenResultColumnKeys(propertyType,purpose);
   const columns:TableColumn[]=[
+    {key:"neighborhood",label:"الحي",value:r=>r.neighborhood||null,render:r=>r.neighborhood||"غير مذكور"},
     {key:"price",label:"السعر",value:r=>r.price,render:r=>fmt(r.price),className:"money"},
     {key:"income",label:"الدخل السنوي",value:r=>r.income,render:r=>fmt(r.income)},
     {key:"yieldPct",label:"العائد",value:r=>r.yieldPct,render:r=>r.yieldPct==null?"غير مذكور":`${fmt(r.yieldPct,2)}%${r.incomeKind==="expected"?" متوقع":""}`},
@@ -180,6 +191,11 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled}
   function beginPointerDrag(event:ReactPointerEvent<HTMLTableCellElement>,key:ColumnKey){if(event.button!==0)return;pointerDrag.current={key,pointerId:event.pointerId,startX:event.clientX,moved:false}}
   function continuePointerDrag(event:ReactPointerEvent<HTMLTableCellElement>){const drag=pointerDrag.current;if(!drag||drag.pointerId!==event.pointerId)return;if(!drag.moved){if(Math.abs(event.clientX-drag.startX)<10)return;drag.moved=true;if(!event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.setPointerCapture(event.pointerId);setDraggedColumn(drag.key)}event.preventDefault();const target=document.elementFromPoint(event.clientX,event.clientY)?.closest<HTMLElement>("th[data-column-key]")?.dataset.columnKey as ColumnKey|undefined;if(target)moveColumnTo(drag.key,target)}
   function endPointerDrag(event:ReactPointerEvent<HTMLTableCellElement>){const drag=pointerDrag.current;if(!drag||drag.pointerId!==event.pointerId)return;if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);if(drag.moved)suppressSortUntil.current=Date.now()+300;pointerDrag.current=null;setDraggedColumn(null)}
+  function beginColumnResize(event:ReactPointerEvent<HTMLSpanElement>,key:ColumnKey){if(event.button!==0)return;event.preventDefault();event.stopPropagation();resizeDrag.current={key,pointerId:event.pointerId,startX:event.clientX,startWidth:columnWidths[key]};event.currentTarget.setPointerCapture(event.pointerId);suppressSortUntil.current=Date.now()+500}
+  function continueColumnResize(event:ReactPointerEvent<HTMLSpanElement>){const drag=resizeDrag.current;if(!drag||drag.pointerId!==event.pointerId)return;event.preventDefault();event.stopPropagation();const width=clampColumnWidth(drag.key,drag.startWidth+drag.startX-event.clientX);setColumnWidths(current=>current[drag.key]===width?current:{...current,[drag.key]:width})}
+  function endColumnResize(event:ReactPointerEvent<HTMLSpanElement>){const drag=resizeDrag.current;if(!drag||drag.pointerId!==event.pointerId)return;event.preventDefault();event.stopPropagation();if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);resizeDrag.current=null;suppressSortUntil.current=Date.now()+300}
+  function resetColumnWidth(event:ReactMouseEvent<HTMLSpanElement>,key:ColumnKey){event.preventDefault();event.stopPropagation();setColumnWidths(current=>current[key]===DEFAULT_COLUMN_WIDTHS[key]?current:{...current,[key]:DEFAULT_COLUMN_WIDTHS[key]});suppressSortUntil.current=Date.now()+300}
+  function resizeColumnByKeyboard(event:ReactKeyboardEvent<HTMLSpanElement>,key:ColumnKey){if(!["ArrowLeft","ArrowRight","Home"].includes(event.key))return;event.preventDefault();event.stopPropagation();const width=event.key==="Home"?DEFAULT_COLUMN_WIDTHS[key]:clampColumnWidth(key,columnWidths[key]+(event.key==="ArrowLeft"?10:-10));setColumnWidths(current=>({...current,[key]:width}))}
   function openListing(row:Listing){window.open(row.url,"_blank","noopener,noreferrer")}
   function openOnRepeatedTouch(event:ReactPointerEvent<HTMLTableRowElement>,row:Listing){if(event.pointerType!=="touch")return;const now=Date.now(),previous=lastTouch.current;if(previous?.listingId===row.listingId&&now-previous.at<=500){lastTouch.current=null;suppressDoubleOpenUntil.current=now+800;openListing(row)}else lastTouch.current={listingId:row.listingId,at:now}}
   const rowClass=(status:Listing["status"])=>status==="مطابقة"?"match":status==="قريبة"?"near":"missing";
@@ -195,10 +211,11 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled}
       </div>
     </div>
     <>
-      <div className="tableTools"><p className="swipeHint">اضغط رأس العمود للفرز، أو أمسكه واسحبه يمينًا أو يسارًا لترتيب الأعمدة. اضغط صف الإعلان مرتين لفتحه.</p></div>
+      <div className="tableTools"><p className="swipeHint">اضغط العنوان للفرز، واسحبه لترتيب الأعمدة. اسحب مقبض حافة العنوان لتغيير عرضه، أو انقر الحافة مرتين لإعادته. اضغط صف الإعلان مرتين لفتحه.</p></div>
       <div className="resultsTableWrap" role="region" aria-label="جدول مقارنة نتائج العقارات" tabIndex={0}>
-        <table className="resultsTable">
-          <thead><tr>{orderedColumns.map(column=><th key={column.key} data-column-key={column.key} className={draggedColumn===column.key?"draggingColumn":undefined} aria-sort={sort?.key===column.key?(sort.direction==="asc"?"ascending":"descending"):"none"} onPointerDown={event=>beginPointerDrag(event,column.key)} onPointerMove={continuePointerDrag} onPointerUp={endPointerDrag} onPointerCancel={endPointerDrag}><button type="button" className="sortHeader" onClick={()=>sortBy(column.key)}>{column.label}<span aria-hidden="true">{sort?.key===column.key?(sort.direction==="asc"?"▲":"▼"):"↕"}</span></button></th>)}</tr></thead>
+        <table className="resultsTable" style={{width:orderedColumns.reduce((total,column)=>total+columnWidths[column.key],0)}}>
+          <colgroup>{orderedColumns.map(column=><col key={column.key} style={{width:columnWidths[column.key]}}/>)}</colgroup>
+          <thead><tr>{orderedColumns.map(column=><th key={column.key} data-column-key={column.key} className={draggedColumn===column.key?"draggingColumn":undefined} aria-sort={sort?.key===column.key?(sort.direction==="asc"?"ascending":"descending"):"none"} onPointerDown={event=>beginPointerDrag(event,column.key)} onPointerMove={continuePointerDrag} onPointerUp={endPointerDrag} onPointerCancel={endPointerDrag}><button type="button" className="sortHeader" onClick={()=>sortBy(column.key)}>{column.label}<span aria-hidden="true">{sort?.key===column.key?(sort.direction==="asc"?"▲":"▼"):"↕"}</span></button><span className="columnResizeHandle" role="separator" aria-orientation="vertical" aria-label={`تغيير عرض عمود ${column.label}`} aria-valuemin={MIN_COLUMN_WIDTHS[column.key]} aria-valuemax={MAX_COLUMN_WIDTH} aria-valuenow={columnWidths[column.key]} tabIndex={0} title="اسحب لتغيير العرض، وانقر مرتين لإعادة العرض الافتراضي" onPointerDown={event=>beginColumnResize(event,column.key)} onPointerMove={continueColumnResize} onPointerUp={endColumnResize} onPointerCancel={endColumnResize} onDoubleClick={event=>resetColumnWidth(event,column.key)} onKeyDown={event=>resizeColumnByKeyboard(event,column.key)}/></th>)}</tr></thead>
           <tbody>{!orderedRows.length?<tr><td className="emptyTableCell" colSpan={orderedColumns.length}>ستظهر النتائج هنا بعد البحث.</td></tr>:orderedRows.map(r=><tr className={rowClass(r.status)} key={r.listingId} tabIndex={0} title="اضغط مرتين لفتح الإعلان" onDoubleClick={()=>{if(Date.now()>=suppressDoubleOpenUntil.current)openListing(r)}} onPointerUp={event=>openOnRepeatedTouch(event,r)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();openListing(r)}}}>
             {orderedColumns.map(column=><td key={column.key} className={column.className}>{column.render(r)}</td>)}
           </tr>)}</tbody>

@@ -95,3 +95,22 @@ test("keeps a short header click for sorting and captures the pointer only after
   assert.match(page.slice(moveStart, endStart), /drag\.moved=true;.*setPointerCapture/);
   assert.match(page, /className="sortHeader" onClick=\{\(\)=>sortBy\(column\.key\)\}/);
 });
+
+test("shows the neighborhood and keeps resizable result-column widths locally", async () => {
+  const [page, styles] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /key:"neighborhood",label:"الحي"/);
+  assert.match(page, /DEFAULT_COLUMN_WIDTHS:Record<ColumnKey,number>/);
+  assert.match(page, /MIN_COLUMN_WIDTHS:Record<ColumnKey,number>/);
+  assert.match(page, /clampColumnWidth/);
+  assert.match(page, /COLUMN_WIDTHS_KEY="aqar-mobile-table-column-widths-v1"/);
+  assert.match(page, /localStorage\.setItem\(COLUMN_WIDTHS_KEY,JSON\.stringify\(columnWidths\)\)/);
+  assert.match(page, /<colgroup>/);
+  assert.match(page, /className="columnResizeHandle"/);
+  assert.match(page, /onDoubleClick=\{event=>resetColumnWidth\(event,column\.key\)\}/);
+  assert.match(styles, /table-layout:fixed/);
+  assert.match(styles, /\.columnResizeHandle\{/);
+});
