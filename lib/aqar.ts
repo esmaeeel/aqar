@@ -30,7 +30,7 @@ export type Filters = {
   keywords: string[]; mode: "strict" | "near"; maxPages: number; maxListings: number;
   priceMin: number; priceMax: number; yieldMin: number; minMeters: number;
   minCount: number; minFloors: number; minStreet: number; areaMin: number;
-  areaMax: number; minDensity: number; sqmMin: number; sqmMax: number;
+  areaMax: number; maxAge: number; minDensity: number; sqmMin: number; sqmMax: number;
 };
 
 export const PRICE_PER_SQM_TYPES = new Set(["عمارة", "فيلا", "شقة", "دور", "أرض", "مستودع", "ورشة", "استراحة", "شاليه", "محل", "مكتب", "استوديو", "غرفة", "عام"]);
@@ -590,18 +590,24 @@ export function evaluate(item: Listing, f: Filters) {
   const minCount = hidden.has("minCount") ? 0 : f.minCount;
   const minFloors = hidden.has("minFloors") ? 0 : f.minFloors;
   const minDensity = hidden.has("minDensity") ? 0 : f.minDensity;
+  const maxAge = f.maxAge || 0;
+  const normalizedAge = normalizeText(item.age || "");
+  const parsedAge = normalizedAge.includes("جديد") ? 0 : Number(normalizedAge.match(/\d+(?:\.\d+)?/)?.[0]);
+  const ageValue = !Number.isFinite(parsedAge) ? null
+    : /اكثر\s+من|فوق/.test(normalizedAge) ? (maxAge <= parsedAge ? parsedAge + 0.001 : null)
+    : parsedAge;
   const checks: [boolean, number|null, (x:number)=>boolean, number][] = [
     [f.priceMin>0,item.price,x=>x>=f.priceMin,12],[f.priceMax>0,item.price,x=>x<=f.priceMax,16],
     [sqmMin>0,item.sqmPrice,x=>x>=sqmMin,8],[sqmMax>0,item.sqmPrice,x=>x<=sqmMax,8],
     [yieldMin>0,item.yieldPct,x=>x>=yieldMin&&item.incomeKind==="actual",22],
     [minMeters>0,item.meters,x=>x>=minMeters,10],[minCount>0,count,x=>x>=minCount,10],
     [minFloors>0,item.floors,x=>x>=minFloors,7],[f.minStreet>0,item.street,x=>x>=f.minStreet,8],
-    [f.areaMin>0,item.area,x=>x>=f.areaMin,5],[f.areaMax>0,item.area,x=>x<=f.areaMax,5],[minDensity>0,item.density,x=>x>=minDensity,10],
+    [f.areaMin>0,item.area,x=>x>=f.areaMin,5],[f.areaMax>0,item.area,x=>x<=f.areaMax,5],[maxAge>0,ageValue,x=>x<=maxAge,8],[minDensity>0,item.density,x=>x>=minDensity,10],
   ];
   let score=100, failed=false, missing=false; for(const [active,value,pass,weight] of checks){if(!active)continue;if(value==null){missing=true;score-=weight}else if(!pass(value)){failed=true;score-=weight}}
   // «مطابقة» تتطلب اجتياز كل شرط مفعّل بقيمته الفعلية؛ سماحية 20% للنتائج القريبة فقط.
   item.score=Math.max(0,score); item.status=!failed&&!missing?"مطابقة":missing?"بيانات ناقصة":"قريبة";
-  let near=true; for(const [v,lo,hi] of [[item.price,f.priceMin,f.priceMax],[item.sqmPrice,sqmMin,sqmMax],[item.area,f.areaMin,f.areaMax]] as [number|null,number,number][]){if(v==null)continue;if(lo>0&&v<lo*(1-NEAR_TOLERANCE))near=false;if(hi>0&&v>hi*(1+NEAR_TOLERANCE))near=false}
+  let near=true; for(const [v,lo,hi] of [[item.price,f.priceMin,f.priceMax],[item.sqmPrice,sqmMin,sqmMax],[item.area,f.areaMin,f.areaMax],[ageValue,0,maxAge]] as [number|null,number,number][]){if(v==null)continue;if(lo>0&&v<lo*(1-NEAR_TOLERANCE))near=false;if(hi>0&&v>hi*(1+NEAR_TOLERANCE))near=false}
   for(const [v,min] of [[item.yieldPct,yieldMin],[item.meters,minMeters],[count,minCount],[item.floors,minFloors],[item.street,f.minStreet],[item.density,minDensity]] as [number|null,number][]){if(v!=null&&min>0&&v<min*(1-NEAR_TOLERANCE))near=false}
   item.nearEligible=near; return item;
 }

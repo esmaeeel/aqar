@@ -509,3 +509,20 @@ test("لا يمنح مطابق إلا بعد اجتياز كل شرط مفعّل
   assert.equal(evaluate({...listing,apartments:9}, filters).status, "قريبة");
   assert.equal(evaluate({...listing,street:null}, filters).status, "بيانات ناقصة");
 });
+
+test("يطبق أقصى عمر للعقار ويعامل الجديد كعمر صفر", () => {
+  const listing = {
+    listingId:"3",url:"",title:"",city:"",neighborhood:"",propertyType:"عمارة",price:null,area:null,sqmPrice:null,
+    apartments:null,rooms:null,totalRooms:null,bedrooms:null,majlis:0,maqlat:0,meters:null,floors:null,street:null,age:"10 سنة",income:null,
+    incomeKind:"unknown",yieldPct:null,density:null,warnings:[],status:"بيانات ناقصة",score:0,nearEligible:true,description:"",
+  };
+  const filters = {propertyType:"عمارة",purpose:"sale",locations:[],keywords:[],mode:"near",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,maxAge:10,minDensity:0,sqmMin:0,sqmMax:0};
+  assert.equal(evaluate({...listing}, filters).status, "مطابقة");
+  assert.equal(evaluate({...listing,age:"12 سنة"}, filters).nearEligible, true);
+  assert.equal(evaluate({...listing,age:"13 سنة"}, filters).nearEligible, false);
+  assert.equal(evaluate({...listing,age:"جديد"}, filters).status, "مطابقة");
+  assert.equal(evaluate({...listing,age:null}, filters).status, "بيانات ناقصة");
+  assert.equal(evaluate({...listing,age:"أكثر من 10 سنوات"}, filters).status, "قريبة");
+  assert.equal(evaluate({...listing,age:"أكثر من 10 سنوات"}, {...filters,maxAge:20}).status, "بيانات ناقصة");
+  assert.match(pageSource, /key:"maxAge",label:"أقصى عمر العقار \(سنة\)"/);
+});
