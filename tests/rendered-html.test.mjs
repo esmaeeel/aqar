@@ -142,6 +142,16 @@ test("keeps visible results savable during a running search and shows mobile fee
   assert.match(styles, /resultSave\{[^}]*min-height:44px[^}]*touch-action:manipulation/);
 });
 
+test("shows saved result groups beneath the results panel", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const resultsIndex = page.indexOf("<Results rows={results}");
+  const savedGroupsIndex = page.indexOf('id="saved-results"');
+  assert.ok(resultsIndex >= 0);
+  assert.ok(savedGroupsIndex > resultsIndex);
+  assert.match(page, /setTab\("saved"\);setTimeout\(\(\)=>document\.getElementById\("saved-results"\)\?\.scrollIntoView/);
+  assert.match(page, /tab==="saved"&&<section className="panel saved" id="saved-results">/);
+});
+
 test("shows the neighborhood and keeps resizable result-column widths locally", async () => {
   const [page, styles] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
