@@ -136,3 +136,14 @@ test("shows the neighborhood and keeps resizable result-column widths locally", 
   assert.match(styles, /table-layout:fixed/);
   assert.match(styles, /\.columnResizeHandle\{/);
 });
+
+test("exports visible results as a real Excel workbook", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const excel = await readFile(new URL("../lib/excel-export.ts", import.meta.url), "utf8");
+  assert.match(page, /import\("write-excel-file\/browser"\)/);
+  assert.match(page, /تصدير Excel/);
+  assert.match(page, /\.xlsx`/);
+  assert.doesNotMatch(page, /تصدير CSV|\.csv`/);
+  assert.match(excel, /rightToLeft:true/);
+  assert.match(excel, /stickyRowsCount:1/);
+});

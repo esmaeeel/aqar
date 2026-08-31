@@ -6,6 +6,7 @@ import ts from "typescript";
 const source = await readFile(new URL("../lib/aqar.ts", import.meta.url), "utf8");
 const locationsSource = await readFile(new URL("../lib/locations.ts", import.meta.url), "utf8");
 const pageSource = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+const excelExportSource = await readFile(new URL("../lib/excel-export.ts", import.meta.url), "utf8");
 const locationsJavascript = ts.transpileModule(locationsSource, {
   compilerOptions: {
     module: ts.ModuleKind.ESNext,
@@ -409,7 +410,7 @@ test("لا يحسب عائدا بنسبة مئة بالمئة من سعر إعل
   assert.equal(listing.price, 250_000);
   assert.equal(listing.income, 250_000);
   assert.equal(listing.yieldPct, null);
-  assert.match(pageSource, /!rentalSearch\)fields\.push\(\["income","الدخل السنوي"\],\["yieldPct","العائد %"\]\)/);
+  assert.match(excelExportSource, /options\.purpose!=="rent"\)fields\.push\(numberField\("income","الدخل السنوي"/);
   assert.match(pageSource, /!\["income","yieldPct"\]\.includes\(column\.key\)/);
 });
 
@@ -451,7 +452,7 @@ test("يطبق شرط سعر المتر على جميع أنواع العقار�
 
 test("يعرض عمود سعر المتر لجميع أنواع العقارات في البيع والتأجير", () => {
   assert.deepEqual([...PRICE_PER_SQM_TYPES], ["عمارة", "فيلا", "شقة", "دور", "أرض", "مستودع", "ورشة", "استراحة", "شاليه", "محل", "مكتب", "استوديو", "غرفة", "عام"]);
-  assert.match(pageSource, /PRICE_PER_SQM_TYPES\.has\(filters\.propertyType\)\)fields\.push\(\["sqmPrice","سعر المتر"\]\)/);
+  assert.match(excelExportSource, /options\.includeSquareMeterPrice\)fields\.push\(numberField\("sqmPrice","سعر المتر"/);
   assert.match(pageSource, /PRICE_PER_SQM_TYPES\.has\(propertyType\)\|\|column\.key!=="sqmPrice"/);
   assert.match(pageSource, /r\.sqmPrice==null\?"":fmt\(r\.sqmPrice,2\)/);
 });

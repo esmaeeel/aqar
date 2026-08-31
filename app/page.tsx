@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, 
 import type { Filters, Listing, Location } from "@/lib/aqar";
 import { CATEGORIES, PRICE_PER_SQM_TYPES, ROOM_TYPES, generalSearchHasRequiredKeywords, hiddenNumericFilterKeys, hiddenResultColumnKeys, searchCategoriesFor } from "@/lib/aqar";
 import { CITY_NAMES, canonicalCity, canonicalNeighborhood, neighborhoodSuggestions, placeSuggestions } from "@/lib/locations";
+import { buildExcelExport } from "@/lib/excel-export";
 
 const LEGACY_LAST_FILTERS_KEY = "aqar-last-filters-clean-v2";
 const defaults: Filters = { propertyType:"عام",purpose:"sale",locations:[{city:"الرياض",neighborhoods:[]}],keywords:[],mode:"strict",maxPages:2,maxListings:200,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,maxAge:0,minDensity:0,sqmMin:0,sqmMax:0 };
@@ -35,6 +36,7 @@ function keywordsFromDraft(value:string){return value.split(/[،,]/).map(item=>i
 export default function Home(){
   const [filters,setFilters]=useState<Filters>(defaults),[results,setResults]=useState<Listing[]>([]),[busy,setBusy]=useState(false);
   const [savingResults,setSavingResults]=useState(false),[resultSaveFeedback,setResultSaveFeedback]=useState<ResultSaveFeedback|null>(null);
+  const [exportingExcel,setExportingExcel]=useState(false);
   const [message,setMessage]=useState("عدّل المواصفات ثم اضغط «ابدأ البحث»"),[progress,setProgress]=useState(0),[warnings,setWarnings]=useState<string[]>([]);
   const [tab,setTab]=useState<"search"|"saved">("search"),[sets,setSets]=useState<SavedSet[]>([]),[profiles,setProfiles]=useState<Profile[]>([]),[contextProfileId,setContextProfileId]=useState<number|null>(null);
   const [trial,setTrial]=useState<TrialStatus|null>(null);
@@ -75,21 +77,16 @@ export default function Home(){
     }
     if(stopReason){const pending=[...new Set(allSources.slice(stoppedAt).map(s=>s.city))];setProgress(Math.max(1,Math.round(stoppedAt/allSources.length*100)));setMessage(`توقف البحث قبل إكمال جميع المدن. فُحص ${checked.size} إعلان، وظهرت ${found.size} نتيجة. المدن غير المكتملة: ${pending.join("، ")}. انتظر عدة دقائق ثم أعد البحث.`)}else{setProgress(100);setMessage(`اكتمل البحث: اكتُشف ${discovered} رابطًا، وفُحص ${checked.size} إعلان، وظهرت ${found.size} نتيجة بعد التصفية.`)}setBusy(false);void loadTrialStatus();
   }
-  function exportCsv(){
-    if(!results.length)return;
-    const hiddenColumns=hiddenResultColumnKeys(filters.propertyType,filters.purpose);
-    const fields:[keyof Listing,string][]=[["listingId","رقم الإعلان"],["status","الحالة"],["propertyType","نوع العقار"],["age","العمر"],["city","المدينة"],["neighborhood","الحي"],["price","السعر"]];
-    if(PRICE_PER_SQM_TYPES.has(filters.propertyType))fields.push(["sqmPrice","سعر المتر"]);
-    if(!rentalSearch)fields.push(["income","الدخل السنوي"],["yieldPct","العائد %"]);
-    fields.push(["area","المساحة"]);
-    if(!hiddenColumns.has("count"))fields.push([ROOM_TYPES.has(filters.propertyType)?"rooms":"apartments",ROOM_TYPES.has(filters.propertyType)?"الغرف مع المجلس والمقلط":"الشقق"]);
-    if(filters.propertyType==="عمارة")fields.push(["housingUnits","وحدة سكنية"],["commercialShops","المحلات التجارية"],["totalRooms","إجمالي الغرف"]);
-    if(!hiddenColumns.has("meters"))fields.push(["meters","العدادات"]);
-    if(!hiddenColumns.has("floors"))fields.push(["floors","الأدوار"]);
-    fields.push(["street","عرض الشارع"]);
-    if(!hiddenColumns.has("density"))fields.push(["density","شقق لكل 100م²"]);
-    fields.push(["url","الرابط"]);
-    const csv="\ufeff"+[fields.map(x=>x[1]),...results.map(r=>fields.map(([k])=>String(r[k]??"")))].map(row=>row.map(x=>`"${x.replace(/"/g,'""')}"`).join(",")).join("\r\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download=`نتائج-${filters.propertyType}-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(a.href)
+  async function exportExcel(){
+    if(!results.length){setMessage("لا توجد نتائج لتصديرها إلى Excel.");return}
+    setExportingExcel(true);setMessage("جارٍ إنشاء ملف Excel…");
+    try{
+      const {default:writeExcelFile}=await import("write-excel-file/browser");
+      const {sheetData,sheetOptions}=buildExcelExport(results,{propertyType:filters.propertyType,purpose:filters.purpose,roomMode:ROOM_TYPES.has(filters.propertyType),includeSquareMeterPrice:PRICE_PER_SQM_TYPES.has(filters.propertyType),hiddenColumns:hiddenResultColumnKeys(filters.propertyType,filters.purpose)});
+      const fileName=`نتائج-${filters.propertyType}-${new Date().toISOString().slice(0,10)}.xlsx`;
+      await writeExcelFile(sheetData,sheetOptions,{fontFamily:"Arial",fontSize:11}).toFile(fileName);
+      setMessage(`تم تصدير ${results.length} نتيجة إلى Excel.`);
+    }catch{setMessage("تعذر إنشاء ملف Excel. حاول مجددًا.")}finally{setExportingExcel(false)}
   }
   async function saveResults(){if(!results.length||savingResults){if(!results.length)setMessage("لا توجد نتائج لحفظها.");return}const savedCount=results.length;setSavingResults(true);setResultSaveFeedback({tone:"working",text:`جارٍ حفظ ${savedCount} نتيجة…`});try{const r=await fetch("/api/saved-results",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({propertyType:filters.propertyType,results})});const d=await r.json().catch(()=>({})) as {set?:{name:string};error?:string};const text=r.ok?`حُفظت ${savedCount} نتيجة في المجموعة: ${d.set?.name||"نتائج محفوظة"}`:d.error||"تعذر حفظ النتائج. حاول مجددًا.";setResultSaveFeedback({tone:r.ok?"success":"error",text});setMessage(text)}catch{const text="تعذر حفظ النتائج بسبب مشكلة في الاتصال. حاول مجددًا.";setResultSaveFeedback({tone:"error",text});setMessage(text)}finally{setSavingResults(false)}}
   async function loadSets(){const r=await fetch("/api/saved-results",{headers:deviceHeaders()});const data=await r.json() as {sets:SavedSet[]};if(r.ok)setSets(data.sets);setTab("saved")}
@@ -105,7 +102,7 @@ export default function Home(){
         <div className="formBlock numericBlock"><h3>الشروط الرقمية</h3><div className="numericGrid">{visibleNums.map(n=><label className={`numericField ${wideNumericKeys.has(n.key)?"numericFieldWide":mediumNumericKeys.has(n.key)?"numericFieldMedium":"numericFieldShort"}`} key={String(n.key)}>{n.key==="minCount"?countLabel:n.label}<input inputMode="decimal" type="number" min="0" value={String(filters[n.key]||"")} onChange={e=>update(n.key,inputNumber(e.target.value) as never)}/></label>)}</div></div>
       </div>
       <div className="trialNotice" aria-live="polite"><strong>التجربة المرتبطة بالمتصفح</strong><span>{trial?`متبقّي لهذا المتصفح ${trial.remaining} من ${trial.limit} عملية بحث`:`حد هذا المتصفح 100 عملية بحث`}</span><span>{trial?`المتبقي الإجمالي ${trial.globalRemaining} من ${trial.globalLimit}`:`الحد الإجمالي 1000 عملية بحث`}</span>{trial?.globalRemaining===0?<span>انتهى الحد الإجمالي للتجربة.</span>:trial?.remaining===0?<span>استخدم هذا المتصفح جميع عملياته.</span>:null}</div>
-      <div className="run"><label className="listingLimit runListingLimit">أقصى إعلانات<input type="number" min="5" max="500" value={filters.maxListings||""} onChange={e=>update("maxListings",inputNumber(e.target.value))}/></label><button className="primary" disabled={busy||trialBlocked} onClick={search}>{busy?"جارٍ البحث…":trial?.globalRemaining===0?"انتهت التجربة":trial?.remaining===0?"انتهى حد هذا المتصفح":"ابدأ البحث"}</button><div className="runActions"><button className="ghost" onClick={loadSets}>المجموعات المحفوظة</button><button className="ghost" onClick={exportCsv}>تصدير CSV</button></div></div>{busy&&<progress value={progress} max="100"/>}<div className="status">{message}</div>{warnings.length>0&&<details className="warnings"><summary>ملاحظات أثناء القراءة ({warnings.length})</summary>{warnings.map((w,i)=><p key={i}>{w}</p>)}</details>}
+      <div className="run"><label className="listingLimit runListingLimit">أقصى إعلانات<input type="number" min="5" max="500" value={filters.maxListings||""} onChange={e=>update("maxListings",inputNumber(e.target.value))}/></label><button className="primary" disabled={busy||trialBlocked} onClick={search}>{busy?"جارٍ البحث…":trial?.globalRemaining===0?"انتهت التجربة":trial?.remaining===0?"انتهى حد هذا المتصفح":"ابدأ البحث"}</button><div className="runActions"><button className="ghost" onClick={loadSets}>المجموعات المحفوظة</button><button className="ghost" disabled={exportingExcel} onClick={exportExcel}>{exportingExcel?"جارٍ إنشاء Excel…":"تصدير Excel"}</button></div></div>{busy&&<progress value={progress} max="100"/>}<div className="status">{message}</div>{warnings.length>0&&<details className="warnings"><summary>ملاحظات أثناء القراءة ({warnings.length})</summary>{warnings.map((w,i)=><p key={i}>{w}</p>)}</details>}
     </section>
     <Results rows={results} roomMode={ROOM_TYPES.has(filters.propertyType)} propertyType={filters.propertyType} purpose={filters.purpose} cities={[...new Set(filters.locations.map(location=>location.city.trim()).filter(Boolean))]} onSave={saveResults} saveDisabled={!results.length||savingResults} saving={savingResults} searchBusy={busy} saveFeedback={resultSaveFeedback}/></>}
     <footer>أداة مستقلة · لا تتجاوز تسجيل الدخول أو حماية موقع عقار · البيانات غير المذكورة تبقى «غير مذكور»</footer>
