@@ -95,7 +95,7 @@
   .profileControls button{padding:6px 7px;font-size:.7rem}
   .formBlock{padding:10px}
   .propertyKeywordsRow{grid-template-columns:minmax(100px,.72fr) minmax(0,1.45fr)}
-  .choiceRow{display:grid;grid-template-columns:1fr}
+  .choiceRow{display:grid;grid-template-columns:minmax(105px,.72fr) minmax(0,1.45fr)}
   .choiceRow>fieldset{width:100%}
   .location{grid-template-columns:1fr 42px}
   .location label:nth-child(2){grid-column:1/2}

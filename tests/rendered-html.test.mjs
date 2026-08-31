@@ -81,6 +81,7 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(page, /placeholder="مثل: تجاري، دوبلكس، مكيف، موقف"/);
   assert.doesNotMatch(page, /كلمات مطلوبة/);
   assert.match(styles, /\.propertyKeywordsRow\{display:grid;grid-template-columns:/);
+  assert.match(styles, /\.choiceRow\{display:grid;grid-template-columns:minmax\(105px,\.72fr\) minmax\(0,1\.45fr\)\}/);
   assert.doesNotMatch(page, /value=\{filters\.keywords\.join/);
   assert.match(layout, /title:\s*"باحث عقار"/);
   assert.doesNotMatch(layout, /Starter Project|codex-preview|_sites-preview/);
