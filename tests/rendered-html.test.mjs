@@ -157,10 +157,12 @@ test("places all result actions in one row above the result key", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   const componentIndex = page.indexOf("function Results(");
+  const toolbarIndex = page.indexOf("resultsToolbar");
   const actionsIndex = page.indexOf('<div className="resultPanelActions">');
   const resultKeyIndex = page.indexOf('<div className="resultKey"');
   const tableToolsIndex = page.indexOf('<div className="tableTools">');
   assert.ok(componentIndex >= 0);
+  assert.ok(toolbarIndex > componentIndex);
   assert.ok(actionsIndex > componentIndex);
   assert.ok(resultKeyIndex > actionsIndex);
   assert.ok(tableToolsIndex > resultKeyIndex);
@@ -169,6 +171,10 @@ test("places all result actions in one row above the result key", async () => {
   assert.match(actionsMarkup, /المجموعات المحفوظة/);
   assert.match(actionsMarkup, /تصدير Excel/);
   assert.match(styles, /resultPanelActions\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(page, /separateResultsSummary=rows\.length>=100\|\|displayCities\.length>3\|\|resultCityText\.length>42/);
+  assert.match(page, /resultsToolbar \$\{separateResultsSummary\?"separateSummary":"compactSummary"\}/);
+  assert.match(styles, /resultsToolbar\{[^}]*grid-template-columns:minmax\(105px,\.8fr\) minmax\(0,2\.2fr\)/);
+  assert.match(styles, /resultsToolbar\.separateSummary\{[^}]*grid-template-columns:1fr/);
   assert.match(page, /onShowSaved=\{loadSets\} onExport=\{exportExcel\} exportingExcel=\{exportingExcel\}/);
 });
 

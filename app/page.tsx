@@ -219,11 +219,12 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
   function openOnRepeatedTouch(event:ReactPointerEvent<HTMLTableRowElement>,row:Listing){if(event.pointerType!=="touch")return;const now=Date.now(),previous=lastTouch.current;if(previous?.listingId===row.listingId&&now-previous.at<=500){lastTouch.current=null;suppressDoubleOpenUntil.current=now+800;openListing(row)}else lastTouch.current={listingId:row.listingId,at:now}}
   const rowClass=(status:Listing["status"])=>status==="مطابقة"?"match":status==="قريبة"?"near":"missing";
   const resultCities=[...new Set(rows.map(row=>(row.city||"").trim()).filter(Boolean))],displayCities=resultCities.length?resultCities:cities;
+  const resultCityText=displayCities.join("، "),separateResultsSummary=rows.length>=100||displayCities.length>3||resultCityText.length>42;
   return <section className="panel results" id="results">
-    <div className="sectionHead resultsHead">
-      <div><span className="eyebrow">النتائج</span><div className="resultsSummary"><h2>{rows.length} عقار</h2>{displayCities.length>0&&<span>المدن: {displayCities.join("، ")}</span>}</div></div>
+    <div className={`resultsToolbar ${separateResultsSummary?"separateSummary":"compactSummary"}`}>
+      <div className="resultsHead"><span className="eyebrow">النتائج</span><div className="resultsSummary"><h2>{rows.length} عقار</h2>{displayCities.length>0&&<span>المدن: {resultCityText}</span>}</div></div>
+      <div className="resultPanelActions"><button type="button" className="save resultSave" disabled={saveDisabled} aria-busy={saving} onClick={onSave}>{saving?"جارٍ الحفظ…":searchBusy&&rows.length?"حفظ النتائج الحالية":"حفظ هذه النتائج"}</button><button className="ghost" onClick={onShowSaved}>المجموعات المحفوظة</button><button className="ghost" disabled={exportingExcel} onClick={onExport}>{exportingExcel?"جارٍ إنشاء Excel…":"تصدير Excel"}</button></div>
     </div>
-    <div className="resultPanelActions"><button type="button" className="save resultSave" disabled={saveDisabled} aria-busy={saving} onClick={onSave}>{saving?"جارٍ الحفظ…":searchBusy&&rows.length?"حفظ النتائج الحالية":"حفظ هذه النتائج"}</button><button className="ghost" onClick={onShowSaved}>المجموعات المحفوظة</button><button className="ghost" disabled={exportingExcel} onClick={onExport}>{exportingExcel?"جارٍ إنشاء Excel…":"تصدير Excel"}</button></div>
     <div className="resultKey" aria-label="نوع العقار ودليل ألوان المطابقة">
       <strong>نوع العقار: {propertyType}</strong>
       <div className="legend">
