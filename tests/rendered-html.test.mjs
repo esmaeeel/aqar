@@ -82,8 +82,11 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(page, /ابدأ الكتابة: الروضة…/);
   assert.doesNotMatch(page, /ابدأ الكتابة: الشف…/);
   assert.doesNotMatch(page, />المدن والأحياء</);
-  assert.ok(page.indexOf('className="add locationAdd"')>page.indexOf('className="locations"'));
+  assert.match(page, /onAdd=\{index===filters\.locations\.length-1\?addLocation:undefined\}/);
+  assert.match(page, /aria-label="إضافة مدينة" title="إضافة مدينة" className="icon locationAddIcon"/);
+  assert.doesNotMatch(page, /\+ إضافة مدينة/);
   assert.match(styles, /\.location\{grid-template-columns:minmax\(86px,\.72fr\) minmax\(0,1\.45fr\) 34px;gap:5px\}/);
+  assert.match(styles, /\.locationHasAdd\{grid-template-columns:minmax\(78px,\.68fr\) minmax\(0,1\.35fr\) 34px 34px\}/);
   assert.match(styles, /\.location button\{grid-column:auto;grid-row:auto;align-self:end;height:34px\}/);
   assert.doesNotMatch(page, /كلمات مطلوبة/);
   assert.match(styles, /\.propertyKeywordsRow\{display:grid;grid-template-columns:/);
