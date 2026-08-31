@@ -81,6 +81,10 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(page, /placeholder="مثل: تجاري، دوبلكس، مكيف، موقف"/);
   assert.match(page, /ابدأ الكتابة: الروضة…/);
   assert.doesNotMatch(page, /ابدأ الكتابة: الشف…/);
+  assert.doesNotMatch(page, />المدن والأحياء</);
+  assert.ok(page.indexOf('className="add locationAdd"')>page.indexOf('className="locations"'));
+  assert.match(styles, /\.location\{grid-template-columns:minmax\(86px,\.72fr\) minmax\(0,1\.45fr\) 34px;gap:5px\}/);
+  assert.match(styles, /\.location button\{grid-column:auto;grid-row:auto;align-self:end;height:34px\}/);
   assert.doesNotMatch(page, /كلمات مطلوبة/);
   assert.match(styles, /\.propertyKeywordsRow\{display:grid;grid-template-columns:/);
   assert.match(styles, /\.choiceRow\{display:grid;grid-template-columns:minmax\(105px,\.72fr\) minmax\(0,1\.45fr\)\}/);
