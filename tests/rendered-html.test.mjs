@@ -147,3 +147,17 @@ test("exports visible results as a real Excel workbook", async () => {
   assert.match(excel, /rightToLeft:true/);
   assert.match(excel, /stickyRowsCount:1/);
 });
+
+test("refreshes from a deliberate downward pull without stealing horizontal table swipes", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(page, /PULL_REFRESH_THRESHOLD = 72/);
+  assert.match(page, /window\.scrollY>0/);
+  assert.match(page, /Math\.abs\(deltaX\)>Math\.abs\(deltaY\)/);
+  assert.match(page, /addEventListener\("touchmove",move,\{passive:false\}\)/);
+  assert.match(page, /event\.preventDefault\(\)/);
+  assert.match(page, /window\.location\.reload\(\)/);
+  assert.match(page, /أفلت للتحديث/);
+  assert.match(styles, /\.pullRefreshIndicator\{/);
+  assert.match(styles, /overscroll-behavior-y:none/);
+});

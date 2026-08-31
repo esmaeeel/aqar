@@ -7,6 +7,8 @@ import { CITY_NAMES, canonicalCity, canonicalNeighborhood, neighborhoodSuggestio
 import { buildExcelExport } from "@/lib/excel-export";
 
 const LEGACY_LAST_FILTERS_KEY = "aqar-last-filters-clean-v2";
+const PULL_REFRESH_THRESHOLD = 72;
+const PULL_REFRESH_MAX_DISTANCE = 116;
 const defaults: Filters = { propertyType:"عام",purpose:"sale",locations:[{city:"الرياض",neighborhoods:[]}],keywords:[],mode:"strict",maxPages:2,maxListings:200,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,maxAge:0,minDensity:0,sqmMin:0,sqmMax:0 };
 const nums: {key:keyof Filters;label:string;hint?:string}[] = [
   {key:"priceMin",label:"السعر من"},{key:"priceMax",label:"السعر إلى"},{key:"yieldMin",label:"أقل عائد فعلي %"},
@@ -37,12 +39,23 @@ export default function Home(){
   const [filters,setFilters]=useState<Filters>(defaults),[results,setResults]=useState<Listing[]>([]),[busy,setBusy]=useState(false);
   const [savingResults,setSavingResults]=useState(false),[resultSaveFeedback,setResultSaveFeedback]=useState<ResultSaveFeedback|null>(null);
   const [exportingExcel,setExportingExcel]=useState(false);
+  const [pullDistance,setPullDistance]=useState(0),[pullRefreshing,setPullRefreshing]=useState(false);
   const [message,setMessage]=useState("عدّل المواصفات ثم اضغط «ابدأ البحث»"),[progress,setProgress]=useState(0),[warnings,setWarnings]=useState<string[]>([]);
   const [tab,setTab]=useState<"search"|"saved">("search"),[sets,setSets]=useState<SavedSet[]>([]),[profiles,setProfiles]=useState<Profile[]>([]),[contextProfileId,setContextProfileId]=useState<number|null>(null);
   const [trial,setTrial]=useState<TrialStatus|null>(null);
   const [keywordDraft,setKeywordDraft]=useState("");
   const profileMenuRef=useRef<HTMLDetailsElement>(null);
+  const pullDistanceRef=useRef(0),pullGesture=useRef<{startX:number;startY:number;vertical:boolean;cancelled:boolean}|null>(null),refreshTimer=useRef<number|null>(null);
   useEffect(()=>{const timer=setTimeout(()=>{getDeviceId();localStorage.removeItem(LEGACY_LAST_FILTERS_KEY);void loadProfiles();void loadTrialStatus()},0);return()=>clearTimeout(timer)},[]);
+  useEffect(()=>{
+    const updatePullDistance=(distance:number)=>{pullDistanceRef.current=distance;setPullDistance(distance)};
+    const cancelPull=()=>{pullGesture.current=null;updatePullDistance(0)};
+    const start=(event:TouchEvent)=>{if(refreshTimer.current!==null||event.touches.length!==1||window.scrollY>0)return;const touch=event.touches[0];pullGesture.current={startX:touch.clientX,startY:touch.clientY,vertical:false,cancelled:false}};
+    const move=(event:TouchEvent)=>{const gesture=pullGesture.current;if(!gesture||event.touches.length!==1)return;const touch=event.touches[0],deltaX=touch.clientX-gesture.startX,deltaY=touch.clientY-gesture.startY;if(!gesture.vertical&&!gesture.cancelled&&Math.max(Math.abs(deltaX),Math.abs(deltaY))>=8){if(Math.abs(deltaX)>Math.abs(deltaY)){gesture.cancelled=true;updatePullDistance(0);return}gesture.vertical=true}if(gesture.cancelled||!gesture.vertical)return;if(deltaY<=0||window.scrollY>0){cancelPull();return}event.preventDefault();updatePullDistance(Math.min(PULL_REFRESH_MAX_DISTANCE,Math.round(deltaY*.5)))};
+    const finish=()=>{if(!pullGesture.current)return;pullGesture.current=null;if(pullDistanceRef.current>=PULL_REFRESH_THRESHOLD){setPullRefreshing(true);updatePullDistance(PULL_REFRESH_THRESHOLD);refreshTimer.current=window.setTimeout(()=>window.location.reload(),220)}else updatePullDistance(0)};
+    window.addEventListener("touchstart",start,{passive:true});window.addEventListener("touchmove",move,{passive:false});window.addEventListener("touchend",finish,{passive:true});window.addEventListener("touchcancel",cancelPull,{passive:true});
+    return()=>{window.removeEventListener("touchstart",start);window.removeEventListener("touchmove",move);window.removeEventListener("touchend",finish);window.removeEventListener("touchcancel",cancelPull);if(refreshTimer.current!==null)window.clearTimeout(refreshTimer.current)};
+  },[]);
   const trialBlocked=trial?.remaining===0||trial?.globalRemaining===0;
   const countLabel=ROOM_TYPES.has(filters.propertyType)?"أقل غرف (مع المجلس والمقلط)":"أقل شقق";
   const rentalSearch=filters.purpose==="rent";
@@ -92,7 +105,9 @@ export default function Home(){
   async function loadSets(){const r=await fetch("/api/saved-results",{headers:deviceHeaders()});const data=await r.json() as {sets:SavedSet[]};if(r.ok)setSets(data.sets);setTab("saved")}
   async function deleteSet(id:number){if(!confirm("هل تريد حذف هذه المجموعة المحفوظة؟"))return;await fetch(`/api/saved-results?id=${id}`,{method:"DELETE",headers:deviceHeaders()});await loadSets()}
   function openSet(s:SavedSet){setResults(JSON.parse(s.resultsJson));setResultSaveFeedback(null);setTab("search");setMessage(`تم فتح المجموعة: ${s.name}`);setTimeout(()=>document.getElementById("results")?.scrollIntoView({behavior:"smooth"}),50)}
-  return <main dir="rtl">
+  const pullReady=pullDistance>=PULL_REFRESH_THRESHOLD;
+  return <main dir="rtl" className={`pullRefreshRoot ${pullDistance===0?"pullRefreshSettled":""}`} style={pullDistance?{transform:`translateY(${pullDistance}px)`}:undefined}>
+    <div className={`pullRefreshIndicator ${pullReady?"ready":""} ${pullRefreshing?"refreshing":""}`} role="status" aria-live="polite" aria-hidden={pullDistance===0&&!pullRefreshing}><span className="pullRefreshIcon" aria-hidden="true">{pullRefreshing?"↻":pullReady?"↑":"↓"}</span><span>{pullRefreshing?"جارٍ التحديث…":pullReady?"أفلت للتحديث":"اسحب إلى الأسفل للتحديث"}</span></div>
     <header className="top"><div><span className="eyebrow">نسخة الجوال المستقلة</span><h1>باحث عقار</h1><p>ابحث في إعلانات عقار، واحسب العائد والكثافة تلقائيًا.</p></div></header>
     {tab==="saved"?<section className="panel saved"><div className="sectionHead"><div><h2>المجموعات المحفوظة</h2><p>لا تُحفظ النتائج إلا عند ضغط زر الحفظ.</p></div><button className="ghost" onClick={()=>setTab("search")}>العودة للبحث</button></div>{sets.length?sets.map(s=><article className="savedRow" key={s.id}><div><strong>{s.name}</strong><small>{s.propertyType} · {s.count} نتيجة</small></div><div><button onClick={()=>openSet(s)}>فتح</button><button className="danger" onClick={()=>deleteSet(s.id)}>حذف المجموعة</button></div></article>):<div className="empty">لا توجد مجموعات محفوظة بعد.</div>}</section>:<>
     <section className="panel searchPanel"><div className="sectionHead"><div><h2>مواصفات البحث</h2><p>تبدأ المدينة بـ«الرياض» وبقية الحقول فارغة عند كل فتح. يمكنك تحميل بحث محفوظ يدويًا.</p></div><div className="profileControls"><details ref={profileMenuRef} className="profileMenu" onToggle={e=>{if(!e.currentTarget.open)setContextProfileId(null)}}><summary>شروط البحث المحفوظة</summary><div className="profileMenuList">{profiles.length?profiles.map(profile=><div className="profileItem" key={profile.id}><button type="button" className="profileName" onClick={()=>loadProfile(profile)} onContextMenu={event=>{event.preventDefault();setContextProfileId(profile.id)}}>{profile.name}</button>{contextProfileId===profile.id&&<div className="profileItemActions" role="menu"><button type="button" onClick={()=>renameProfile(profile)}>تعديل المسمى</button><button type="button" className="danger" onClick={()=>deleteProfile(profile)}>حذف</button></div>}</div>):<span className="profileEmpty">لا توجد شروط محفوظة</span>}</div></details><button className="ghost" onClick={saveProfile}>حفظ الشروط</button><button className="ghost" onClick={clearFields}>مسح الحقول</button></div></div>

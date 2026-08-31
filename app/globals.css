@@ -123,3 +123,13 @@
 .resultSaveStatus.working{color:#6d5b22}
 .resultSaveStatus.success{color:var(--green2)}
 .resultSaveStatus.error{color:#a33636}
+
+.pullRefreshRoot{position:relative;min-height:100vh;will-change:transform}
+.pullRefreshRoot.pullRefreshSettled{transition:transform .2s ease}
+.pullRefreshIndicator{position:absolute;top:-50px;left:50%;transform:translateX(-50%);height:38px;display:flex;align-items:center;gap:8px;padding:7px 13px;border:1px solid #b7c7c1;border-radius:999px;background:rgba(255,255,255,.97);color:var(--green);box-shadow:0 8px 24px rgba(24,55,49,.14);font-size:.78rem;font-weight:800;white-space:nowrap;pointer-events:none}
+.pullRefreshIcon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#e4f1ec;font-size:1rem;transition:transform .15s ease}
+.pullRefreshIndicator.ready .pullRefreshIcon{transform:rotate(180deg)}
+.pullRefreshIndicator.refreshing .pullRefreshIcon{animation:pullRefreshSpin .7s linear infinite}
+@keyframes pullRefreshSpin{to{transform:rotate(360deg)}}
+html,body{overscroll-behavior-y:none}
+@media (hover:hover) and (pointer:fine){.pullRefreshIndicator{display:none}}
