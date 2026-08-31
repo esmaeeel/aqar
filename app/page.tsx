@@ -9,11 +9,11 @@ import { buildExcelExport } from "@/lib/excel-export";
 const LEGACY_LAST_FILTERS_KEY = "aqar-last-filters-clean-v2";
 const PULL_REFRESH_THRESHOLD = 72;
 const PULL_REFRESH_MAX_DISTANCE = 116;
-const defaults: Filters = { propertyType:"عام",purpose:"sale",locations:[{city:"الرياض",neighborhoods:[]}],keywords:[],mode:"strict",maxPages:2,maxListings:200,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,maxAge:0,minDensity:0,sqmMin:0,sqmMax:0 };
+const defaults: Filters = { propertyType:"عام",purpose:"sale",locations:[{city:"الرياض",neighborhoods:[]}],keywords:[],mode:"strict",maxPages:2,maxListings:200,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minAge:0,maxAge:0,minDensity:0,sqmMin:0,sqmMax:0 };
 const nums: {key:keyof Filters;label:string;hint?:string}[] = [
   {key:"priceMin",label:"السعر من"},{key:"priceMax",label:"السعر إلى"},{key:"yieldMin",label:"أقل عائد فعلي %"},
   {key:"minMeters",label:"أقل عدادات"},{key:"minCount",label:"أقل شقق / غرف"},{key:"minFloors",label:"أقل أدوار"},
-  {key:"minStreet",label:"أقل عرض شارع"},{key:"areaMin",label:"المساحة من"},{key:"areaMax",label:"المساحة إلى"},{key:"maxAge",label:"أقصى عمر العقار"},
+  {key:"minStreet",label:"أقل عرض شارع"},{key:"areaMin",label:"المساحة من"},{key:"areaMax",label:"المساحة إلى"},{key:"minAge",label:"أقل عمر"},{key:"maxAge",label:"أقصى عمر"},
   {key:"minDensity",label:"شقق لكل 100م²"},{key:"sqmMin",label:"سعر المتر من"},{key:"sqmMax",label:"سعر المتر إلى"},
 ];
 const wideNumericKeys=new Set<keyof Filters>(["priceMin","priceMax"]);
@@ -79,6 +79,7 @@ export default function Home(){
     const locations=filters.locations.filter(l=>l.city.trim()).map(location=>{const city=canonicalCity(location.city);return{city,neighborhoods:location.neighborhoods.map(value=>canonicalNeighborhood(city,value)).filter(Boolean)}}),maxListings=Math.min(500,Math.max(5,filters.maxListings));
     const clean={...filters,...Object.fromEntries([...hiddenNumericKeys].map(key=>[key,0])),locations,maxListings,maxPages:automaticPageCount(filters,locations,maxListings),...(!PRICE_PER_SQM_TYPES.has(filters.propertyType)?{sqmMin:0,sqmMax:0}:{})} as Filters;
     if(!clean.locations.length){setMessage("أضف مدينة واحدة على الأقل.");return}
+    if(clean.minAge>0&&clean.maxAge>0&&clean.minAge>clean.maxAge){setMessage("يجب ألا يتجاوز «أقل عمر» قيمة «أقصى عمر».");return}
     if(!generalSearchHasRequiredKeywords(clean.propertyType,clean.keywords)){setMessage("عند اختيار «عام»، اكتب نوع العقار أو وصفه في «كلمات للبحث» أولًا.");return}
     let trialToken="";
     try{const reservationResponse=await fetch("/api/trial",{method:"POST",headers:deviceHeaders()});const reservation=await reservationResponse.json() as {token?:string|null;status:TrialStatus;error?:string};setTrial(reservation.status);if(!reservationResponse.ok||!reservation.token){setMessage(reservation.error||"لا يمكن بدء بحث جديد الآن.");return}trialToken=reservation.token}catch{setMessage("تعذر التحقق من المحاولات التجريبية. حاول مرة أخرى.");return}
