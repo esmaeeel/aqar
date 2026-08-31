@@ -54,7 +54,8 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.doesNotMatch(page, /SkeletonPreview|_sites-preview|codex-preview/);
   assert.match(page, /maxListings:\s*200/);
   assert.match(page, /value=\{filters\.maxListings\|\|""\}/);
-  assert.match(page, /className="runActions"/);
+  assert.doesNotMatch(page, /className="runActions"/);
+  assert.match(page, /className="resultPanelActions"/);
   assert.doesNotMatch(page, /className="topActions"/);
   assert.match(page, /شروط البحث المحفوظة/);
   assert.doesNotMatch(page, /اختر بحثًا محفوظًا/);
@@ -150,6 +151,17 @@ test("shows saved result groups beneath the results panel", async () => {
   assert.ok(savedGroupsIndex > resultsIndex);
   assert.match(page, /setTab\("saved"\);setTimeout\(\(\)=>document\.getElementById\("saved-results"\)\?\.scrollIntoView/);
   assert.match(page, /tab==="saved"&&<section className="panel saved" id="saved-results">/);
+});
+
+test("places saved-groups and Excel actions inside the results panel", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const componentIndex = page.indexOf("function Results(");
+  const actionsIndex = page.indexOf('<div className="resultPanelActions">');
+  const tableToolsIndex = page.indexOf('<div className="tableTools">');
+  assert.ok(componentIndex >= 0);
+  assert.ok(actionsIndex > componentIndex);
+  assert.ok(tableToolsIndex > actionsIndex);
+  assert.match(page, /onShowSaved=\{loadSets\} onExport=\{exportExcel\} exportingExcel=\{exportingExcel\}/);
 });
 
 test("shows the neighborhood and keeps resizable result-column widths locally", async () => {
