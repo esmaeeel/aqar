@@ -22,6 +22,7 @@
 .searchPanel{width:100%;max-width:none;margin-inline:auto;padding:16px}
 .searchPanel .sectionHead{margin-bottom:8px}
 .profileControls{display:flex!important;flex-flow:row nowrap!important;align-items:stretch;gap:5px;width:min(100%,520px)}
+.searchProfileControls{margin-bottom:8px}
 .profileMenu{position:relative;flex:1 1 0;min-width:0}
 .profileMenu summary{cursor:pointer;list-style:none}
 .profileMenu summary::-webkit-details-marker{display:none}

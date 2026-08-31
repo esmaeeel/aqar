@@ -34,7 +34,7 @@ test("server-renders the Arabic property search site and browser limits", async 
   assert.match(html, /<title>باحث عقار<\/title>/i);
   assert.match(html, /التجربة المرتبطة بالمتصفح/);
   assert.match(html, /حد هذا المتصفح 100 عملية بحث/);
-  assert.match(html, /الحد الإجمالي 1000 عملية بحث/);
+  assert.doesNotMatch(html, /المتبقي الإجمالي|الحد الإجمالي 1000 عملية بحث/);
   assert.match(html, /جدول مقارنة نتائج العقارات/);
   assert.match(html, /مستودع/);
   for (const propertyType of ["استراحة", "شاليه", "محل", "مكتب", "استوديو", "غرفة", "عام"])
@@ -71,6 +71,13 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(page, /mode:\s*"strict"/);
   assert.match(page, /> جميع الشروط<\/label>/);
   assert.doesNotMatch(page, /جميع الشروط تمامًا/);
+  assert.doesNotMatch(page, /عدّل المواصفات ثم اضغط/);
+  assert.doesNotMatch(page, /<h3>الشروط الرقمية<\/h3>/);
+  assert.doesNotMatch(page, /ابحث في إعلانات عقار، واحسب العائد والكثافة تلقائيًا/);
+  assert.doesNotMatch(page, /<h2>مواصفات البحث<\/h2>/);
+  assert.doesNotMatch(page, /تبدأ المدينة بـ«الرياض» وبقية الحقول فارغة عند كل فتح/);
+  assert.doesNotMatch(page, /المتبقي الإجمالي|الحد الإجمالي 1000 عملية بحث/);
+  assert.match(page, /\{message&&<div className="status">\{message\}<\/div>\}/);
   assert.match(page, /value=\{keywordDraft\}/);
   assert.match(page, /changeKeywordDraft\(e\.target\.value\)/);
   assert.match(page, /update\("keywords",keywordsFromDraft\(value\)\)/);
