@@ -221,15 +221,16 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
   const resultCities=[...new Set(rows.map(row=>(row.city||"").trim()).filter(Boolean))],displayCities=resultCities.length?resultCities:cities;
   return <section className="panel results" id="results">
     <div className="sectionHead resultsHead">
-      <div><span className="eyebrow">النتائج</span><div className="resultsSummary"><h2>{rows.length} عقار</h2>{displayCities.length>0&&<span>المدن: {displayCities.join("، ")}</span>}<button type="button" className="save resultSave" disabled={saveDisabled} aria-busy={saving} onClick={onSave}>{saving?"جارٍ الحفظ…":searchBusy&&rows.length?"حفظ النتائج الحالية":"حفظ هذه النتائج"}</button>{saveFeedback&&<span className={`resultSaveStatus ${saveFeedback.tone}`} role="status" aria-live="polite">{saveFeedback.text}</span>}</div></div>
-      <div className="resultKey" aria-label="نوع العقار ودليل ألوان المطابقة">
-        <strong>نوع العقار: {propertyType}</strong>
-        <div className="legend">
-          {(["مطابقة","قريبة","بيانات ناقصة"] as Listing["status"][]).map(status=><button key={status} type="button" aria-pressed={preferredStatus===status} className={rowClass(status)} onClick={()=>setPreferredStatus(status)}>{status==="بيانات ناقصة"?"ناقصة":status}</button>)}
-        </div>
+      <div><span className="eyebrow">النتائج</span><div className="resultsSummary"><h2>{rows.length} عقار</h2>{displayCities.length>0&&<span>المدن: {displayCities.join("، ")}</span>}</div></div>
+    </div>
+    <div className="resultPanelActions"><button type="button" className="save resultSave" disabled={saveDisabled} aria-busy={saving} onClick={onSave}>{saving?"جارٍ الحفظ…":searchBusy&&rows.length?"حفظ النتائج الحالية":"حفظ هذه النتائج"}</button><button className="ghost" onClick={onShowSaved}>المجموعات المحفوظة</button><button className="ghost" disabled={exportingExcel} onClick={onExport}>{exportingExcel?"جارٍ إنشاء Excel…":"تصدير Excel"}</button></div>
+    <div className="resultKey" aria-label="نوع العقار ودليل ألوان المطابقة">
+      <strong>نوع العقار: {propertyType}</strong>
+      <div className="legend">
+        {(["مطابقة","قريبة","بيانات ناقصة"] as Listing["status"][]).map(status=><button key={status} type="button" aria-pressed={preferredStatus===status} className={rowClass(status)} onClick={()=>setPreferredStatus(status)}>{status==="بيانات ناقصة"?"ناقصة":status}</button>)}
       </div>
     </div>
-    <div className="resultPanelActions"><button className="ghost" onClick={onShowSaved}>المجموعات المحفوظة</button><button className="ghost" disabled={exportingExcel} onClick={onExport}>{exportingExcel?"جارٍ إنشاء Excel…":"تصدير Excel"}</button></div>
+    {saveFeedback&&<span className={`resultSaveStatus ${saveFeedback.tone}`} role="status" aria-live="polite">{saveFeedback.text}</span>}
     <>
       <div className="tableTools"><p className="swipeHint">مرّر الجدول يمينًا ويسارًا بالسحب العادي. اضغط العنوان للفرز، واسحب مقبض ↔ لترتيب العمود. اسحب مقبض الحافة لتغيير العرض، أو انقر الحافة مرتين لإعادته. اضغط صف الإعلان مرتين لفتحه.</p></div>
       <div className="resultsTableWrap" role="region" aria-label="جدول مقارنة نتائج العقارات" tabIndex={0}>

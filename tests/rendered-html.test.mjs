@@ -153,14 +153,22 @@ test("shows saved result groups beneath the results panel", async () => {
   assert.match(page, /tab==="saved"&&<section className="panel saved" id="saved-results">/);
 });
 
-test("places saved-groups and Excel actions inside the results panel", async () => {
+test("places all result actions in one row above the result key", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   const componentIndex = page.indexOf("function Results(");
   const actionsIndex = page.indexOf('<div className="resultPanelActions">');
+  const resultKeyIndex = page.indexOf('<div className="resultKey"');
   const tableToolsIndex = page.indexOf('<div className="tableTools">');
   assert.ok(componentIndex >= 0);
   assert.ok(actionsIndex > componentIndex);
-  assert.ok(tableToolsIndex > actionsIndex);
+  assert.ok(resultKeyIndex > actionsIndex);
+  assert.ok(tableToolsIndex > resultKeyIndex);
+  const actionsMarkup = page.slice(actionsIndex, resultKeyIndex);
+  assert.match(actionsMarkup, /className="save resultSave"/);
+  assert.match(actionsMarkup, /المجموعات المحفوظة/);
+  assert.match(actionsMarkup, /تصدير Excel/);
+  assert.match(styles, /resultPanelActions\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
   assert.match(page, /onShowSaved=\{loadSets\} onExport=\{exportExcel\} exportingExcel=\{exportingExcel\}/);
 });
 
