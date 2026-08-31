@@ -31,7 +31,7 @@ test("server-renders the Arabic property search site and browser limits", async 
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>باحث العقارات<\/title>/i);
+  assert.match(html, /<title>باحث عقار<\/title>/i);
   assert.match(html, /التجربة المرتبطة بالمتصفح/);
   assert.match(html, /حد هذا المتصفح 100 عملية بحث/);
   assert.match(html, /الحد الإجمالي 1000 عملية بحث/);
@@ -78,7 +78,7 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(page, /عند اختيار «عام»/);
   assert.match(page, /مثل: مكيف، موقف، سيارة\. أو نوع العقار: مزرعة فندق/);
   assert.doesNotMatch(page, /value=\{filters\.keywords\.join/);
-  assert.match(layout, /title:\s*"باحث العقارات"/);
+  assert.match(layout, /title:\s*"باحث عقار"/);
   assert.doesNotMatch(layout, /Starter Project|codex-preview|_sites-preview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(styles, /input\[type="number"\].*appearance:textfield/);
