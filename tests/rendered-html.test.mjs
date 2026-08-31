@@ -75,6 +75,8 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.doesNotMatch(page, /<h3>الشروط الرقمية<\/h3>/);
   assert.doesNotMatch(page, /ابحث في إعلانات عقار، واحسب العائد والكثافة تلقائيًا/);
   assert.doesNotMatch(page, /نسخة الجوال المستقلة/);
+  assert.match(page, /label:"أقصى عمر العقار"/);
+  assert.doesNotMatch(page, /أقصى عمر العقار \(سنة\)/);
   assert.doesNotMatch(page, /<h2>مواصفات البحث<\/h2>/);
   assert.doesNotMatch(page, /تبدأ المدينة بـ«الرياض» وبقية الحقول فارغة عند كل فتح/);
   assert.doesNotMatch(page, /المتبقي الإجمالي|الحد الإجمالي 1000 عملية بحث/);

@@ -525,5 +525,5 @@ test("يطبق أقصى عمر للعقار ويعامل الجديد كعمر �
   assert.equal(evaluate({...listing,age:null}, filters).status, "بيانات ناقصة");
   assert.equal(evaluate({...listing,age:"أكثر من 10 سنوات"}, filters).status, "قريبة");
   assert.equal(evaluate({...listing,age:"أكثر من 10 سنوات"}, {...filters,maxAge:20}).status, "بيانات ناقصة");
-  assert.match(pageSource, /key:"maxAge",label:"أقصى عمر العقار \(سنة\)"/);
+  assert.match(pageSource, /key:"maxAge",label:"أقصى عمر العقار"/);
 });
