@@ -459,29 +459,59 @@ test("يعرض عمود سعر المتر لجميع أنواع العقارات
 
 test("يخفي الشروط الرقمية غير المناسبة بحسب نوع العقار والعائد في كل تأجير", () => {
   assert.deepEqual([...hiddenNumericFilterKeys("عمارة", "sale")], []);
-  assert.deepEqual([...hiddenNumericFilterKeys("فيلا", "sale")].sort(), ["minDensity", "minMeters"]);
-  assert.deepEqual([...hiddenNumericFilterKeys("شقة", "sale")].sort(), ["minDensity", "minFloors", "minMeters"]);
-  assert.deepEqual([...hiddenNumericFilterKeys("دور", "sale")].sort(), ["minDensity", "minFloors", "minMeters"]);
+  assert.deepEqual([...hiddenNumericFilterKeys("عام", "sale")], []);
+  assert.deepEqual([...hiddenNumericFilterKeys("فيلا", "sale")].sort(), ["minCommercialShops", "minDensity", "minMeters"]);
+  assert.deepEqual([...hiddenNumericFilterKeys("شقة", "sale")].sort(), ["minCommercialShops", "minDensity", "minFloors", "minMeters"]);
+  assert.deepEqual([...hiddenNumericFilterKeys("دور", "sale")].sort(), ["minCommercialShops", "minDensity", "minFloors", "minMeters"]);
   for (const propertyType of ["استراحة", "شاليه"])
-    assert.deepEqual([...hiddenNumericFilterKeys(propertyType, "sale")].sort(), ["minDensity", "minMeters"]);
-  for (const propertyType of ["أرض", "مستودع", "ورشة", "محل", "مكتب", "استوديو", "غرفة", "عام"])
-    assert.deepEqual([...hiddenNumericFilterKeys(propertyType, "sale")].sort(), ["minCount", "minDensity", "minFloors", "minMeters"]);
+    assert.deepEqual([...hiddenNumericFilterKeys(propertyType, "sale")].sort(), ["minCommercialShops", "minDensity", "minMeters"]);
+  assert.deepEqual([...hiddenNumericFilterKeys("أرض", "sale")].sort(), ["maxAge", "minAge", "minCommercialShops", "minCount", "minDensity", "minFloors", "minMeters", "yieldMin"]);
+  for (const propertyType of ["مستودع", "ورشة", "محل", "مكتب", "استوديو", "غرفة"])
+    assert.deepEqual([...hiddenNumericFilterKeys(propertyType, "sale")].sort(), ["minCommercialShops", "minCount", "minDensity", "minFloors", "minMeters"]);
   for (const propertyType of PRICE_PER_SQM_TYPES)
     assert.ok(hiddenNumericFilterKeys(propertyType, "rent").has("yieldMin"), propertyType);
 });
 
 test("يطابق أعمدة النتائج الشروط الظاهرة لكل نوع عقار", () => {
   assert.deepEqual([...hiddenResultColumnKeys("عمارة", "sale")], []);
-  assert.deepEqual([...hiddenResultColumnKeys("فيلا", "sale")].sort(), ["density", "meters"]);
-  assert.deepEqual([...hiddenResultColumnKeys("شقة", "sale")].sort(), ["density", "floors", "meters"]);
-  assert.deepEqual([...hiddenResultColumnKeys("دور", "sale")].sort(), ["density", "floors", "meters"]);
+  assert.deepEqual([...hiddenResultColumnKeys("عام", "sale")], []);
+  assert.deepEqual([...hiddenResultColumnKeys("فيلا", "sale")].sort(), ["commercialShops", "density", "meters"]);
+  assert.deepEqual([...hiddenResultColumnKeys("شقة", "sale")].sort(), ["commercialShops", "density", "floors", "meters"]);
+  assert.deepEqual([...hiddenResultColumnKeys("دور", "sale")].sort(), ["commercialShops", "density", "floors", "meters"]);
   for (const propertyType of ["استراحة", "شاليه"])
-    assert.deepEqual([...hiddenResultColumnKeys(propertyType, "sale")].sort(), ["density", "meters"]);
-  for (const propertyType of ["أرض", "مستودع", "ورشة", "محل", "مكتب", "استوديو", "غرفة", "عام"])
-    assert.deepEqual([...hiddenResultColumnKeys(propertyType, "sale")].sort(), ["count", "density", "floors", "meters"]);
+    assert.deepEqual([...hiddenResultColumnKeys(propertyType, "sale")].sort(), ["commercialShops", "density", "meters"]);
+  assert.deepEqual([...hiddenResultColumnKeys("أرض", "sale")].sort(), ["age", "commercialShops", "count", "density", "floors", "meters", "yieldPct"]);
+  for (const propertyType of ["مستودع", "ورشة", "محل", "مكتب", "استوديو", "غرفة"])
+    assert.deepEqual([...hiddenResultColumnKeys(propertyType, "sale")].sort(), ["commercialShops", "count", "density", "floors", "meters"]);
   for (const propertyType of PRICE_PER_SQM_TYPES)
     assert.ok(hiddenResultColumnKeys(propertyType, "rent").has("yieldPct"), propertyType);
   assert.match(pageSource, /!hiddenColumns\.has\(column\.key\)/);
+});
+
+test("يطبق أقل محلات تجارية على العمائر فقط وبسماحية القريب", () => {
+  const listing = {
+    listingId:"shops",url:"",title:"",city:"",neighborhood:"",propertyType:"عمارة",price:null,area:null,sqmPrice:null,
+    apartments:null,housingUnits:null,commercialShops:5,rooms:null,totalRooms:null,bedrooms:null,majlis:0,maqlat:0,meters:null,floors:null,street:null,age:null,income:null,
+    incomeKind:"unknown",yieldPct:null,density:null,warnings:[],status:"بيانات ناقصة",score:0,nearEligible:true,description:"",
+  };
+  const filters = {propertyType:"عمارة",purpose:"sale",locations:[],keywords:[],mode:"near",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minCommercialShops:5,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minAge:0,maxAge:0,minDensity:0,sqmMin:0,sqmMax:0};
+  assert.equal(evaluate({...listing}, filters).status, "مطابقة");
+  assert.equal(evaluate({...listing,commercialShops:4}, filters).nearEligible, true);
+  assert.equal(evaluate({...listing,commercialShops:3}, filters).nearEligible, false);
+  assert.equal(evaluate({...listing,commercialShops:null}, filters).status, "بيانات ناقصة");
+  assert.equal(evaluate({...listing,propertyType:"فيلا",commercialShops:null}, {...filters,propertyType:"فيلا"}).status, "مطابقة");
+});
+
+test("يستخدم البحث العام عدد الشقق للعمارة وعدد الغرف للشقة", () => {
+  const listing = {
+    listingId:"general-count",url:"",title:"",city:"",neighborhood:"",propertyType:"عمارة",price:null,area:null,sqmPrice:null,
+    apartments:4,housingUnits:null,commercialShops:null,rooms:3,totalRooms:null,bedrooms:3,majlis:0,maqlat:0,meters:null,floors:null,street:null,age:null,income:null,
+    incomeKind:"unknown",yieldPct:null,density:null,warnings:[],status:"بيانات ناقصة",score:0,nearEligible:true,description:"",
+  };
+  const filters = {propertyType:"عام",purpose:"sale",locations:[],keywords:["عقار"],mode:"strict",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:4,minCommercialShops:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minAge:0,maxAge:0,minDensity:0,sqmMin:0,sqmMax:0};
+  assert.equal(evaluate({...listing}, filters).status, "مطابقة");
+  assert.equal(evaluate({...listing,propertyType:"شقة"}, filters).status, "قريبة");
+  assert.equal(evaluate({...listing,propertyType:"شقة",rooms:4}, filters).status, "مطابقة");
 });
 
 test("يحصر النتائج القريبة في عشرين بالمئة", () => {

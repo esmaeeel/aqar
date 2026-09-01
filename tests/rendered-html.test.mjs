@@ -78,6 +78,7 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.doesNotMatch(page, /نسخة الجوال المستقلة/);
   assert.match(page, /key:"minAge",label:"أقل عمر"/);
   assert.match(page, /key:"maxAge",label:"أقصى عمر"/);
+  assert.match(page, /key:"minCommercialShops",label:"أقل محلات تجارية"/);
   assert.ok(page.indexOf('key:"minAge",label:"أقل عمر"') < page.indexOf('key:"maxAge",label:"أقصى عمر"'));
   assert.doesNotMatch(page, /أقصى عمر العقار|\(سنة\)/);
   assert.doesNotMatch(page, /<h2>مواصفات البحث<\/h2>/);
@@ -110,6 +111,18 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.match(styles, /input\[type="number"\].*appearance:textfield/);
   assert.match(styles, /::-webkit-inner-spin-button/);
+  assert.match(page, /className="numericCompactGrid"/);
+  const priceRangeIndex = page.indexOf('numericRange("السعر"');
+  const sqmRangeIndex = page.indexOf('numericRange("سعر المتر"');
+  const areaRangeIndex = page.indexOf('numericRange("المساحة"');
+  assert.ok(priceRangeIndex >= 0 && sqmRangeIndex > priceRangeIndex && areaRangeIndex > sqmRangeIndex);
+  assert.match(page, /filters\.propertyType==="عام"\?"أقل شقق \/ غرف"/);
+  assert.match(styles, /\.numericCompactRow\{[^}]*grid-template-columns:minmax\(0,2fr\) minmax\(0,1fr\)/);
+  assert.match(styles, /\.numericInlineField\{[^}]*grid-template-columns:max-content minmax\(0,1fr\)/);
+  assert.match(page, /fromLabel\?"numericFromField":""/);
+  assert.match(page, /fromLabel\?"numericFromLabel":"numericVerticalLabel"/);
+  assert.match(styles, /\.numericRangeTitle,\.numericVerticalLabel\{writing-mode:horizontal-tb[^}]*white-space:normal[^}]*word-break:keep-all/);
+  assert.match(styles, /\.numericInlineField\.numericFromField\{grid-template-columns:18px minmax\(0,1fr\)/);
   assert.deepEqual(await readdir(previewRoot), []);
 });
 

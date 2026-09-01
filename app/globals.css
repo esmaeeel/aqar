@@ -56,13 +56,17 @@
 .location button{align-self:end;height:34px}
 .locationAddIcon{border:1px solid #b7c7c1;background:#fff;color:var(--green);padding:0;font-weight:900}
 .emptyLocationAdd{margin-top:8px}
-.numericGrid{display:flex;flex-wrap:nowrap;align-items:flex-end;gap:7px}
-.numericGrid>label{flex:1 1 0;width:auto;min-width:70px;max-width:none}
-.numericGrid>.numericFieldWide{flex-grow:1.5}
-.numericGrid .numericField>input{width:100%;min-width:0;max-width:none}
-.numericFieldShort>input{width:9ch;min-width:78px;max-width:96px}
-.numericFieldMedium>input{width:11ch;min-width:92px;max-width:116px}
-.numericFieldWide>input{width:14ch;min-width:110px;max-width:140px}
+.numericCompactGrid{display:grid;gap:7px}
+.numericCompactRow{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);align-items:stretch;gap:7px}
+.numericCompactRowSolo{grid-template-columns:1fr}
+.numericRangeGroup{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:7px;padding:4px 7px;border:1px solid #d6e0db;border-radius:10px;background:#eef5f1;min-width:0}
+.numericRangeTitle{color:var(--green2);font-size:.78rem;font-weight:800;white-space:nowrap}
+.numericRangeInputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;min-width:0}
+.numericInlineField{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:5px;min-width:0}
+.numericInlineField>span{font-size:.76rem;font-weight:700;text-align:right;line-height:1.2}
+.numericInlineField>input{width:100%;min-width:0;max-width:none}
+.numericCompactComponents{display:grid;align-items:stretch;gap:7px}
+.numericCompactComponents>.numericInlineField{padding:4px 7px;border-bottom:1px solid #dfe6e2}
 .searchPanel label{gap:5px}
 .searchPanel input,.searchPanel select{min-height:34px;padding-block:5px}
 .searchPanel input[type="number"]{-moz-appearance:textfield;appearance:textfield}
@@ -84,8 +88,7 @@
   .choiceBlock,.locationsBlock,.numericBlock{grid-column:span 12}
   .propertyKeywordsRow{grid-template-columns:minmax(150px,.8fr) minmax(320px,2fr)}
   .choiceRow{grid-template-columns:minmax(190px,1fr) minmax(320px,1.5fr)}
-  .numericGrid{flex-wrap:wrap}
-  .numericGrid>label{flex:1 1 100px}
+  .numericCompactGrid{gap:6px}
 }
 
 @media(max-width:760px){
@@ -105,6 +108,16 @@
   .locationHasAdd{grid-template-columns:minmax(78px,.68fr) minmax(0,1.35fr) 34px 34px}
   .location label:nth-child(2){grid-column:auto}
   .location button{grid-column:auto;grid-row:auto;align-self:end;height:34px}
+  .numericCompactRow,.numericCompactComponents{gap:5px}
+  .numericRangeGroup{gap:7px;padding-inline:5px}
+  .numericRangeInputs{gap:4px}
+  .numericRangeTitle,.numericVerticalLabel{writing-mode:horizontal-tb;transform:none;white-space:normal;word-break:keep-all;overflow-wrap:normal;text-align:center;line-height:1.12;justify-self:center}
+  .numericRangeTitle{width:42px;font-size:.68rem}
+  .numericInlineField{grid-template-columns:44px minmax(0,1fr);gap:3px}
+  .numericInlineField.numericFromField{grid-template-columns:18px minmax(0,1fr)}
+  .numericInlineField>span{font-size:.66rem;white-space:normal}
+  .numericInlineField>.numericFromLabel{min-width:18px;text-align:center;white-space:nowrap}
+  .numericCompactComponents>.numericInlineField{padding-inline:4px}
 }
 
 @media(max-width:520px){

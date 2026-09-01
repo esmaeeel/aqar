@@ -9,15 +9,14 @@ import { buildExcelExport } from "@/lib/excel-export";
 const LEGACY_LAST_FILTERS_KEY = "aqar-last-filters-clean-v2";
 const PULL_REFRESH_THRESHOLD = 72;
 const PULL_REFRESH_MAX_DISTANCE = 116;
-const defaults: Filters = { propertyType:"عام",purpose:"sale",locations:[{city:"الرياض",neighborhoods:[]}],keywords:[],mode:"strict",maxPages:2,maxListings:200,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minAge:0,maxAge:0,minDensity:0,sqmMin:0,sqmMax:0 };
+const defaults: Filters = { propertyType:"عام",purpose:"sale",locations:[{city:"الرياض",neighborhoods:[]}],keywords:[],mode:"strict",maxPages:2,maxListings:200,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minCommercialShops:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minAge:0,maxAge:0,minDensity:0,sqmMin:0,sqmMax:0 };
 const nums: {key:keyof Filters;label:string;hint?:string}[] = [
   {key:"priceMin",label:"السعر من"},{key:"priceMax",label:"السعر إلى"},{key:"yieldMin",label:"أقل عائد فعلي %"},
-  {key:"minMeters",label:"أقل عدادات"},{key:"minCount",label:"أقل شقق / غرف"},{key:"minFloors",label:"أقل أدوار"},
-  {key:"minStreet",label:"أقل عرض شارع"},{key:"areaMin",label:"المساحة من"},{key:"areaMax",label:"المساحة إلى"},{key:"minAge",label:"أقل عمر"},{key:"maxAge",label:"أقصى عمر"},
-  {key:"minDensity",label:"شقق لكل 100م²"},{key:"sqmMin",label:"سعر المتر من"},{key:"sqmMax",label:"سعر المتر إلى"},
+  {key:"sqmMin",label:"سعر المتر من"},{key:"sqmMax",label:"سعر المتر إلى"},{key:"minDensity",label:"شقق لكل 100م²"},
+  {key:"areaMin",label:"المساحة من"},{key:"areaMax",label:"المساحة إلى"},{key:"minStreet",label:"أقل عرض شارع"},
+  {key:"minMeters",label:"أقل عدادات"},{key:"minCount",label:"أقل شقق / غرف"},{key:"minCommercialShops",label:"أقل محلات تجارية"},
+  {key:"minAge",label:"أقل عمر"},{key:"maxAge",label:"أقصى عمر"},{key:"minFloors",label:"أقل أدوار"},
 ];
-const wideNumericKeys=new Set<keyof Filters>(["priceMin","priceMax"]);
-const mediumNumericKeys=new Set<keyof Filters>(["areaMin","areaMax","sqmMin","sqmMax"]);
 type SavedSet={id:number;name:string;propertyType:string;createdAt:string;count:number;resultsJson:string};
 type Profile={id:number;name:string;filtersJson:string};
 type SearchSource={category:string;city:string;neighborhood:string;page:number};
@@ -57,17 +56,19 @@ export default function Home(){
     return()=>{window.removeEventListener("touchstart",start);window.removeEventListener("touchmove",move);window.removeEventListener("touchend",finish);window.removeEventListener("touchcancel",cancelPull);if(refreshTimer.current!==null)window.clearTimeout(refreshTimer.current)};
   },[]);
   const trialBlocked=trial?.remaining===0||trial?.globalRemaining===0;
-  const countLabel=ROOM_TYPES.has(filters.propertyType)?"أقل غرف (مع المجلس والمقلط)":"أقل شقق";
+  const countLabel=filters.propertyType==="عام"?"أقل شقق / غرف":ROOM_TYPES.has(filters.propertyType)?"أقل غرف (مع المجلس والمقلط)":"أقل شقق";
   const rentalSearch=filters.purpose==="rent";
   const hiddenNumericKeys=hiddenNumericFilterKeys(filters.propertyType,filters.purpose);
-  const visibleNums=nums.filter(item=>{
-    if((["sqmMin","sqmMax"] as (keyof Filters)[]).includes(item.key))return PRICE_PER_SQM_TYPES.has(filters.propertyType);
-    return !hiddenNumericKeys.has(item.key);
-  });
+  const numericLabel=(key:keyof Filters)=>key==="minCount"?countLabel:nums.find(item=>item.key===key)?.label||String(key);
+  const numericVisible=(key:keyof Filters)=>!hiddenNumericKeys.has(key)&&(!(["sqmMin","sqmMax"] as (keyof Filters)[]).includes(key)||PRICE_PER_SQM_TYPES.has(filters.propertyType));
+  const sqmCompanionKey:keyof Filters|null=numericVisible("minDensity")?"minDensity":numericVisible("minCount")?"minCount":null;
+  const componentKeys=(["minMeters","minCount","minCommercialShops"] as (keyof Filters)[]).filter(key=>numericVisible(key)&&key!==sqmCompanionKey);
   function update<K extends keyof Filters>(key:K,value:Filters[K]){setFilters(f=>({...f,[key]:value}))}
   function addLocation(){update("locations",[...filters.locations,{city:"",neighborhoods:[]}])}
   function changeLocation(i:number,key:"city"|"neighborhoods",value:string){const next=filters.locations.map((l,j)=>j===i?{...l,[key]:key==="neighborhoods"?value.split(/[،,]/).map(x=>x.trim()).filter(Boolean):value}:l);update("locations",next as Location[])}
   function changeKeywordDraft(value:string){setKeywordDraft(value);update("keywords",keywordsFromDraft(value))}
+  function numericField(key:keyof Filters,label=numericLabel(key)){const fromLabel=label==="من";return <label className={`numericInlineField ${fromLabel?"numericFromField":""}`} key={String(key)}><span className={fromLabel?"numericFromLabel":"numericVerticalLabel"}>{label}</span><input inputMode="decimal" type="number" min="0" value={String(filters[key]||"")} onChange={e=>update(key,inputNumber(e.target.value) as never)}/></label>}
+  function numericRange(title:string,fromKey:keyof Filters,toKey:keyof Filters,fromLabel="من",toLabel="إلى"){return <div className="numericRangeGroup"><span className="numericRangeTitle">{title}</span><div className="numericRangeInputs">{numericField(fromKey,fromLabel)}{numericField(toKey,toLabel)}</div></div>}
   function clearFields(){setFilters({...defaults,locations:[{city:"",neighborhoods:[]}]});setKeywordDraft("");setResults([]);setResultSaveFeedback(null);setContextProfileId(null);setMessage("تم مسح جميع حقول البحث.")}
   async function loadProfiles(){try{const r=await fetch("/api/profiles",{headers:deviceHeaders()});const data=await r.json() as {profiles:Profile[]};if(r.ok)setProfiles(data.profiles)}catch{/* يعمل البحث حتى لو تعذر التخزين */}}
   async function loadTrialStatus(){try{const r=await fetch("/api/trial",{cache:"no-store",headers:deviceHeaders()});const data=await r.json() as TrialStatus;if(r.ok)setTrial(data)}catch{/* يتحقق الخادم مرة أخرى عند بدء البحث */}}
@@ -114,7 +115,13 @@ export default function Home(){
       <div className="searchFields">
         <div className="formBlock choiceBlock"><div className="propertyKeywordsRow"><label>نوع العقار<select value={filters.propertyType} onChange={e=>update("propertyType",e.target.value)}>{Object.keys(CATEGORIES).map(x=><option key={x}>{x}</option>)}</select></label><label>كلمات للبحث<input value={keywordDraft} onChange={e=>changeKeywordDraft(e.target.value)} placeholder="مثل: تجاري، دوبلكس، مكيف، موقف"/>{filters.propertyType!=="عام"&&<small>يمكن استخدام الفاصلة العربية «،» أو الإنجليزية «,». وتُقبل المسافات داخل العبارة مثل: مدخل سيارة.</small>}</label></div><div className="choiceRow"><fieldset><legend>الغرض</legend><label className="radio"><input type="radio" checked={filters.purpose==="sale"} onChange={()=>update("purpose","sale")}/> بيع</label><label className="radio"><input type="radio" checked={filters.purpose==="rent"} onChange={()=>update("purpose","rent")}/> تأجير</label></fieldset><fieldset><legend>طريقة المطابقة</legend><label className="radio"><input type="radio" checked={filters.mode==="strict"} onChange={()=>update("mode","strict")}/> جميع الشروط</label><label className="radio"><input type="radio" checked={filters.mode==="near"} onChange={()=>update("mode","near")}/> القريبة والناقصة ±20%</label></fieldset></div></div>
         <div className="formBlock locationsBlock"><div className="locations">{filters.locations.map((location,index)=><LocationAutocomplete key={index} location={location} index={index} onChange={changeLocation} onAdd={index===filters.locations.length-1?addLocation:undefined} onRemove={()=>update("locations",filters.locations.length===1?[{city:"",neighborhoods:[]}]:filters.locations.filter((_,itemIndex)=>itemIndex!==index))}/>)}</div>{filters.locations.length===0&&<button type="button" aria-label="إضافة مدينة" className="icon locationAddIcon emptyLocationAdd" onClick={addLocation}>+</button>}</div>
-        <div className="formBlock numericBlock"><div className="numericGrid">{visibleNums.map(n=><label className={`numericField ${wideNumericKeys.has(n.key)?"numericFieldWide":mediumNumericKeys.has(n.key)?"numericFieldMedium":"numericFieldShort"}`} key={String(n.key)}>{n.key==="minCount"?countLabel:n.label}<input inputMode="decimal" type="number" min="0" value={String(filters[n.key]||"")} onChange={e=>update(n.key,inputNumber(e.target.value) as never)}/></label>)}</div></div>
+        <div className="formBlock numericBlock"><div className="numericCompactGrid">
+          <div className={`numericCompactRow ${numericVisible("yieldMin")?"":"numericCompactRowSolo"}`}>{numericRange("السعر","priceMin","priceMax")}{numericVisible("yieldMin")&&numericField("yieldMin")}</div>
+          {numericVisible("sqmMin")&&<div className={`numericCompactRow ${sqmCompanionKey?"":"numericCompactRowSolo"}`}>{numericRange("سعر المتر","sqmMin","sqmMax")}{sqmCompanionKey&&numericField(sqmCompanionKey)}</div>}
+          <div className="numericCompactRow">{numericRange("المساحة","areaMin","areaMax")}{numericField("minStreet")}</div>
+          {componentKeys.length>0&&<div className="numericCompactComponents" style={{gridTemplateColumns:`repeat(${componentKeys.length},minmax(0,1fr))`}}>{componentKeys.map(key=>numericField(key))}</div>}
+          {numericVisible("minAge")&&<div className={`numericCompactRow ${numericVisible("minFloors")?"":"numericCompactRowSolo"}`}>{numericRange("العمر","minAge","maxAge","أقل","أقصى")}{numericVisible("minFloors")&&numericField("minFloors")}</div>}
+        </div></div>
       </div>
       <div className="trialNotice" aria-live="polite"><span>{trial?`المتبقي ${trial.remaining} من ${trial.limit} عملية بحث`:`المتبقي 100 من 100 عملية بحث`}</span>{trial?.globalRemaining===0?<span>انتهى الحد الإجمالي للتجربة.</span>:trial?.remaining===0?<span>استخدم هذا المتصفح جميع عملياته.</span>:null}</div>
       <div className="run"><label className="listingLimit runListingLimit">أقصى إعلانات<input type="number" min="5" max="500" value={filters.maxListings||""} onChange={e=>update("maxListings",inputNumber(e.target.value))}/></label><button className="primary" disabled={busy||trialBlocked} onClick={search}>{busy?"جارٍ البحث…":trial?.globalRemaining===0?"انتهت التجربة":trial?.remaining===0?"انتهى حد هذا المتصفح":"ابدأ البحث"}</button></div>{busy&&<progress value={progress} max="100"/>}{message&&<div className="status">{message}</div>}{warnings.length>0&&<details className="warnings"><summary>ملاحظات أثناء القراءة ({warnings.length})</summary>{warnings.map((w,i)=><p key={i}>{w}</p>)}</details>}
@@ -176,6 +183,8 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
   useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(COLUMN_WIDTHS_KEY)||"{}") as Partial<Record<ColumnKey,number>>;setColumnWidths(Object.fromEntries(DEFAULT_COLUMN_ORDER.map(key=>[key,typeof stored[key]==="number"?clampColumnWidth(key,stored[key]!):DEFAULT_COLUMN_WIDTHS[key]])) as Record<ColumnKey,number>)}catch{/* تجاهل مقاسات محلية تالفة */}setColumnWidthsLoaded(true)},[]);
   useEffect(()=>{if(columnWidthsLoaded)localStorage.setItem(COLUMN_WIDTHS_KEY,JSON.stringify(columnWidths))},[columnWidths,columnWidthsLoaded]);
   const rentalSearch=purpose==="rent";
+  const mixedCountMode=propertyType==="عام";
+  const rowUsesRooms=(row:Listing)=>roomMode||(mixedCountMode&&ROOM_TYPES.has(row.propertyType));
   const hiddenColumns=hiddenResultColumnKeys(propertyType,purpose);
   const columns:TableColumn[]=[
     {key:"neighborhood",label:"الحي",value:r=>r.neighborhood||null,render:r=>r.neighborhood||"غير مذكور"},
@@ -184,7 +193,7 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
     {key:"yieldPct",label:"العائد",value:r=>r.yieldPct,render:r=>r.yieldPct==null?"غير مذكور":`${fmt(r.yieldPct,2)}%${r.incomeKind==="expected"?" متوقع":""}`},
     {key:"area",label:"المساحة",value:r=>r.area,render:r=>r.area==null?"غير مذكور":`${fmt(r.area,1)} م²`},
     {key:"sqmPrice",label:"سعر المتر",value:r=>r.sqmPrice,render:r=>r.sqmPrice==null?"":fmt(r.sqmPrice,2)},
-    {key:"count",label:roomMode?"الغرف":"الشقق",value:r=>roomMode?r.rooms:r.apartments,render:r=><>{fmt(roomMode?r.rooms:r.apartments)}{roomMode&&r.rooms!=null&&<small>{fmt(r.bedrooms)} غرفة + {r.majlis} مجلس + {r.maqlat} مقلط</small>}</>},
+    {key:"count",label:mixedCountMode?"شقق / غرف":roomMode?"الغرف":"الشقق",value:r=>rowUsesRooms(r)?r.rooms:r.apartments,render:r=>{const usesRooms=rowUsesRooms(r);return <>{fmt(usesRooms?r.rooms:r.apartments)}{usesRooms&&r.rooms!=null&&<small>{fmt(r.bedrooms)} غرفة + {r.majlis} مجلس + {r.maqlat} مقلط</small>}</>}},
     {key:"housingUnits",label:"وحدة سكنية",value:r=>r.housingUnits,render:r=>fmt(r.housingUnits)},
     {key:"commercialShops",label:"المحلات التجارية",value:r=>r.commercialShops,render:r=>fmt(r.commercialShops)},
     {key:"totalRooms",label:"إجمالي الغرف",value:r=>r.totalRooms,render:r=>fmt(r.totalRooms)},
@@ -193,7 +202,7 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
     {key:"street",label:"عرض الشارع",value:r=>r.street,render:r=>r.street==null?"غير مذكور":`${fmt(r.street)} م`},
     {key:"density",label:"شقق لكل 100م²",value:r=>r.density,render:r=>r.density==null?"غير مذكور":fmt(r.density,2)},
     {key:"age",label:"العمر",value:r=>r.age||null,render:r=>r.age?String(r.age).replace(/\s*(?:سنوات|سنة)\s*$/u,""):"غير مذكور"},
-  ].filter(column=>(propertyType==="عمارة"||!["housingUnits","commercialShops","totalRooms"].includes(column.key))&&(PRICE_PER_SQM_TYPES.has(propertyType)||column.key!=="sqmPrice")&&(!rentalSearch||!["income","yieldPct"].includes(column.key))&&!hiddenColumns.has(column.key));
+  ].filter(column=>(propertyType==="عمارة"||propertyType==="عام"||!["housingUnits","commercialShops","totalRooms"].includes(column.key))&&(PRICE_PER_SQM_TYPES.has(propertyType)||column.key!=="sqmPrice")&&(!rentalSearch||!["income","yieldPct"].includes(column.key))&&!hiddenColumns.has(column.key));
   const columnsByKey=new Map(columns.map(column=>[column.key,column]));
   const orderedColumns=columnOrder.map(key=>columnsByKey.get(key)).filter((column):column is TableColumn=>Boolean(column));
   const orderedRows=[...rows].sort((a,b)=>{
