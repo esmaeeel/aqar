@@ -120,8 +120,9 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(styles, /\.numericCompactRow\{[^}]*grid-template-columns:minmax\(0,2fr\) minmax\(0,1fr\)/);
   assert.match(styles, /\.numericInlineField\{[^}]*grid-template-columns:max-content minmax\(0,1fr\)/);
   assert.match(page, /fromLabel\?"numericFromField":""/);
-  assert.match(page, /fromLabel\?"numericFromLabel":"numericVerticalLabel"/);
-  assert.match(styles, /\.numericRangeTitle,\.numericVerticalLabel\{writing-mode:horizontal-tb[^}]*white-space:normal[^}]*word-break:keep-all/);
+  assert.match(page, /numericVerticalLabel \$\{verticalLabelSize\(label\)\}/);
+  assert.match(page, /numericRangeTitle \$\{verticalLabelSize\(title\)\}/);
+  assert.match(styles, /\.numericRangeTitle>span,\.numericVerticalLabel>span\{[^}]*rotate\(-90deg\)[^}]*white-space:nowrap/);
   assert.match(styles, /\.numericInlineField\.numericFromField\{grid-template-columns:18px minmax\(0,1fr\)/);
   assert.deepEqual(await readdir(previewRoot), []);
 });

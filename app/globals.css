@@ -111,11 +111,15 @@
   .numericCompactRow,.numericCompactComponents{gap:5px}
   .numericRangeGroup{gap:7px;padding-inline:5px}
   .numericRangeInputs{gap:4px}
-  .numericRangeTitle,.numericVerticalLabel{writing-mode:horizontal-tb;transform:none;white-space:normal;word-break:keep-all;overflow-wrap:normal;text-align:center;line-height:1.12;justify-self:center}
-  .numericRangeTitle{width:42px;font-size:.68rem}
-  .numericInlineField{grid-template-columns:44px minmax(0,1fr);gap:3px}
+  .numericRangeTitle,.numericVerticalLabel{position:relative;width:20px;min-width:20px;align-self:stretch;justify-self:center;writing-mode:horizontal-tb;transform:none}
+  .numericRangeTitle>span,.numericVerticalLabel>span{position:absolute;inset-block-start:50%;inset-inline-start:50%;transform:translate(50%,-50%) rotate(-90deg);transform-origin:center;white-space:nowrap;word-break:normal;line-height:1}
+  .numericRangeTitle{font-size:.68rem}
+  .numericVerticalShort{min-height:34px}
+  .numericVerticalMedium{min-height:56px}
+  .numericVerticalLong{min-height:82px}
+  .numericInlineField{grid-template-columns:20px minmax(0,1fr);gap:3px}
   .numericInlineField.numericFromField{grid-template-columns:18px minmax(0,1fr)}
-  .numericInlineField>span{font-size:.66rem;white-space:normal}
+  .numericInlineField>span{font-size:.66rem}
   .numericInlineField>.numericFromLabel{min-width:18px;text-align:center;white-space:nowrap}
   .numericCompactComponents>.numericInlineField{padding-inline:4px}
 }
