@@ -57,6 +57,9 @@
 .locationAddIcon{border:1px solid #b7c7c1;background:#fff;color:var(--green);padding:0;font-weight:900}
 .emptyLocationAdd{margin-top:8px}
 .numericCompactGrid{display:grid;gap:7px}
+.numericPrimaryGrid{display:grid;grid-template-columns:minmax(0,2fr) minmax(210px,1fr);align-items:stretch;gap:7px}
+.numericPrimaryRows{display:grid;gap:7px;min-width:0}
+.numericPrimaryRows .numericCompactRow{grid-template-columns:1fr}
 .numericCompactRow{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);align-items:stretch;gap:7px}
 .numericCompactRowSolo{grid-template-columns:1fr}
 .numericRangeGroup{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:7px;padding:4px 7px;border:1px solid #d6e0db;border-radius:10px;background:#eef5f1;min-width:0}
@@ -65,6 +68,12 @@
 .numericInlineField{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:5px;min-width:0}
 .numericInlineField>span{font-size:.76rem;font-weight:700;text-align:right;line-height:1.2}
 .numericInlineField>input{width:100%;min-width:0;max-width:none}
+.numericMinimumGroup{display:grid;grid-template-rows:max-content minmax(0,1fr);gap:5px;min-width:0;margin:0;padding:7px 9px;border:1px solid #d6e0db;border-radius:10px;background:#eef5f1;color:var(--green2)}
+.numericMinimumGroup legend{padding:0 4px;font-size:.82rem;font-weight:900}
+.numericMinimumFields{display:grid;grid-template-rows:repeat(3,minmax(0,1fr));gap:6px;min-height:0}
+.numericMinimumField{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:5px;min-width:0;color:#31534d}
+.numericMinimumField>span{font-size:.76rem;font-weight:800;white-space:nowrap}
+.numericMinimumField>input{width:100%;min-width:0}
 .numericCompactComponents{display:grid;align-items:stretch;gap:7px}
 .numericCompactComponents>.numericInlineField{padding:4px 7px;border-bottom:1px solid #dfe6e2}
 .searchPanel label{gap:5px}
@@ -89,6 +98,7 @@
   .propertyKeywordsRow{grid-template-columns:minmax(150px,.8fr) minmax(320px,2fr)}
   .choiceRow{grid-template-columns:minmax(190px,1fr) minmax(320px,1.5fr)}
   .numericCompactGrid{gap:6px}
+  .numericPrimaryGrid{grid-template-columns:1fr}
 }
 
 @media(max-width:760px){
@@ -109,6 +119,9 @@
   .location label:nth-child(2){grid-column:auto}
   .location button{grid-column:auto;grid-row:auto;align-self:end;height:34px}
   .numericCompactRow,.numericCompactComponents{gap:5px}
+  .numericMinimumGroup{padding:6px 7px}
+  .numericMinimumField{grid-template-columns:max-content minmax(0,1fr);gap:3px}
+  .numericMinimumField>span{font-size:.66rem}
   .numericRangeGroup{gap:7px;padding-inline:5px}
   .numericRangeInputs{gap:4px}
   .numericRangeTitle,.numericVerticalLabel{position:relative;width:20px;min-width:20px;align-self:stretch;justify-self:center;writing-mode:horizontal-tb;transform:none}
