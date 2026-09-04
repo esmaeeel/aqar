@@ -63,8 +63,10 @@ export default function Home(){
   const numericLabel=(key:keyof Filters)=>key==="minCount"?countLabel:nums.find(item=>item.key===key)?.label||String(key);
   const numericVisible=(key:keyof Filters)=>!hiddenNumericKeys.has(key)&&(!(["sqmMin","sqmMax"] as (keyof Filters)[]).includes(key)||PRICE_PER_SQM_TYPES.has(filters.propertyType));
   const ageCompanionKey:keyof Filters|null=numericVisible("minDensity")?"minDensity":null;
-  const componentKeys=(["minMeters","minCount","minCommercialShops"] as (keyof Filters)[]).filter(key=>numericVisible(key));
-  const minimumGroupItems:{key:keyof Filters;label:string}[]=[{key:"minStreet",label:"عرض شارع"},{key:"minFloors",label:"أدوار"},{key:"yieldMin",label:"عائد%"}].filter(item=>numericVisible(item.key));
+  const minimumGroupItems:{key:keyof Filters;label:string}[]=[
+    {key:"minStreet",label:"عرض شارع"},{key:"minFloors",label:"أدوار"},{key:"yieldMin",label:"عائد%"},
+    {key:"minMeters",label:"عدادات"},{key:"minCount",label:countLabel.replace(/^أقل\s*/,"")},{key:"minCommercialShops",label:"محلات تجارية"}
+  ].filter(item=>numericVisible(item.key));
   function update<K extends keyof Filters>(key:K,value:Filters[K]){setFilters(f=>({...f,[key]:value}))}
   function addLocation(){update("locations",[...filters.locations,{city:"",neighborhoods:[]}])}
   function changeLocation(i:number,key:"city"|"neighborhoods",value:string){const next=filters.locations.map((l,j)=>j===i?{...l,[key]:key==="neighborhoods"?value.split(/[،,]/).map(x=>x.trim()).filter(Boolean):value}:l);update("locations",next as Location[])}
@@ -125,7 +127,6 @@ export default function Home(){
             {numericVisible("sqmMin")&&<div className="numericCompactRow numericCompactRowSolo">{numericRange("سعر المتر","sqmMin","sqmMax")}</div>}
             <div className="numericCompactRow numericCompactRowSolo">{numericRange("المساحة","areaMin","areaMax")}</div>
           </div>{minimumGroupItems.length>0&&<fieldset className="numericMinimumGroup"><legend>أقل</legend><div className="numericMinimumFields">{minimumGroupItems.map(item=>numericMinimumField(item.key,item.label))}</div></fieldset>}</div>
-          {componentKeys.length>0&&<div className="numericCompactComponents" style={{gridTemplateColumns:`repeat(${componentKeys.length},minmax(0,1fr))`}}>{componentKeys.map(key=>numericField(key))}</div>}
           {numericVisible("minAge")&&<div className={`numericCompactRow ${ageCompanionKey?"":"numericCompactRowSolo"}`}>{numericRange("العمر","minAge","maxAge","أقل","أقصى")}{ageCompanionKey&&numericField(ageCompanionKey)}</div>}
         </div></div>
       </div>
