@@ -57,6 +57,7 @@
 .locationAddIcon{border:1px solid #b7c7c1;background:#fff;color:var(--green);padding:0;font-weight:900}
 .emptyLocationAdd{margin-top:8px}
 .numericCompactGrid{display:grid;gap:7px}
+.numericPrimaryGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
 .numericCompactRow{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);align-items:stretch;gap:7px}
 .numericCompactRowSolo{grid-template-columns:1fr}
 .numericRangeGroup{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:7px;padding:4px 7px;border:1px solid #d6e0db;border-radius:10px;background:#eef5f1;min-width:0}
@@ -67,6 +68,13 @@
 .numericInlineField>input{width:100%;min-width:0;max-width:none}
 .numericCompactComponents{display:grid;align-items:stretch;gap:7px}
 .numericCompactComponents>.numericInlineField{padding:4px 7px;border-bottom:1px solid #dfe6e2}
+.numericSecondaryGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:7px}
+.numericMinimumBox{min-width:0;margin:0;padding:6px 7px 7px;border:1px solid #c8d8d1;border-radius:10px;background:#eef5f1}
+.numericMinimumBox legend{padding-inline:6px;color:var(--green2);font-size:.78rem;font-weight:800}
+.numericMinimumFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.numericMinimumFields>.numericInlineField,.numericAgeDensityBox>.numericInlineField{padding:4px 7px;border:1px solid #d6e0db;border-radius:8px;background:#fff}
+.numericAgeDensityBox{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:7px;min-width:0}
+.numericAgeDensityBox>.numericRangeGroup{height:100%}
 .searchPanel label{gap:5px}
 .searchPanel input,.searchPanel select{min-height:34px;padding-block:5px}
 .searchPanel input[type="number"]{-moz-appearance:textfield;appearance:textfield}
@@ -109,6 +117,7 @@
   .location label:nth-child(2){grid-column:auto}
   .location button{grid-column:auto;grid-row:auto;align-self:end;height:34px}
   .numericCompactRow,.numericCompactComponents{gap:5px}
+  .numericPrimaryGrid,.numericSecondaryGrid,.numericMinimumFields,.numericAgeDensityBox{gap:5px}
   .numericRangeGroup{gap:7px;padding-inline:5px}
   .numericRangeInputs{gap:4px}
   .numericRangeTitle,.numericVerticalLabel{position:relative;width:20px;min-width:20px;align-self:stretch;justify-self:center;writing-mode:horizontal-tb;transform:none}
