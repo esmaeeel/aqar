@@ -57,7 +57,7 @@
 .locationAddIcon{border:1px solid #b7c7c1;background:#fff;color:var(--green);padding:0;font-weight:900}
 .emptyLocationAdd{margin-top:8px}
 .numericCompactGrid{display:grid;gap:7px}
-.numericPrimaryGrid{display:grid;grid-template-columns:minmax(190px,220px) minmax(300px,330px) minmax(0,1fr);grid-template-areas:"age minimum primary";align-items:stretch;gap:7px;direction:ltr}
+.numericPrimaryGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-areas:"age minimum primary";align-items:stretch;gap:7px;direction:ltr}
 .numericPrimaryRows{display:grid;grid-area:primary;gap:7px;min-width:0;direction:rtl}
 .numericPrimaryRows .numericCompactRow{grid-template-columns:1fr}
 .numericPrimaryGrid>.numericCompactRow{grid-area:age;min-width:0;direction:rtl}
