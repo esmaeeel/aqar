@@ -126,8 +126,9 @@ export default function Home(){
             <div className="numericCompactRow numericCompactRowSolo">{numericRange("السعر","priceMin","priceMax")}</div>
             {numericVisible("sqmMin")&&<div className="numericCompactRow numericCompactRowSolo">{numericRange("سعر المتر","sqmMin","sqmMax")}</div>}
             <div className="numericCompactRow numericCompactRowSolo">{numericRange("المساحة","areaMin","areaMax")}</div>
-          </div>{minimumGroupItems.length>0&&<fieldset className="numericMinimumGroup"><legend>أقل</legend><div className="numericMinimumFields">{minimumGroupItems.map(item=>numericMinimumField(item.key,item.label))}</div></fieldset>}</div>
+          </div>{minimumGroupItems.length>0&&<fieldset className="numericMinimumGroup"><legend>أقل</legend><div className="numericMinimumFields">{minimumGroupItems.map(item=>numericMinimumField(item.key,item.label))}</div></fieldset>}
           {numericVisible("minAge")&&<div className={`numericCompactRow ${ageCompanionKey?"":"numericCompactRowSolo"}`}>{numericRange("العمر","minAge","maxAge","أقل","أقصى")}{ageCompanionKey&&numericField(ageCompanionKey)}</div>}
+          </div>
         </div></div>
       </div>
       <div className="trialNotice" aria-live="polite"><span>{trial?`المتبقي ${trial.remaining} من ${trial.limit} عملية بحث`:`المتبقي 100 من 100 عملية بحث`}</span>{trial?.globalRemaining===0?<span>انتهى الحد الإجمالي للتجربة.</span>:trial?.remaining===0?<span>استخدم هذا المتصفح جميع عملياته.</span>:null}</div>
