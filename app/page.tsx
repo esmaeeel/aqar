@@ -7,6 +7,7 @@ import { CITY_NAMES, canonicalCity, canonicalNeighborhood, neighborhoodSuggestio
 import { buildExcelExport } from "@/lib/excel-export";
 
 const LEGACY_LAST_FILTERS_KEY = "aqar-last-filters-clean-v2";
+const ARCHIVED_LISTINGS_KEY = "aqar-archived-listings-v1";
 const PULL_REFRESH_THRESHOLD = 72;
 const PULL_REFRESH_MAX_DISTANCE = 116;
 const defaults: Filters = { propertyType:"عام",purpose:"sale",locations:[{city:"الرياض",neighborhoods:[]}],keywords:[],mode:"strict",maxPages:2,maxListings:200,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minCommercialShops:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minAge:0,maxAge:0,minDensity:0,sqmMin:0,sqmMax:0 };
@@ -95,18 +96,18 @@ export default function Home(){
     }
     if(stopReason){const pending=[...new Set(allSources.slice(stoppedAt).map(s=>s.city))];setProgress(Math.max(1,Math.round(stoppedAt/allSources.length*100)));setMessage(`توقف البحث قبل إكمال جميع المدن. فُحص ${checked.size} إعلان، وظهرت ${found.size} نتيجة. المدن غير المكتملة: ${pending.join("، ")}. انتظر عدة دقائق ثم أعد البحث.`)}else{setProgress(100);setMessage(`اكتمل البحث: اكتُشف ${discovered} رابطًا، وفُحص ${checked.size} إعلان، وظهرت ${found.size} نتيجة بعد التصفية.`)}setBusy(false);void loadTrialStatus();
   }
-  async function exportExcel(){
-    if(!results.length){setMessage("لا توجد نتائج لتصديرها إلى Excel.");return}
+  async function exportExcel(source=results){
+    if(!source.length){setMessage("لا توجد نتائج لتصديرها إلى Excel.");return}
     setExportingExcel(true);setMessage("جارٍ إنشاء ملف Excel…");
     try{
       const {default:writeExcelFile}=await import("write-excel-file/browser");
-      const {sheetData,sheetOptions}=buildExcelExport(results,{propertyType:filters.propertyType,purpose:filters.purpose,roomMode:ROOM_TYPES.has(filters.propertyType),includeSquareMeterPrice:PRICE_PER_SQM_TYPES.has(filters.propertyType),hiddenColumns:hiddenResultColumnKeys(filters.propertyType,filters.purpose)});
+      const {sheetData,sheetOptions}=buildExcelExport(source,{propertyType:filters.propertyType,purpose:filters.purpose,roomMode:ROOM_TYPES.has(filters.propertyType),includeSquareMeterPrice:PRICE_PER_SQM_TYPES.has(filters.propertyType),hiddenColumns:hiddenResultColumnKeys(filters.propertyType,filters.purpose)});
       const fileName=`نتائج-${filters.propertyType}-${new Date().toISOString().slice(0,10)}.xlsx`;
       await writeExcelFile(sheetData,sheetOptions,{fontFamily:"Arial",fontSize:11}).toFile(fileName);
-      setMessage(`تم تصدير ${results.length} نتيجة إلى Excel.`);
+      setMessage(`تم تصدير ${source.length} نتيجة إلى Excel.`);
     }catch{setMessage("تعذر إنشاء ملف Excel. حاول مجددًا.")}finally{setExportingExcel(false)}
   }
-  async function saveResults(){if(!results.length||savingResults){if(!results.length)setMessage("لا توجد نتائج لحفظها.");return}const savedCount=results.length;setSavingResults(true);setResultSaveFeedback({tone:"working",text:`جارٍ حفظ ${savedCount} نتيجة…`});try{const r=await fetch("/api/saved-results",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({propertyType:filters.propertyType,results})});const d=await r.json().catch(()=>({})) as {set?:{name:string};error?:string};const text=r.ok?`حُفظت ${savedCount} نتيجة في المجموعة: ${d.set?.name||"نتائج محفوظة"}`:d.error||"تعذر حفظ النتائج. حاول مجددًا.";setResultSaveFeedback({tone:r.ok?"success":"error",text});setMessage(text)}catch{const text="تعذر حفظ النتائج بسبب مشكلة في الاتصال. حاول مجددًا.";setResultSaveFeedback({tone:"error",text});setMessage(text)}finally{setSavingResults(false)}}
+  async function saveResults(source=results){if(!source.length||savingResults){if(!source.length)setMessage("لا توجد نتائج لحفظها.");return}const savedCount=source.length;setSavingResults(true);setResultSaveFeedback({tone:"working",text:`جارٍ حفظ ${savedCount} نتيجة…`});try{const r=await fetch("/api/saved-results",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({propertyType:filters.propertyType,results:source})});const d=await r.json().catch(()=>({})) as {set?:{name:string};error?:string};const text=r.ok?`حُفظت ${savedCount} نتيجة في المجموعة: ${d.set?.name||"نتائج محفوظة"}`:d.error||"تعذر حفظ النتائج. حاول مجددًا.";setResultSaveFeedback({tone:r.ok?"success":"error",text});setMessage(text)}catch{const text="تعذر حفظ النتائج بسبب مشكلة في الاتصال. حاول مجددًا.";setResultSaveFeedback({tone:"error",text});setMessage(text)}finally{setSavingResults(false)}}
   async function loadSets(){const r=await fetch("/api/saved-results",{headers:deviceHeaders()});const data=await r.json() as {sets:SavedSet[]};if(r.ok)setSets(data.sets);setTab("saved");setTimeout(()=>document.getElementById("saved-results")?.scrollIntoView({behavior:"smooth"}),50)}
   async function deleteSet(id:number){if(!confirm("هل تريد حذف هذه المجموعة المحفوظة؟"))return;await fetch(`/api/saved-results?id=${id}`,{method:"DELETE",headers:deviceHeaders()});await loadSets()}
   function openSet(s:SavedSet){setResults(JSON.parse(s.resultsJson));setResultSaveFeedback(null);setTab("search");setMessage(`تم فتح المجموعة: ${s.name}`);setTimeout(()=>document.getElementById("results")?.scrollIntoView({behavior:"smooth"}),50)}
@@ -169,24 +170,27 @@ const DEFAULT_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:132,price:92,
 const MIN_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:92,price:72,income:96,yieldPct:68,area:78,sqmPrice:78,count:72,housingUnits:90,commercialShops:100,totalRooms:88,meters:70,floors:68,street:80,density:90,age:68};
 const clampColumnWidth=(key:ColumnKey,width:number)=>Math.max(MIN_COLUMN_WIDTHS[key],Math.min(MAX_COLUMN_WIDTH,Math.round(width)));
 
-function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,saving,searchBusy,saveFeedback,onShowSaved,onExport,exportingExcel}:{rows:Listing[];roomMode:boolean;propertyType:string;purpose:Filters["purpose"];cities:string[];onSave:()=>void;saveDisabled:boolean;saving:boolean;searchBusy:boolean;saveFeedback:ResultSaveFeedback|null;onShowSaved:()=>void;onExport:()=>void;exportingExcel:boolean}){
+function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,saving,searchBusy,saveFeedback,onShowSaved,onExport,exportingExcel}:{rows:Listing[];roomMode:boolean;propertyType:string;purpose:Filters["purpose"];cities:string[];onSave:(rows:Listing[])=>void;saveDisabled:boolean;saving:boolean;searchBusy:boolean;saveFeedback:ResultSaveFeedback|null;onShowSaved:()=>void;onExport:(rows:Listing[])=>void;exportingExcel:boolean}){
   const [preferredStatus,setPreferredStatus]=useState<Listing["status"]|null>(null);
   const [sort,setSort]=useState<{key:ColumnKey;direction:"asc"|"desc"}|null>(null);
   const [columnOrder,setColumnOrder]=useState<ColumnKey[]>(DEFAULT_COLUMN_ORDER);
   const [columnOrderLoaded,setColumnOrderLoaded]=useState(false);
   const [columnWidths,setColumnWidths]=useState<Record<ColumnKey,number>>(DEFAULT_COLUMN_WIDTHS);
   const [columnWidthsLoaded,setColumnWidthsLoaded]=useState(false);
+  const [archivedRows,setArchivedRows]=useState<Listing[]>([]);
+  const [archivedLoaded,setArchivedLoaded]=useState(false);
+  const [showArchived,setShowArchived]=useState(false);
   const [draggedColumn,setDraggedColumn]=useState<ColumnKey|null>(null);
   const [dropTargetColumn,setDropTargetColumn]=useState<ColumnKey|null>(null);
   const pointerDrag=useRef<{key:ColumnKey;pointerId:number;target:ColumnKey}|null>(null);
   const resizeDrag=useRef<{key:ColumnKey;pointerId:number;startX:number;startWidth:number}|null>(null);
-  const lastTouch=useRef<{listingId:string;at:number}|null>(null);
-  const suppressDoubleOpenUntil=useRef(0);
   const suppressSortUntil=useRef(0);
   useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(COLUMN_ORDER_KEY)||"[]") as ColumnKey[];if(stored.length===DEFAULT_COLUMN_ORDER.length&&DEFAULT_COLUMN_ORDER.every(key=>stored.includes(key)))setColumnOrder(stored)}catch{/* تجاهل ترتيب محلي تالف */}setColumnOrderLoaded(true)},[]);
   useEffect(()=>{if(columnOrderLoaded)localStorage.setItem(COLUMN_ORDER_KEY,JSON.stringify(columnOrder))},[columnOrder,columnOrderLoaded]);
   useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(COLUMN_WIDTHS_KEY)||"{}") as Partial<Record<ColumnKey,number>>;setColumnWidths(Object.fromEntries(DEFAULT_COLUMN_ORDER.map(key=>[key,typeof stored[key]==="number"?clampColumnWidth(key,stored[key]!):DEFAULT_COLUMN_WIDTHS[key]])) as Record<ColumnKey,number>)}catch{/* تجاهل مقاسات محلية تالفة */}setColumnWidthsLoaded(true)},[]);
   useEffect(()=>{if(columnWidthsLoaded)localStorage.setItem(COLUMN_WIDTHS_KEY,JSON.stringify(columnWidths))},[columnWidths,columnWidthsLoaded]);
+  useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(ARCHIVED_LISTINGS_KEY)||"[]") as Listing[];if(Array.isArray(stored))setArchivedRows(stored.filter(row=>row&&typeof row.listingId==="string"&&typeof row.url==="string"))}catch{/* تجاهل أرشيفًا محليًا تالفًا */}setArchivedLoaded(true)},[]);
+  useEffect(()=>{if(archivedLoaded)localStorage.setItem(ARCHIVED_LISTINGS_KEY,JSON.stringify(archivedRows))},[archivedRows,archivedLoaded]);
   const rentalSearch=purpose==="rent";
   const mixedCountMode=propertyType==="عام";
   const rowUsesRooms=(row:Listing)=>roomMode||(mixedCountMode&&ROOM_TYPES.has(row.propertyType));
@@ -208,9 +212,11 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
     {key:"density",label:"شقق لكل 100م²",value:r=>r.density,render:r=>r.density==null?"غير مذكور":fmt(r.density,2)},
     {key:"age",label:"العمر",value:r=>r.age||null,render:r=>r.age?String(r.age).replace(/\s*(?:سنوات|سنة)\s*$/u,""):"غير مذكور"},
   ].filter(column=>(propertyType==="عمارة"||propertyType==="عام"||!["housingUnits","commercialShops","totalRooms"].includes(column.key))&&(PRICE_PER_SQM_TYPES.has(propertyType)||column.key!=="sqmPrice")&&(!rentalSearch||!["income","yieldPct"].includes(column.key))&&!hiddenColumns.has(column.key));
+  const archivedIds=new Set(archivedRows.map(row=>row.listingId));
+  const visibleRows=rows.filter(row=>!archivedIds.has(row.listingId));
   const columnsByKey=new Map(columns.map(column=>[column.key,column]));
   const orderedColumns=columnOrder.map(key=>columnsByKey.get(key)).filter((column):column is TableColumn=>Boolean(column));
-  const orderedRows=[...rows].sort((a,b)=>{
+  function sortRows(source:Listing[]){return [...source].sort((a,b)=>{
     const statusOrder=preferredStatus?Number(b.status===preferredStatus)-Number(a.status===preferredStatus):0;
     if(statusOrder)return statusOrder;
     if(!sort)return 0;
@@ -218,7 +224,8 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
     if(left==null&&right==null)return 0;if(left==null)return 1;if(right==null)return -1;
     const comparison=typeof left==="number"&&typeof right==="number"?left-right:String(left).localeCompare(String(right),"ar",{numeric:true,sensitivity:"base"});
     return sort.direction==="asc"?comparison:-comparison;
-  });
+  })}
+  const orderedRows=sortRows(visibleRows);
   function sortBy(key:ColumnKey){if(Date.now()<suppressSortUntil.current)return;setSort(current=>current?.key===key?{key,direction:current.direction==="asc"?"desc":"asc"}:{key,direction:"asc"})}
   function moveColumnTo(source:ColumnKey,target:ColumnKey){if(source===target)return;setColumnOrder(order=>{const targetIndex=order.indexOf(target);if(targetIndex<0)return order;const next=order.filter(key=>key!==source);next.splice(targetIndex,0,source);return next})}
   function moveColumnByKeyboard(event:ReactKeyboardEvent<HTMLSpanElement>,key:ColumnKey){if(!["ArrowLeft","ArrowRight"].includes(event.key))return;event.preventDefault();event.stopPropagation();const currentIndex=orderedColumns.findIndex(column=>column.key===key),target=orderedColumns[currentIndex+(event.key==="ArrowLeft"?1:-1)];if(target)moveColumnTo(key,target.key)}
@@ -231,14 +238,18 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
   function resetColumnWidth(event:ReactMouseEvent<HTMLSpanElement>,key:ColumnKey){event.preventDefault();event.stopPropagation();setColumnWidths(current=>current[key]===DEFAULT_COLUMN_WIDTHS[key]?current:{...current,[key]:DEFAULT_COLUMN_WIDTHS[key]});suppressSortUntil.current=Date.now()+300}
   function resizeColumnByKeyboard(event:ReactKeyboardEvent<HTMLSpanElement>,key:ColumnKey){if(!["ArrowLeft","ArrowRight","Home"].includes(event.key))return;event.preventDefault();event.stopPropagation();const width=event.key==="Home"?DEFAULT_COLUMN_WIDTHS[key]:clampColumnWidth(key,columnWidths[key]+(event.key==="ArrowLeft"?10:-10));setColumnWidths(current=>({...current,[key]:width}))}
   function openListing(row:Listing){window.open(row.url,"_blank","noopener,noreferrer")}
-  function openOnRepeatedTouch(event:ReactPointerEvent<HTMLTableRowElement>,row:Listing){if(event.pointerType!=="touch")return;const now=Date.now(),previous=lastTouch.current;if(previous?.listingId===row.listingId&&now-previous.at<=500){lastTouch.current=null;suppressDoubleOpenUntil.current=now+800;openListing(row)}else lastTouch.current={listingId:row.listingId,at:now}}
+  function archiveRow(row:Listing){setArchivedRows(current=>current.some(item=>item.listingId===row.listingId)?current:[...current,row]);setShowArchived(false)}
+  function unarchiveRow(row:Listing){setArchivedRows(current=>current.filter(item=>item.listingId!==row.listingId))}
+  function toggleArchived(){const next=!showArchived;setShowArchived(next);if(next)setTimeout(()=>document.getElementById("archived-results")?.scrollIntoView({behavior:"smooth",block:"start"}),50)}
+  function renderResultCell(column:TableColumn,row:Listing,archived:boolean){const value=column.render(row);if(column.key!=="neighborhood")return value;return <div className="resultCellWithAction"><span>{value}</span><button type="button" className="rowArchiveButton" aria-label={`${archived?"إلغاء أرشفة":"أرشفة"} ${row.title}`} onClick={event=>{event.stopPropagation();archived?unarchiveRow(row):archiveRow(row)}}>{archived?"إلغاء الأرشفة":"أرشفة"}</button></div>}
+  function resultTable(source:Listing[],archived=false){const tableRows=sortRows(source);return <div className={`resultsTableWrap ${archived?"archivedTableWrap":""}`} role="region" aria-label={archived?"جدول العقارات المؤرشفة":"جدول مقارنة نتائج العقارات"} tabIndex={0}><table className="resultsTable" style={{width:orderedColumns.reduce((total,column)=>total+columnWidths[column.key],0)}}><colgroup>{orderedColumns.map(column=><col key={column.key} style={{width:columnWidths[column.key]}}/>)}</colgroup><thead><tr>{orderedColumns.map(column=><th key={column.key} data-column-key={column.key} className={[draggedColumn===column.key?"draggingColumn":"",dropTargetColumn===column.key&&draggedColumn!==column.key?"dropTargetColumn":""].filter(Boolean).join(" ")||undefined} aria-sort={sort?.key===column.key?(sort.direction==="asc"?"ascending":"descending"):"none"}><span className="columnDragHandle" role="button" aria-label={`سحب لترتيب عمود ${column.label}`} tabIndex={0} title="اسحب لترتيب العمود" onPointerDown={event=>beginPointerDrag(event,column.key)} onPointerMove={continuePointerDrag} onPointerUp={event=>endPointerDrag(event)} onPointerCancel={event=>endPointerDrag(event,true)} onKeyDown={event=>moveColumnByKeyboard(event,column.key)}/><button type="button" className="sortHeader" onClick={()=>sortBy(column.key)}>{column.label}<span aria-hidden="true">{sort?.key===column.key?(sort.direction==="asc"?"▲":"▼"):"↕"}</span></button><span className="columnResizeHandle" role="separator" aria-orientation="vertical" aria-label={`تغيير عرض عمود ${column.label}`} aria-valuemin={MIN_COLUMN_WIDTHS[column.key]} aria-valuemax={MAX_COLUMN_WIDTH} aria-valuenow={columnWidths[column.key]} tabIndex={0} title="اسحب لتغيير العرض، وانقر الحافة مرتين لإعادة العرض الافتراضي" onPointerDown={event=>beginColumnResize(event,column.key)} onPointerMove={continueColumnResize} onPointerUp={endColumnResize} onPointerCancel={endColumnResize} onDoubleClick={event=>resetColumnWidth(event,column.key)} onKeyDown={event=>resizeColumnByKeyboard(event,column.key)}/></th>)}</tr></thead><tbody>{!tableRows.length?<tr><td className="emptyTableCell" colSpan={orderedColumns.length}>{archived?"لا توجد عقارات مؤرشفة.":"ستظهر النتائج هنا بعد البحث."}</td></tr>:tableRows.map(row=><tr className={rowClass(row.status)} key={row.listingId} tabIndex={0} title="اضغط لفتح الإعلان" onClick={()=>openListing(row)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();openListing(row)}}}>{orderedColumns.map(column=><td key={column.key} className={column.className}>{renderResultCell(column,row,archived)}</td>)}</tr>)}</tbody></table></div>}
   const rowClass=(status:Listing["status"])=>status==="مطابقة"?"match":status==="قريبة"?"near":"missing";
-  const resultCities=[...new Set(rows.map(row=>(row.city||"").trim()).filter(Boolean))],displayCities=resultCities.length?resultCities:cities;
+  const resultCities=[...new Set(visibleRows.map(row=>(row.city||"").trim()).filter(Boolean))],displayCities=resultCities.length?resultCities:cities;
   const resultCityText=displayCities.join("، "),separateResultsSummary=rows.length>=100||displayCities.length>3||resultCityText.length>42;
   return <section className="panel results" id="results">
     <div className={`resultsToolbar ${separateResultsSummary?"separateSummary":"compactSummary"}`}>
-      <div className="resultsHead"><span className="eyebrow">النتائج</span><div className="resultsSummary"><h2>{rows.length} عقار</h2>{displayCities.length>0&&<span>المدن: {resultCityText}</span>}</div></div>
-      <div className="resultPanelActions"><button type="button" className="save resultSave" disabled={saveDisabled} aria-busy={saving} onClick={onSave}>{saving?"جارٍ الحفظ…":searchBusy&&rows.length?"حفظ النتائج الحالية":"حفظ هذه النتائج"}</button><button className="ghost" onClick={onShowSaved}>المجموعات المحفوظة</button><button className="ghost" disabled={exportingExcel} onClick={onExport}>{exportingExcel?"جارٍ إنشاء Excel…":"تصدير Excel"}</button></div>
+      <div className="resultsHead"><span className="eyebrow">النتائج</span><div className="resultsSummary"><h2>{visibleRows.length} عقار</h2>{displayCities.length>0&&<span>المدن: {resultCityText}</span>}</div></div>
+      <div className="resultPanelActions"><div className="resultPrimaryActions"><button type="button" className="save resultSave" disabled={saveDisabled||!visibleRows.length} aria-busy={saving} onClick={()=>onSave(visibleRows)}>{saving?"جارٍ الحفظ…":searchBusy&&rows.length?"حفظ النتائج الحالية":"حفظ هذه النتائج"}</button><button type="button" className="ghost archiveListButton" aria-expanded={showArchived} onClick={toggleArchived}>المؤرشفة{archivedRows.length?` (${archivedRows.length})`:""}</button></div><button className="ghost" onClick={onShowSaved}>المجموعات المحفوظة</button><button className="ghost" disabled={exportingExcel||!visibleRows.length} onClick={()=>onExport(visibleRows)}>{exportingExcel?"جارٍ إنشاء Excel…":"تصدير Excel"}</button></div>
     </div>
     <div className="resultKey" aria-label="نوع العقار ودليل ألوان المطابقة">
       <strong>نوع العقار: {propertyType}</strong>
@@ -248,16 +259,17 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
     </div>
     {saveFeedback&&<span className={`resultSaveStatus ${saveFeedback.tone}`} role="status" aria-live="polite">{saveFeedback.text}</span>}
     <>
-      <div className="tableTools"><p className="swipeHint">مرّر الجدول يمينًا ويسارًا بالسحب العادي. اضغط العنوان للفرز، واسحب مقبض ↔ لترتيب العمود. اسحب مقبض الحافة لتغيير العرض، أو انقر الحافة مرتين لإعادته. اضغط صف الإعلان مرتين لفتحه.</p></div>
+      <div className="tableTools"><p className="swipeHint">مرّر الجدول يمينًا ويسارًا بالسحب العادي. اضغط العنوان للفرز، واسحب مقبض ↔ لترتيب العمود. اسحب مقبض الحافة لتغيير العرض، أو انقر الحافة مرتين لإعادته. اضغط صف الإعلان مرة لفتحه، واضغط «أرشفة» لاستبعاده.</p></div>
       <div className="resultsTableWrap" role="region" aria-label="جدول مقارنة نتائج العقارات" tabIndex={0}>
         <table className="resultsTable" style={{width:orderedColumns.reduce((total,column)=>total+columnWidths[column.key],0)}}>
           <colgroup>{orderedColumns.map(column=><col key={column.key} style={{width:columnWidths[column.key]}}/>)}</colgroup>
           <thead><tr>{orderedColumns.map(column=><th key={column.key} data-column-key={column.key} className={[draggedColumn===column.key?"draggingColumn":"",dropTargetColumn===column.key&&draggedColumn!==column.key?"dropTargetColumn":""].filter(Boolean).join(" ")||undefined} aria-sort={sort?.key===column.key?(sort.direction==="asc"?"ascending":"descending"):"none"}><span className="columnDragHandle" role="button" aria-label={`سحب لترتيب عمود ${column.label}`} tabIndex={0} title="اسحب لترتيب العمود" onPointerDown={event=>beginPointerDrag(event,column.key)} onPointerMove={continuePointerDrag} onPointerUp={event=>endPointerDrag(event)} onPointerCancel={event=>endPointerDrag(event,true)} onKeyDown={event=>moveColumnByKeyboard(event,column.key)}/><button type="button" className="sortHeader" onClick={()=>sortBy(column.key)}>{column.label}<span aria-hidden="true">{sort?.key===column.key?(sort.direction==="asc"?"▲":"▼"):"↕"}</span></button><span className="columnResizeHandle" role="separator" aria-orientation="vertical" aria-label={`تغيير عرض عمود ${column.label}`} aria-valuemin={MIN_COLUMN_WIDTHS[column.key]} aria-valuemax={MAX_COLUMN_WIDTH} aria-valuenow={columnWidths[column.key]} tabIndex={0} title="اسحب لتغيير العرض، وانقر مرتين لإعادة العرض الافتراضي" onPointerDown={event=>beginColumnResize(event,column.key)} onPointerMove={continueColumnResize} onPointerUp={endColumnResize} onPointerCancel={endColumnResize} onDoubleClick={event=>resetColumnWidth(event,column.key)} onKeyDown={event=>resizeColumnByKeyboard(event,column.key)}/></th>)}</tr></thead>
-          <tbody>{!orderedRows.length?<tr><td className="emptyTableCell" colSpan={orderedColumns.length}>ستظهر النتائج هنا بعد البحث.</td></tr>:orderedRows.map(r=><tr className={rowClass(r.status)} key={r.listingId} tabIndex={0} title="اضغط مرتين لفتح الإعلان" onDoubleClick={()=>{if(Date.now()>=suppressDoubleOpenUntil.current)openListing(r)}} onPointerUp={event=>openOnRepeatedTouch(event,r)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();openListing(r)}}}>
-            {orderedColumns.map(column=><td key={column.key} className={column.className}>{column.render(r)}</td>)}
+          <tbody>{!orderedRows.length?<tr><td className="emptyTableCell" colSpan={orderedColumns.length}>ستظهر النتائج هنا بعد البحث.</td></tr>:orderedRows.map(r=><tr className={rowClass(r.status)} key={r.listingId} tabIndex={0} title="اضغط لفتح الإعلان" onClick={()=>openListing(r)} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();openListing(r)}}}>
+            {orderedColumns.map(column=><td key={column.key} className={column.className}>{renderResultCell(column,r,false)}</td>)}
           </tr>)}</tbody>
         </table>
       </div>
+      {showArchived&&<section className="archivedResults" id="archived-results"><div className="archivedResultsHead"><h3>المؤرشفة</h3><span>المس العقار لفتحه، أو اضغط «إلغاء الأرشفة» لإعادته.</span></div>{resultTable(archivedRows,true)}</section>}
     </>
   </section>
 }
