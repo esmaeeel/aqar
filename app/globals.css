@@ -182,3 +182,20 @@
 @keyframes pullRefreshSpin{to{transform:rotate(360deg)}}
 html,body{overscroll-behavior-y:none}
 @media (hover:hover) and (pointer:fine){.pullRefreshIndicator{display:none}}
+
+/* امنع اتساع صفحة الجوال خارج الشاشة، مع إبقاء تمرير جدول النتائج داخله فقط. */
+html,body{max-width:100%;overflow-x:hidden}
+main{width:100%;min-width:0}
+button,input,select{min-width:0}
+
+@media(max-width:600px){
+  .numericMinimumField{grid-template-columns:minmax(0,1fr) minmax(42px,60px)}
+}
+
+@media(max-width:520px){
+  main{padding-inline:6px}
+  .panel{padding-inline:8px}
+  .numericMinimumGroup{padding-inline:5px}
+  .numericMinimumFields{gap:4px}
+  .searchPanel .run .primary{width:100%;min-width:0;padding-inline:10px}
+}
