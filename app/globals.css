@@ -100,7 +100,11 @@
   .propertyKeywordsRow{grid-template-columns:minmax(150px,.8fr) minmax(320px,2fr)}
   .choiceRow{grid-template-columns:minmax(190px,1fr) minmax(320px,1.5fr)}
   .numericCompactGrid{gap:6px}
-  .numericPrimaryGrid{grid-template-columns:1fr;grid-template-areas:"primary" "minimum" "age";direction:rtl}
+  /* على الجوال يستفيد مربع «أقل» من الفراغ بجوار النطاقات بدلاً من صف مستقل. */
+  .numericPrimaryGrid{grid-template-columns:minmax(0,.9fr) minmax(0,1.45fr);grid-template-areas:"minimum primary" "age age";direction:ltr}
+  .numericMinimumFields{grid-template-rows:repeat(3,minmax(52px,1fr));gap:4px}
+  .numericMinimumField{grid-template-columns:16px minmax(0,1fr);gap:2px}
+  .numericMinimumField>span{display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:visible;font-size:.64rem;transform:rotate(-90deg)}
 }
 
 @media(max-width:760px){
@@ -122,8 +126,8 @@
   .location button{grid-column:auto;grid-row:auto;align-self:end;height:34px}
   .numericCompactRow,.numericCompactComponents{gap:5px}
   .numericMinimumGroup{padding:6px 7px}
-  .numericMinimumField{grid-template-columns:minmax(0,1fr) 76px;gap:3px}
-  .numericMinimumField>span{font-size:.66rem}
+  .numericMinimumField{grid-template-columns:14px minmax(0,1fr);gap:2px}
+  .numericMinimumField>span{font-size:.6rem}
   .numericRangeGroup{gap:7px;padding-inline:5px}
   .numericRangeInputs{gap:4px}
   .numericRangeTitle,.numericVerticalLabel{position:relative;width:20px;min-width:20px;align-self:stretch;justify-self:center;writing-mode:horizontal-tb;transform:none}
@@ -144,6 +148,14 @@
   .runListingLimit{grid-column:1;justify-self:stretch}
   .searchPanel .run .primary{grid-column:2}
   .resultPanelActions .ghost,.resultPanelActions .save{padding-inline:5px;font-size:.7rem}
+}
+
+/* في الهواتف شديدة الضيق نعيد المربع أسفل النطاقات كي لا تضيق حقول الأرقام. */
+@media(max-width:360px){
+  .numericPrimaryGrid{grid-template-columns:1fr;grid-template-areas:"primary" "minimum" "age";direction:rtl}
+  .numericMinimumFields{grid-template-rows:repeat(3,minmax(0,1fr));gap:6px}
+  .numericMinimumField{grid-template-columns:minmax(0,1fr) minmax(42px,60px);gap:3px}
+  .numericMinimumField>span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.66rem;transform:none}
 }
 
 /* افصل التمرير الطبيعي للجدول عن سحب ترتيب العمود على الشاشات اللمسية. */
@@ -189,7 +201,7 @@ main{width:100%;min-width:0}
 button,input,select{min-width:0}
 
 @media(max-width:600px){
-  .numericMinimumField{grid-template-columns:minmax(0,1fr) minmax(42px,60px)}
+  .numericMinimumField{grid-template-columns:14px minmax(0,1fr)}
 }
 
 @media(max-width:520px){
