@@ -1,4 +1,4 @@
-# vinext-starter
+# باحث عقار
 
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
@@ -16,14 +16,14 @@ npm run dev
 npm run build
 ```
 
-This starter does not use `wrangler.jsonc`.
+النشر المعتمد يعمل على Cloudflare Workers وD1 عبر `wrangler.jsonc`.
 
 ## Included Shape
 
 - edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
+- `wrangler.jsonc` يعرّف Worker وربط قاعدة D1 باسم `DB`
+- `migrations/` تحتوي ترحيلات D1 التي ينفذها Wrangler عند النشر
+- `db/schema.ts` و`drizzle/` مصدر تصميم وترحيلات Drizzle
 - `examples/d1/` contains an optional D1 example surface
 - `drizzle.config.ts` supports local migration generation when needed
 
@@ -93,6 +93,13 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 - `npm run build`: verify the vinext build output
 - `npm test`: build the starter and verify its rendered loading skeleton
 - `npm run db:generate`: generate Drizzle migrations after schema changes
+- `pnpm run deploy:cloudflare`: apply remote D1 migrations, then deploy the Worker
+
+## Automatic deployment
+
+Cloudflare Workers Builds is connected to `esmaeeel/aqar`: every push to `main`
+builds with `pnpm run build` and deploys with `pnpm run deploy:cloudflare`.
+Store any future secrets only in Cloudflare Worker settings, never in Git.
 
 ## Learn More
 
