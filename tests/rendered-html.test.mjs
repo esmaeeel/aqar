@@ -112,10 +112,12 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(styles, /input\[type="number"\].*appearance:textfield/);
   assert.match(styles, /::-webkit-inner-spin-button/);
   assert.match(page, /className="numericCompactGrid"/);
-  const priceRangeIndex = page.indexOf('numericRange("السعر"');
-  const sqmRangeIndex = page.indexOf('numericRange("سعر المتر"');
-  const areaRangeIndex = page.indexOf('numericRange("المساحة"');
+  const priceRangeIndex = page.indexOf('["السعر","priceMin","priceMax"]');
+  const sqmRangeIndex = page.indexOf('["سعر المتر","sqmMin","sqmMax"]');
+  const areaRangeIndex = page.indexOf('["المساحة","areaMin","areaMax"]');
   assert.ok(priceRangeIndex >= 0 && sqmRangeIndex > priceRangeIndex && areaRangeIndex > sqmRangeIndex);
+  assert.match(page, /className="numericRangesHeader"/);
+  assert.match(page, /<span>من<\/span><span>إلى<\/span>/);
   assert.match(page, /filters\.propertyType==="عام"\?"أقل شقق \/ غرف"/);
   assert.match(styles, /\.numericCompactRow\{[^}]*grid-template-columns:minmax\(0,2fr\) minmax\(0,1fr\)/);
   assert.match(styles, /\.numericInlineField\{[^}]*grid-template-columns:max-content minmax\(0,1fr\)/);

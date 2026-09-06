@@ -61,6 +61,11 @@
 .numericPrimaryRows{display:grid;grid-area:primary;gap:7px;min-width:0;direction:rtl}
 .numericPrimaryRows .numericCompactRow{grid-template-columns:1fr}
 .numericPrimaryGrid>.numericCompactRow{grid-area:age;min-width:0;direction:rtl}
+.numericRangesTable{display:grid;gap:7px;min-width:0}
+.numericRangesHeader,.numericRangesRow{display:grid;grid-template-columns:max-content repeat(2,minmax(0,1fr));align-items:center;gap:6px;min-width:0}
+.numericRangesHeader{padding-inline:7px;color:#31534d;font-size:.76rem;font-weight:700;text-align:center}
+.numericRangesRow{padding:4px 7px;border:1px solid #d6e0db;border-radius:10px;background:#eef5f1}
+.numericRangesRow>input{width:100%;min-width:0;max-width:none}
 .numericCompactRow{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);align-items:stretch;gap:7px}
 .numericCompactRowSolo{grid-template-columns:1fr}
 .numericRangeGroup{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:7px;padding:4px 7px;border:1px solid #d6e0db;border-radius:10px;background:#eef5f1;min-width:0}
@@ -130,6 +135,10 @@
   .numericMinimumField>span{font-size:.6rem}
   .numericRangeGroup{gap:7px;padding-inline:5px}
   .numericRangeInputs{gap:4px}
+  .numericRangesTable{gap:5px}
+  .numericRangesHeader,.numericRangesRow{grid-template-columns:20px repeat(2,minmax(0,1fr));gap:4px}
+  .numericRangesHeader{padding-inline:5px;font-size:.66rem}
+  .numericRangesRow{padding-inline:5px}
   .numericRangeTitle,.numericVerticalLabel{position:relative;width:20px;min-width:20px;align-self:stretch;justify-self:center;writing-mode:horizontal-tb;transform:none}
   .numericRangeTitle>span,.numericVerticalLabel>span{position:absolute;inset-block-start:50%;inset-inline-start:50%;transform:translate(50%,-50%) rotate(-90deg);transform-origin:center;white-space:nowrap;word-break:normal;line-height:1}
   .numericRangeTitle{font-size:.68rem}
