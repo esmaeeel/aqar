@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "aqar-investment-search",
+  "account_id": "e8f1e22192e3034b6544b63903dd6181",
+  "compatibility_date": "2026-09-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "vinext/server/app-router-entry",
+  "assets": {
+    "not_found_handling": "none"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "aqar-investment-search",
+      "database_id": "e4e144fa-31d9-4b3e-aba7-b42d4fbd8fa8"
+    }
+  ]
+}
