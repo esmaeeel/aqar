@@ -202,7 +202,7 @@ test("places all result actions in one row above the result key", async () => {
   assert.match(actionsMarkup, /المؤرشفة/);
   assert.match(actionsMarkup, /المفضلة/);
   assert.match(actionsMarkup, /تصدير Excel/);
-  assert.match(styles, /resultPanelActions\{[^}]*grid-template-columns:1\.2fr 1\.2fr 1fr \.9fr 1\.1fr/);
+  assert.match(styles, /resultPanelActions\{[^}]*grid-template-columns:1\.2fr 1\.2fr 1fr 1\.2fr 1fr/);
   assert.match(page, /FAVORITE_LISTINGS_KEY/);
   assert.match(page, /className="rowActionMenu"/);
   assert.match(page, /separateResultsSummary=rows\.length>=100\|\|displayCities\.length>3\|\|resultCityText\.length>42/);
