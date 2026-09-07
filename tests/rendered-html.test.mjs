@@ -126,6 +126,7 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(page, /numericRangeTitle \$\{verticalLabelSize\(title\)\}/);
   assert.match(styles, /\.numericRangeTitle>span,\.numericVerticalLabel>span\{[^}]*rotate\(-90deg\)[^}]*white-space:nowrap/);
   assert.match(styles, /\.numericInlineField\.numericFromField\{grid-template-columns:18px minmax\(0,1fr\)/);
+  assert.match(styles, /\.numericRangesRow>input,\.numericInlineField>input,\.numericMinimumField>input,\.runListingLimit input\{[^}]*padding-inline:0[^}]*direction:ltr/);
   assert.deepEqual(await readdir(previewRoot), []);
 });
 
