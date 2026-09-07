@@ -17,7 +17,7 @@
 .resultSave{padding:7px 10px;font-size:.75rem;white-space:nowrap}.resultsTable tbody tr{touch-action:manipulation}
 .trialNotice{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:20px;padding:11px 14px;border:1px solid #c7d8d1;border-radius:11px;background:#f1f7f4;color:#31534d;font-size:.82rem}.trialNotice span+span{padding-right:10px;border-right:1px solid #c7d8d1}
 .missing{background:#cbd2d6;color:#34424a}.resultsTable tbody tr.missing td{background:#d6dade;color:var(--ink)}.resultsTable tbody tr.missing td:first-child{background:#cbd1d4}
-.match{background:#c9e5d2;color:#245c45}.near{background:#f5f6f7;color:#4c5960}.missing{background:#fff0cf;color:#8a5400}.resultsTable tbody tr.match td{background:#d9ecdf;color:var(--ink)}.resultsTable tbody tr.near td{background:#f8f9f9;color:var(--ink)}.resultsTable tbody tr.missing td{background:#fff6df;color:var(--ink)}.resultsTable tbody tr.match td:first-child{background:#c9e5d2}.resultsTable tbody tr.near td:first-child{background:#f2f4f5}.resultsTable tbody tr.missing td:first-child{background:#ffedbd}
+.match{background:#c9e5d2;color:#245c45}.near{background:#ead4bb;color:#815529}.missing{background:#fff0cf;color:#8a5400}.resultsTable tbody tr.match td{background:#d9ecdf;color:var(--ink)}.resultsTable tbody tr.near td{background:#f3e1cf;color:var(--ink)}.resultsTable tbody tr.missing td{background:#fff6df;color:var(--ink)}.resultsTable tbody tr.match td:first-child{background:#c9e5d2}.resultsTable tbody tr.near td:first-child{background:#ead4bb}.resultsTable tbody tr.missing td:first-child{background:#ffedbd}
 .resultsTable tbody tr .emptyTableCell{position:static!important;min-width:0!important;padding:30px 12px;text-align:center!important;background:#fff!important;color:var(--muted);font-weight:700}
 
 /* Compact search layout: presentation only; search fields and handlers remain unchanged. */
@@ -200,6 +200,9 @@
 .rowActionMenuList{position:absolute;z-index:12;inset-inline-end:0;top:calc(100% + 4px);display:grid;gap:3px;min-width:116px;padding:4px;border:1px solid #b7c7c1;border-radius:8px;background:#fff;box-shadow:0 8px 20px rgba(24,55,49,.16)}
 .rowActionMenuList button{border:0;border-radius:5px;background:#fff;color:var(--ink);padding:6px 8px;text-align:start;font-size:.7rem;font-weight:800;white-space:nowrap}
 .rowActionMenuList button:hover,.rowActionMenuList button:focus-visible{background:#edf5f1;color:var(--green);outline:none}
+.resultsTable tbody tr:has(.rowActionMenu[open]){position:relative;z-index:8}
+.resultsTable tbody tr:has(.rowActionMenu[open])>td{position:relative;z-index:9;overflow:visible}
+.resultsTable tbody tr.viewedRow td,.resultsTable tbody tr.viewedRow td:first-child{background:#fff}
 .archivedResults{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
 .archivedResultsHead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
 .archivedResultsHead h3{margin:0;color:var(--green);font-size:1rem}

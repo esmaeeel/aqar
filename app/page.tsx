@@ -9,6 +9,7 @@ import { buildExcelExport } from "@/lib/excel-export";
 const LEGACY_LAST_FILTERS_KEY = "aqar-last-filters-clean-v2";
 const ARCHIVED_LISTINGS_KEY = "aqar-archived-listings-v1";
 const FAVORITE_LISTINGS_KEY = "aqar-favorite-listings-v1";
+const VIEWED_LISTING_IDS_KEY = "aqar-viewed-listing-ids-v1";
 const PULL_REFRESH_THRESHOLD = 72;
 const PULL_REFRESH_MAX_DISTANCE = 116;
 const defaults: Filters = { propertyType:"عام",purpose:"sale",locations:[{city:"الرياض",neighborhoods:[]}],keywords:[],mode:"strict",maxPages:2,maxListings:200,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minApartments:0,minRooms:0,minCommercialShops:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minAge:0,maxAge:0,minDensity:0,sqmMin:0,sqmMax:0 };
@@ -185,6 +186,7 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
   const [showArchived,setShowArchived]=useState(false);
   const [favoriteRows,setFavoriteRows]=useState<Listing[]>([]);
   const [favoritesLoaded,setFavoritesLoaded]=useState(false);
+  const [viewedListingsLoaded,setViewedListingsLoaded]=useState(false);
   const [showFavorites,setShowFavorites]=useState(false);
   const [draggedColumn,setDraggedColumn]=useState<ColumnKey|null>(null);
   const [dropTargetColumn,setDropTargetColumn]=useState<ColumnKey|null>(null);
@@ -199,6 +201,8 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
   useEffect(()=>{if(archivedLoaded)localStorage.setItem(ARCHIVED_LISTINGS_KEY,JSON.stringify(archivedRows))},[archivedRows,archivedLoaded]);
   useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(FAVORITE_LISTINGS_KEY)||"[]") as Listing[];if(Array.isArray(stored))setFavoriteRows(stored.filter(row=>row&&typeof row.listingId==="string"&&typeof row.url==="string"))}catch{/* تجاهل مفضلة محلية تالفة */}setFavoritesLoaded(true)},[]);
   useEffect(()=>{if(favoritesLoaded)localStorage.setItem(FAVORITE_LISTINGS_KEY,JSON.stringify(favoriteRows))},[favoriteRows,favoritesLoaded]);
+  useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(VIEWED_LISTING_IDS_KEY)||"[]") as unknown;if(Array.isArray(stored))setViewedListingIds(stored.filter((id):id is string=>typeof id==="string"))}catch{/* تجاهل سجل المشاهدة المحلي التالف */}setViewedListingsLoaded(true)},[]);
+  useEffect(()=>{if(viewedListingsLoaded)localStorage.setItem(VIEWED_LISTING_IDS_KEY,JSON.stringify(viewedListingIds))},[viewedListingIds,viewedListingsLoaded]);
   const rentalSearch=purpose==="rent";
   const mixedCountMode=propertyType==="عام";
   const rowUsesRooms=(row:Listing)=>roomMode||(mixedCountMode&&ROOM_TYPES.has(row.propertyType));
