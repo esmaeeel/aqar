@@ -23,11 +23,11 @@ export function buildExcelExport(rows:Listing[],options:ExcelExportOptions){
   if(options.purpose!=="rent")fields.push(numberField("income","الدخل السنوي",17,"#,##0"),numberField("yieldPct","العائد %",12,"0.00"));
   fields.push(numberField("area","المساحة",14,"#,##0.00"));
   if(!options.hiddenColumns.has("count"))fields.push(numberField(options.roomMode?"rooms":"apartments",options.roomMode?"الغرف مع المجلس والمقلط":"الشقق",options.roomMode?24:12,"#,##0"));
-  if(options.propertyType==="عمارة")fields.push(numberField("housingUnits","وحدة سكنية",15,"#,##0"),numberField("commercialShops","المحلات التجارية",18,"#,##0"),numberField("totalRooms","إجمالي الغرف",15,"#,##0"));
+  if(options.propertyType==="عمارة")fields.push(numberField("housingUnits","وحدة سكنية",15,"#,##0"),numberField("commercialShops","المحلات",12,"#,##0"),numberField("totalRooms","إجمالي الغرف",15,"#,##0"));
   if(!options.hiddenColumns.has("meters"))fields.push(numberField("meters","العدادات",12,"#,##0"));
   if(!options.hiddenColumns.has("floors"))fields.push(numberField("floors","الأدوار",11,"#,##0"));
   fields.push(numberField("street","عرض الشارع",14,"#,##0"));
-  if(!options.hiddenColumns.has("density"))fields.push(numberField("density","شقق لكل 100م²",17,"0.00"));
+  if(!options.hiddenColumns.has("density"))fields.push(numberField("density","شقق/100م²",14,"0.00"));
   fields.push(textField("url","رابط الإعلان",48));
 
   const header=fields.map<ExportCell>(field=>({value:field.label,type:String,fontWeight:"bold",backgroundColor:"#0B5D50",textColor:"#FFFFFF",align:"center",alignVertical:"center",wrap:true,height:28}));

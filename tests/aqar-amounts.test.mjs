@@ -351,9 +351,9 @@ test("يفصل عدد المحلات التجارية عن الشقق والوح
   assert.equal(listing.commercialShops, 6);
 });
 
-test("يعرض رأسي عمودي الوحدة السكنية والمحلات التجارية قبل وجود نتائج", () => {
+test("يعرض رأسي عمودي الوحدة السكنية والمحلات قبل وجود نتائج", () => {
   assert.match(pageSource, /label:\"وحدة سكنية\"/);
-  assert.match(pageSource, /label:\"المحلات التجارية\"/);
+  assert.match(pageSource, /label:\"المحلات\"/);
   assert.match(pageSource, /emptyTableCell/);
 });
 
@@ -460,16 +460,28 @@ test("يعرض عمود سعر المتر لجميع أنواع العقارات
 test("يخفي الشروط الرقمية غير المناسبة بحسب نوع العقار والعائد في كل تأجير", () => {
   assert.deepEqual([...hiddenNumericFilterKeys("عمارة", "sale")], []);
   assert.deepEqual([...hiddenNumericFilterKeys("عام", "sale")], []);
-  assert.deepEqual([...hiddenNumericFilterKeys("فيلا", "sale")].sort(), ["minCommercialShops", "minDensity", "minMeters"]);
-  assert.deepEqual([...hiddenNumericFilterKeys("شقة", "sale")].sort(), ["minCommercialShops", "minDensity", "minFloors", "minMeters"]);
-  assert.deepEqual([...hiddenNumericFilterKeys("دور", "sale")].sort(), ["minCommercialShops", "minDensity", "minFloors", "minMeters"]);
+  assert.deepEqual([...hiddenNumericFilterKeys("فيلا", "sale")].sort(), ["minApartments", "minCommercialShops", "minDensity", "minMeters"]);
+  assert.deepEqual([...hiddenNumericFilterKeys("شقة", "sale")].sort(), ["minApartments", "minCommercialShops", "minDensity", "minFloors", "minMeters"]);
+  assert.deepEqual([...hiddenNumericFilterKeys("دور", "sale")].sort(), ["minApartments", "minCommercialShops", "minDensity", "minFloors", "minMeters"]);
   for (const propertyType of ["استراحة", "شاليه"])
-    assert.deepEqual([...hiddenNumericFilterKeys(propertyType, "sale")].sort(), ["minCommercialShops", "minDensity", "minMeters"]);
-  assert.deepEqual([...hiddenNumericFilterKeys("أرض", "sale")].sort(), ["maxAge", "minAge", "minCommercialShops", "minCount", "minDensity", "minFloors", "minMeters", "yieldMin"]);
+    assert.deepEqual([...hiddenNumericFilterKeys(propertyType, "sale")].sort(), ["minApartments", "minCommercialShops", "minDensity", "minMeters"]);
+  assert.deepEqual([...hiddenNumericFilterKeys("أرض", "sale")].sort(), ["maxAge", "minAge", "minApartments", "minCommercialShops", "minDensity", "minFloors", "minMeters", "minRooms", "yieldMin"]);
   for (const propertyType of ["مستودع", "ورشة", "محل", "مكتب", "استوديو", "غرفة"])
-    assert.deepEqual([...hiddenNumericFilterKeys(propertyType, "sale")].sort(), ["minCommercialShops", "minCount", "minDensity", "minFloors", "minMeters"]);
+    assert.deepEqual([...hiddenNumericFilterKeys(propertyType, "sale")].sort(), ["minApartments", "minCommercialShops", "minDensity", "minFloors", "minMeters", "minRooms"]);
   for (const propertyType of PRICE_PER_SQM_TYPES)
     assert.ok(hiddenNumericFilterKeys(propertyType, "rent").has("yieldMin"), propertyType);
+});
+
+test("يفصل الحد الأدنى للشقق عن الحد الأدنى للغرف", () => {
+  const listing = {
+    id:"separate-counts",url:"https://sa.aqar.fm/عمائر-للبيع/الرياض/عمارة-7654399",title:"عمارة",propertyType:"عمارة",city:"الرياض",neighborhood:"",location:"الرياض",
+    price:1_000_000,area:500,sqmPrice:2_000,apartments:6,housingUnits:6,commercialShops:null,rooms:null,totalRooms:20,bedrooms:null,majlis:0,maqlat:0,meters:null,floors:null,street:null,age:null,income:null,
+    incomeKind:"unknown",yieldPct:null,density:1.2,warnings:[],status:"بيانات ناقصة",score:0,nearEligible:true,description:"",
+  };
+  const filters = {propertyType:"عمارة",purpose:"sale",locations:[],keywords:[],mode:"strict",maxPages:2,maxListings:40,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minApartments:6,minRooms:20,minCommercialShops:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minAge:0,maxAge:0,minDensity:0,sqmMin:0,sqmMax:0};
+  assert.equal(evaluate({...listing}, filters).status, "مطابقة");
+  assert.equal(evaluate({...listing,apartments:5}, filters).status, "قريبة");
+  assert.equal(evaluate({...listing,totalRooms:19}, filters).status, "قريبة");
 });
 
 test("يطابق أعمدة النتائج الشروط الظاهرة لكل نوع عقار", () => {

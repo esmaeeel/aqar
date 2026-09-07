@@ -29,25 +29,25 @@ export type Filters = {
   propertyType: string; purpose: "sale" | "rent"; locations: Location[];
   keywords: string[]; mode: "strict" | "near"; maxPages: number; maxListings: number;
   priceMin: number; priceMax: number; yieldMin: number; minMeters: number;
-  minCount: number; minCommercialShops: number; minFloors: number; minStreet: number; areaMin: number;
+  minApartments: number; minRooms: number; minCommercialShops: number; minFloors: number; minStreet: number; areaMin: number;
   areaMax: number; minAge: number; maxAge: number; minDensity: number; sqmMin: number; sqmMax: number;
 };
 
 export const PRICE_PER_SQM_TYPES = new Set(["عمارة", "فيلا", "شقة", "دور", "أرض", "مستودع", "ورشة", "استراحة", "شاليه", "محل", "مكتب", "استوديو", "غرفة", "عام"]);
 const HIDDEN_FILTERS_BY_PROPERTY_TYPE: Record<string, (keyof Filters)[]> = {
   "عمارة": [],
-  "فيلا": ["minMeters", "minCommercialShops", "minDensity"],
-  "شقة": ["minMeters", "minCommercialShops", "minFloors", "minDensity"],
-  "دور": ["minMeters", "minCommercialShops", "minFloors", "minDensity"],
-  "أرض": ["yieldMin", "minMeters", "minCount", "minCommercialShops", "minFloors", "minAge", "maxAge", "minDensity"],
-  "مستودع": ["minMeters", "minCount", "minCommercialShops", "minFloors", "minDensity"],
-  "ورشة": ["minMeters", "minCount", "minCommercialShops", "minFloors", "minDensity"],
-  "استراحة": ["minMeters", "minCommercialShops", "minDensity"],
-  "شاليه": ["minMeters", "minCommercialShops", "minDensity"],
-  "محل": ["minMeters", "minCount", "minCommercialShops", "minFloors", "minDensity"],
-  "مكتب": ["minMeters", "minCount", "minCommercialShops", "minFloors", "minDensity"],
-  "استوديو": ["minMeters", "minCount", "minCommercialShops", "minFloors", "minDensity"],
-  "غرفة": ["minMeters", "minCount", "minCommercialShops", "minFloors", "minDensity"],
+  "فيلا": ["minMeters", "minApartments", "minCommercialShops", "minDensity"],
+  "شقة": ["minMeters", "minApartments", "minCommercialShops", "minFloors", "minDensity"],
+  "دور": ["minMeters", "minApartments", "minCommercialShops", "minFloors", "minDensity"],
+  "أرض": ["yieldMin", "minMeters", "minApartments", "minRooms", "minCommercialShops", "minFloors", "minAge", "maxAge", "minDensity"],
+  "مستودع": ["minMeters", "minApartments", "minRooms", "minCommercialShops", "minFloors", "minDensity"],
+  "ورشة": ["minMeters", "minApartments", "minRooms", "minCommercialShops", "minFloors", "minDensity"],
+  "استراحة": ["minMeters", "minApartments", "minCommercialShops", "minDensity"],
+  "شاليه": ["minMeters", "minApartments", "minCommercialShops", "minDensity"],
+  "محل": ["minMeters", "minApartments", "minRooms", "minCommercialShops", "minFloors", "minDensity"],
+  "مكتب": ["minMeters", "minApartments", "minRooms", "minCommercialShops", "minFloors", "minDensity"],
+  "استوديو": ["minMeters", "minApartments", "minRooms", "minCommercialShops", "minFloors", "minDensity"],
+  "غرفة": ["minMeters", "minApartments", "minRooms", "minCommercialShops", "minFloors", "minDensity"],
   "عام": [],
 };
 
@@ -89,7 +89,6 @@ export function hiddenNumericFilterKeys(propertyType: string, purpose: Filters["
 export function hiddenResultColumnKeys(propertyType: string, purpose: Filters["purpose"]): Set<string> {
   const filterToColumn: Partial<Record<keyof Filters, string>> = {
     minMeters: "meters",
-    minCount: "count",
     minCommercialShops: "commercialShops",
     minFloors: "floors",
     minDensity: "density",
@@ -97,11 +96,14 @@ export function hiddenResultColumnKeys(propertyType: string, purpose: Filters["p
     maxAge: "age",
     yieldMin: "yieldPct",
   };
-  return new Set(
+  const hiddenColumns = new Set(
     [...hiddenNumericFilterKeys(propertyType, purpose)]
       .map(key => filterToColumn[key])
       .filter((key): key is string => Boolean(key)),
   );
+  const hiddenFilters = hiddenNumericFilterKeys(propertyType, purpose);
+  if (hiddenFilters.has("minApartments") && hiddenFilters.has("minRooms")) hiddenColumns.add("count");
+  return hiddenColumns;
 }
 
 export type Listing = {
@@ -586,12 +588,16 @@ export function parseListing(html: string, url: string, propertyType: string): L
 export function evaluate(item: Listing, f: Filters) {
   const countType = f.propertyType === "عام" ? item.propertyType : f.propertyType;
   const count = ROOM_TYPES.has(countType) ? item.rooms : item.apartments;
+  const roomCount = item.propertyType === "عمارة" ? item.totalRooms ?? item.rooms : item.rooms;
   const rentalSearch = f.purpose === "rent";
   const hidden = hiddenNumericFilterKeys(f.propertyType, f.purpose);
   const sqmMin = PRICE_PER_SQM_TYPES.has(f.propertyType) ? f.sqmMin : 0, sqmMax = PRICE_PER_SQM_TYPES.has(f.propertyType) ? f.sqmMax : 0;
   const yieldMin = rentalSearch ? 0 : f.yieldMin;
   const minMeters = hidden.has("minMeters") ? 0 : f.minMeters;
-  const minCount = hidden.has("minCount") ? 0 : f.minCount;
+  const minApartments = hidden.has("minApartments") ? 0 : f.minApartments || 0;
+  const minRooms = hidden.has("minRooms") ? 0 : f.minRooms || 0;
+  const savedLegacyCount = Number((f as Filters & {minCount?:number}).minCount) || 0;
+  const minLegacyCount = minApartments===0&&minRooms===0&&!(hidden.has("minApartments")&&hidden.has("minRooms")) ? savedLegacyCount : 0;
   const minCommercialShops = hidden.has("minCommercialShops") ? 0 : f.minCommercialShops || 0;
   const minFloors = hidden.has("minFloors") ? 0 : f.minFloors;
   const minDensity = hidden.has("minDensity") ? 0 : f.minDensity;
@@ -612,7 +618,7 @@ export function evaluate(item: Listing, f: Filters) {
     [f.priceMin>0,item.price,x=>x>=f.priceMin,12],[f.priceMax>0,item.price,x=>x<=f.priceMax,16],
     [sqmMin>0,item.sqmPrice,x=>x>=sqmMin,8],[sqmMax>0,item.sqmPrice,x=>x<=sqmMax,8],
     [yieldMin>0,item.yieldPct,x=>x>=yieldMin&&item.incomeKind==="actual",22],
-    [minMeters>0,item.meters,x=>x>=minMeters,10],[minCount>0,count,x=>x>=minCount,10],[minCommercialShops>0,item.commercialShops,x=>x>=minCommercialShops,10],
+    [minMeters>0,item.meters,x=>x>=minMeters,10],[minApartments>0,item.apartments,x=>x>=minApartments,10],[minRooms>0,roomCount,x=>x>=minRooms,10],[minLegacyCount>0,count,x=>x>=minLegacyCount,10],[minCommercialShops>0,item.commercialShops,x=>x>=minCommercialShops,10],
     [minFloors>0,item.floors,x=>x>=minFloors,7],[f.minStreet>0,item.street,x=>x>=f.minStreet,8],
     [f.areaMin>0,item.area,x=>x>=f.areaMin,5],[f.areaMax>0,item.area,x=>x<=f.areaMax,5],[minAge>0,minAgeValue,x=>x>=minAge,8],[maxAge>0,maxAgeValue,x=>x<=maxAge,8],[minDensity>0,item.density,x=>x>=minDensity,10],
   ];
@@ -620,6 +626,6 @@ export function evaluate(item: Listing, f: Filters) {
   // «مطابقة» تتطلب اجتياز كل شرط مفعّل بقيمته الفعلية؛ سماحية 20% للنتائج القريبة فقط.
   item.score=Math.max(0,score); item.status=!failed&&!missing?"مطابقة":missing?"بيانات ناقصة":"قريبة";
   let near=true; for(const [v,lo,hi] of [[item.price,f.priceMin,f.priceMax],[item.sqmPrice,sqmMin,sqmMax],[item.area,f.areaMin,f.areaMax],[minAgeValue,minAge,0],[maxAgeValue,0,maxAge]] as [number|null,number,number][]){if(v==null)continue;if(lo>0&&v<lo*(1-NEAR_TOLERANCE))near=false;if(hi>0&&v>hi*(1+NEAR_TOLERANCE))near=false}
-  for(const [v,min] of [[item.yieldPct,yieldMin],[item.meters,minMeters],[count,minCount],[item.commercialShops,minCommercialShops],[item.floors,minFloors],[item.street,f.minStreet],[item.density,minDensity]] as [number|null,number][]){if(v!=null&&min>0&&v<min*(1-NEAR_TOLERANCE))near=false}
+  for(const [v,min] of [[item.yieldPct,yieldMin],[item.meters,minMeters],[item.apartments,minApartments],[roomCount,minRooms],[count,minLegacyCount],[item.commercialShops,minCommercialShops],[item.floors,minFloors],[item.street,f.minStreet],[item.density,minDensity]] as [number|null,number][]){if(v!=null&&min>0&&v<min*(1-NEAR_TOLERANCE))near=false}
   item.nearEligible=near; return item;
 }

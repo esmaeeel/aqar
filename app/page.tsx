@@ -11,12 +11,12 @@ const ARCHIVED_LISTINGS_KEY = "aqar-archived-listings-v1";
 const FAVORITE_LISTINGS_KEY = "aqar-favorite-listings-v1";
 const PULL_REFRESH_THRESHOLD = 72;
 const PULL_REFRESH_MAX_DISTANCE = 116;
-const defaults: Filters = { propertyType:"عام",purpose:"sale",locations:[{city:"الرياض",neighborhoods:[]}],keywords:[],mode:"strict",maxPages:2,maxListings:200,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minCount:0,minCommercialShops:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minAge:0,maxAge:0,minDensity:0,sqmMin:0,sqmMax:0 };
+const defaults: Filters = { propertyType:"عام",purpose:"sale",locations:[{city:"الرياض",neighborhoods:[]}],keywords:[],mode:"strict",maxPages:2,maxListings:200,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minApartments:0,minRooms:0,minCommercialShops:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minAge:0,maxAge:0,minDensity:0,sqmMin:0,sqmMax:0 };
 const nums: {key:keyof Filters;label:string;hint?:string}[] = [
   {key:"priceMin",label:"السعر من"},{key:"priceMax",label:"السعر إلى"},{key:"yieldMin",label:"أقل عائد%"},
-  {key:"sqmMin",label:"سعر المتر من"},{key:"sqmMax",label:"سعر المتر إلى"},{key:"minDensity",label:"شقق لكل 100م²"},
+  {key:"sqmMin",label:"سعر المتر من"},{key:"sqmMax",label:"سعر المتر إلى"},{key:"minDensity",label:"شقق/100م²"},
   {key:"areaMin",label:"المساحة من"},{key:"areaMax",label:"المساحة إلى"},{key:"minStreet",label:"أقل عرض شارع"},
-  {key:"minMeters",label:"أقل عدادات"},{key:"minCount",label:"أقل شقق / غرف"},{key:"minCommercialShops",label:"أقل محلات تجارية"},
+  {key:"minMeters",label:"أقل عدادات"},{key:"minApartments",label:"أقل شقق"},{key:"minRooms",label:"أقل غرف"},{key:"minCommercialShops",label:"أقل محلات"},
   {key:"minAge",label:"أقل عمر"},{key:"maxAge",label:"أقصى عمر"},{key:"minFloors",label:"أقل أدوار"},
 ];
 type SavedSet={id:number;name:string;propertyType:string;createdAt:string;count:number;resultsJson:string};
@@ -58,15 +58,16 @@ export default function Home(){
     return()=>{window.removeEventListener("touchstart",start);window.removeEventListener("touchmove",move);window.removeEventListener("touchend",finish);window.removeEventListener("touchcancel",cancelPull);if(refreshTimer.current!==null)window.clearTimeout(refreshTimer.current)};
   },[]);
   const trialBlocked=trial?.remaining===0||trial?.globalRemaining===0;
-  const countLabel=filters.propertyType==="عام"?"أقل شقق / غرف":ROOM_TYPES.has(filters.propertyType)?"أقل غرف (مع المجلس والمقلط)":"أقل شقق";
   const rentalSearch=filters.purpose==="rent";
   const hiddenNumericKeys=hiddenNumericFilterKeys(filters.propertyType,filters.purpose);
-  const numericLabel=(key:keyof Filters)=>key==="minCount"?countLabel:nums.find(item=>item.key===key)?.label||String(key);
+  const numericLabel=(key:keyof Filters)=>nums.find(item=>item.key===key)?.label||String(key);
   const numericVisible=(key:keyof Filters)=>!hiddenNumericKeys.has(key)&&(!(["sqmMin","sqmMax"] as (keyof Filters)[]).includes(key)||PRICE_PER_SQM_TYPES.has(filters.propertyType));
-  const ageCompanionKey:keyof Filters|null=numericVisible("minDensity")?"minDensity":null;
   const minimumGroupItems:{key:keyof Filters;label:string}[]=[
-    {key:"minStreet",label:"عرض شارع"},{key:"minFloors",label:"أدوار"},{key:"yieldMin",label:"عائد%"},
-    {key:"minMeters",label:"عدادات"},{key:"minCount",label:countLabel.replace(/^أقل\s*/,"")},{key:"minCommercialShops",label:"محلات تجارية"}
+    {key:"minStreet",label:"عرض شارع"},{key:"minFloors",label:"أدوار"},{key:"minRooms",label:"غرف"},
+    {key:"minMeters",label:"عدادات"},{key:"minApartments",label:"شقق"},{key:"minCommercialShops",label:"محلات"}
+  ].filter(item=>numericVisible(item.key));
+  const ageCompanionItems:{key:keyof Filters;label:string}[]=[
+    {key:"yieldMin",label:"عائد%"},{key:"minDensity",label:"شقق/100م²"}
   ].filter(item=>numericVisible(item.key));
   function update<K extends keyof Filters>(key:K,value:Filters[K]){setFilters(f=>({...f,[key]:value}))}
   function addLocation(){update("locations",[...filters.locations,{city:"",neighborhoods:[]}])}
@@ -81,7 +82,7 @@ export default function Home(){
   async function loadProfiles(){try{const r=await fetch("/api/profiles",{headers:deviceHeaders()});const data=await r.json() as {profiles:Profile[]};if(r.ok)setProfiles(data.profiles)}catch{/* يعمل البحث حتى لو تعذر التخزين */}}
   async function loadTrialStatus(){try{const r=await fetch("/api/trial",{cache:"no-store",headers:deviceHeaders()});const data=await r.json() as TrialStatus;if(r.ok)setTrial(data)}catch{/* يتحقق الخادم مرة أخرى عند بدء البحث */}}
   async function saveProfile(){const name=prompt("اسم مواصفات البحث:");if(!name)return;const r=await fetch("/api/profiles",{method:"POST",headers:deviceHeaders(true),body:JSON.stringify({name,filters})});if(r.ok){await loadProfiles();setMessage("حُفظت مواصفات البحث.")}else setMessage("تعذر حفظ المواصفات.")}
-  function loadProfile(profile:Profile){const loaded={...defaults,...JSON.parse(profile.filtersJson)} as Filters;setFilters(loaded);setKeywordDraft(loaded.keywords.join("، "));setContextProfileId(null);profileMenuRef.current?.removeAttribute("open");setMessage(`تم تحميل: ${profile.name}`)}
+  function loadProfile(profile:Profile){const saved=JSON.parse(profile.filtersJson) as Partial<Filters>&{minCount?:number};const savedPropertyType=saved.propertyType||defaults.propertyType,legacyCount=Number(saved.minCount)||0;const loaded={...defaults,...saved,minApartments:saved.minApartments??(savedPropertyType==="عام"||ROOM_TYPES.has(savedPropertyType)?0:legacyCount),minRooms:saved.minRooms??(savedPropertyType==="عام"||!ROOM_TYPES.has(savedPropertyType)?0:legacyCount)} as Filters;setFilters(loaded);setKeywordDraft(loaded.keywords.join("، "));setContextProfileId(null);profileMenuRef.current?.removeAttribute("open");setMessage(`تم تحميل: ${profile.name}`)}
   async function renameProfile(profile:Profile){const name=prompt("المسمى الجديد لشروط البحث:",profile.name)?.trim();if(!name||name===profile.name){setContextProfileId(null);return}const r=await fetch(`/api/profiles?id=${profile.id}`,{method:"PUT",headers:deviceHeaders(true),body:JSON.stringify({name})});if(r.ok){await loadProfiles();setContextProfileId(null);profileMenuRef.current?.removeAttribute("open");setMessage(`تم تعديل المسمى إلى: ${name}`)}else setMessage("تعذر تعديل مسمى شروط البحث.")}
   async function deleteProfile(profile:Profile){if(!confirm(`هل تريد حذف شروط البحث المحفوظة «${profile.name}»؟`))return;const r=await fetch(`/api/profiles?id=${profile.id}`,{method:"DELETE",headers:deviceHeaders()});if(r.ok){await loadProfiles();setContextProfileId(null);profileMenuRef.current?.removeAttribute("open");setMessage(`حُذفت شروط البحث: ${profile.name}`)}else setMessage("تعذر حذف شروط البحث.")}
   async function search(){
@@ -125,7 +126,7 @@ export default function Home(){
         <div className="formBlock locationsBlock"><div className="locations">{filters.locations.map((location,index)=><LocationAutocomplete key={index} location={location} index={index} onChange={changeLocation} onAdd={index===filters.locations.length-1?addLocation:undefined} onRemove={()=>update("locations",filters.locations.length===1?[{city:"",neighborhoods:[]}]:filters.locations.filter((_,itemIndex)=>itemIndex!==index))}/>)}</div>{filters.locations.length===0&&<button type="button" aria-label="إضافة مدينة" className="icon locationAddIcon emptyLocationAdd" onClick={addLocation}>+</button>}</div>
         <div className="formBlock numericBlock"><div className="numericCompactGrid">
           <div className="numericPrimaryGrid"><div className="numericPrimaryRows">{numericRangesTable()}</div>{minimumGroupItems.length>0&&<fieldset className="numericMinimumGroup"><legend>أقل</legend><div className="numericMinimumFields">{minimumGroupItems.map(item=>numericMinimumField(item.key,item.label))}</div></fieldset>}
-          {numericVisible("minAge")&&<div className={`numericCompactRow ${ageCompanionKey?"":"numericCompactRowSolo"}`}>{numericRange("العمر","minAge","maxAge","أقل","أقصى")}{ageCompanionKey&&numericField(ageCompanionKey)}</div>}
+          {numericVisible("minAge")&&<div className={`numericCompactRow numericCompactRowWith${ageCompanionItems.length}Companions`}>{ageCompanionItems.map(item=>numericField(item.key,item.label))}{numericRange("العمر","minAge","maxAge","أقل","أقصى")}</div>}
           </div>
         </div></div>
       </div>
@@ -209,12 +210,12 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
     {key:"sqmPrice",label:"سعر المتر",value:r=>r.sqmPrice,render:r=>r.sqmPrice==null?"":fmt(r.sqmPrice,2)},
     {key:"count",label:mixedCountMode?"شقق / غرف":roomMode?"الغرف":"الشقق",value:r=>rowUsesRooms(r)?r.rooms:r.apartments,render:r=>{const usesRooms=rowUsesRooms(r);return <>{fmt(usesRooms?r.rooms:r.apartments)}{usesRooms&&r.rooms!=null&&<small>{fmt(r.bedrooms)} غرفة + {r.majlis} مجلس + {r.maqlat} مقلط</small>}</>}},
     {key:"housingUnits",label:"وحدة سكنية",value:r=>r.housingUnits,render:r=>fmt(r.housingUnits)},
-    {key:"commercialShops",label:"المحلات التجارية",value:r=>r.commercialShops,render:r=>fmt(r.commercialShops)},
+    {key:"commercialShops",label:"المحلات",value:r=>r.commercialShops,render:r=>fmt(r.commercialShops)},
     {key:"totalRooms",label:"إجمالي الغرف",value:r=>r.totalRooms,render:r=>fmt(r.totalRooms)},
     {key:"meters",label:"العدادات",value:r=>r.meters,render:r=>fmt(r.meters)},
     {key:"floors",label:"الأدوار",value:r=>r.floors,render:r=>fmt(r.floors)},
     {key:"street",label:"عرض الشارع",value:r=>r.street,render:r=>r.street==null?"غير مذكور":`${fmt(r.street)} م`},
-    {key:"density",label:"شقق لكل 100م²",value:r=>r.density,render:r=>r.density==null?"غير مذكور":fmt(r.density,2)},
+    {key:"density",label:"شقق/100م²",value:r=>r.density,render:r=>r.density==null?"غير مذكور":fmt(r.density,2)},
     {key:"age",label:"العمر",value:r=>r.age||null,render:r=>r.age?String(r.age).replace(/\s*(?:سنوات|سنة)\s*$/u,""):"غير مذكور"},
   ].filter(column=>(propertyType==="عمارة"||propertyType==="عام"||!["housingUnits","commercialShops","totalRooms"].includes(column.key))&&(PRICE_PER_SQM_TYPES.has(propertyType)||column.key!=="sqmPrice")&&(!rentalSearch||!["income","yieldPct"].includes(column.key))&&!hiddenColumns.has(column.key));
   const archivedIds=new Set(archivedRows.map(row=>row.listingId));

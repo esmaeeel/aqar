@@ -78,7 +78,7 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.doesNotMatch(page, /نسخة الجوال المستقلة/);
   assert.match(page, /key:"minAge",label:"أقل عمر"/);
   assert.match(page, /key:"maxAge",label:"أقصى عمر"/);
-  assert.match(page, /key:"minCommercialShops",label:"أقل محلات تجارية"/);
+  assert.match(page, /key:"minCommercialShops",label:"أقل محلات"/);
   assert.ok(page.indexOf('key:"minAge",label:"أقل عمر"') < page.indexOf('key:"maxAge",label:"أقصى عمر"'));
   assert.doesNotMatch(page, /أقصى عمر العقار|\(سنة\)/);
   assert.doesNotMatch(page, /<h2>مواصفات البحث<\/h2>/);
@@ -118,8 +118,15 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.ok(priceRangeIndex >= 0 && sqmRangeIndex > priceRangeIndex && areaRangeIndex > sqmRangeIndex);
   assert.match(page, /className="numericRangesHeader"/);
   assert.match(page, /<span>من<\/span><span>إلى<\/span>/);
-  assert.match(page, /filters\.propertyType==="عام"\?"أقل شقق \/ غرف"/);
-  assert.match(styles, /\.numericCompactRow\{[^}]*grid-template-columns:minmax\(0,2fr\) minmax\(0,1fr\)/);
+  assert.match(page, /\{key:"minRooms",label:"غرف"\}/);
+  assert.match(page, /\{key:"minApartments",label:"شقق"\}/);
+  assert.match(page, /\{key:"minCommercialShops",label:"محلات"\}/);
+  assert.doesNotMatch(page, /أقل شقق \/ غرف/);
+  assert.ok(page.indexOf('{key:"minRooms",label:"غرف"}') < page.indexOf('{key:"minMeters",label:"عدادات"}'));
+  assert.match(page, /ageCompanionItems:[^=]+=\[\s*\{key:"yieldMin",label:"عائد%"\},\{key:"minDensity",label:"شقق\/100م²"\}\s*\]/);
+  assert.match(page, /savedPropertyType==="عام"\|\|ROOM_TYPES\.has\(savedPropertyType\)\?0:legacyCount/);
+  assert.match(page, /savedPropertyType==="عام"\|\|!ROOM_TYPES\.has\(savedPropertyType\)\?0:legacyCount/);
+  assert.match(styles, /\.numericCompactRowWith2Companions\{grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\) minmax\(0,2fr\)\}/);
   assert.match(styles, /\.numericInlineField\{[^}]*grid-template-columns:max-content minmax\(0,1fr\)/);
   assert.match(page, /fromLabel\?"numericFromField":""/);
   assert.match(page, /numericVerticalLabel \$\{verticalLabelSize\(label\)\}/);
