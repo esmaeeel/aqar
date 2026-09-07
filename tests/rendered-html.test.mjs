@@ -211,6 +211,7 @@ test("places all result actions in one row above the result key", async () => {
   assert.match(styles, /\.legend button\.near\{background:#ead4bb;color:#815529\}/);
   assert.match(styles, /\.resultsTable tbody tr\.near td\{background:#f3e1cf;color:var\(--ink\)\}/);
   assert.match(styles, /tr:has\(\.rowActionMenu\[open\]\)/);
+  assert.match(styles, /\.rowActionMenuList\{[^}]*inset-inline-start:0;inset-inline-end:auto/);
   assert.match(page, /separateResultsSummary=rows\.length>=100\|\|displayCities\.length>3\|\|resultCityText\.length>42/);
   assert.match(page, /resultsToolbar \$\{separateResultsSummary\?"separateSummary":"compactSummary"\}/);
   assert.match(styles, /resultsToolbar\{[^}]*grid-template-columns:minmax\(105px,\.8fr\) minmax\(0,2\.2fr\)/);
