@@ -205,6 +205,9 @@ test("places all result actions in one row above the result key", async () => {
   assert.match(styles, /resultPanelActions\{[^}]*grid-template-columns:1\.2fr 1\.2fr 1fr 1\.2fr 1fr/);
   assert.match(page, /FAVORITE_LISTINGS_KEY/);
   assert.match(page, /className="rowActionMenu"/);
+  assert.match(page, /viewedListingIds\.includes\(r\.listingId\)\?"viewedRow"/);
+  assert.match(styles, /\.resultsTable tbody tr\.viewedRow td,\.resultsTable tbody tr\.viewedRow td:first-child\{background:#fff\}/);
+  assert.match(styles, /\.legend button\.near\{background:#ead4bb;color:#815529\}/);
   assert.match(page, /separateResultsSummary=rows\.length>=100\|\|displayCities\.length>3\|\|resultCityText\.length>42/);
   assert.match(page, /resultsToolbar \$\{separateResultsSummary\?"separateSummary":"compactSummary"\}/);
   assert.match(styles, /resultsToolbar\{[^}]*grid-template-columns:minmax\(105px,\.8fr\) minmax\(0,2\.2fr\)/);
