@@ -87,9 +87,12 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(page, /\{message&&<div className="status">\{message\}<\/div>\}/);
   assert.match(page, /value=\{keywordDraft\}/);
   assert.match(page, /changeKeywordDraft\(e\.target\.value\)/);
-  assert.match(page, /update\("keywords",keywordsFromDraft\(value\)\)/);
+  assert.match(page, /const keywords=keywordsFromDraft\(value\);update\("keywords",keywords\)/);
   assert.match(page, /split\(\/\[،,\]\//);
   assert.match(page, /عند اختيار «عام»/);
+  assert.match(page, /setGeneralKeywordError\(true\);setMessage\("عند اختيار «عام»/);
+  assert.match(page, /className=\{generalKeywordError\?"generalKeywordError":undefined\}/);
+  assert.match(page, /aria-invalid=\{generalKeywordError\}/);
   assert.match(page, /className="propertyKeywordsRow"/);
   assert.match(page, />كلمات للبحث<input/);
   assert.match(page, /placeholder="مثل: تجاري، دوبلكس، مكيف، موقف"/);
@@ -104,6 +107,7 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(styles, /\.location button\{grid-column:auto;grid-row:auto;align-self:end;height:34px\}/);
   assert.doesNotMatch(page, /كلمات مطلوبة/);
   assert.match(styles, /\.propertyKeywordsRow\{display:grid;grid-template-columns:/);
+  assert.match(styles, /\.searchPanel input\.generalKeywordError,\.searchPanel select\.generalKeywordError\{[^}]*border-color:#bf3030/);
   assert.match(styles, /\.choiceRow\{display:grid;grid-template-columns:minmax\(105px,\.72fr\) minmax\(0,1\.45fr\)\}/);
   assert.doesNotMatch(page, /value=\{filters\.keywords\.join/);
   assert.match(layout, /title:\s*"باحث عقار"/);
