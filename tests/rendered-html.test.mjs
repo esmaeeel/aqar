@@ -186,10 +186,13 @@ test("places all result actions in one row above the result key", async () => {
   assert.ok(tableToolsIndex > resultKeyIndex);
   const actionsMarkup = page.slice(actionsIndex, resultKeyIndex);
   assert.match(actionsMarkup, /className="save resultSave"/);
-  assert.match(actionsMarkup, /المجموعات المحفوظة/);
+  assert.match(actionsMarkup, /نتائج محفوظة/);
+  assert.match(actionsMarkup, /المؤرشفة/);
+  assert.match(actionsMarkup, /المفضلة/);
   assert.match(actionsMarkup, /تصدير Excel/);
-  assert.match(styles, /resultPanelActions\{[^}]*grid-template-columns:1\.1fr \.9fr 1\.4fr 1\.2fr/);
-  assert.match(styles, /resultPrimaryActions\{display:contents\}/);
+  assert.match(styles, /resultPanelActions\{[^}]*grid-template-columns:1\.2fr 1\.2fr 1fr \.9fr 1\.1fr/);
+  assert.match(page, /FAVORITE_LISTINGS_KEY/);
+  assert.match(page, /className="rowActionMenu"/);
   assert.match(page, /separateResultsSummary=rows\.length>=100\|\|displayCities\.length>3\|\|resultCityText\.length>42/);
   assert.match(page, /resultsToolbar \$\{separateResultsSummary\?"separateSummary":"compactSummary"\}/);
   assert.match(styles, /resultsToolbar\{[^}]*grid-template-columns:minmax\(105px,\.8fr\) minmax\(0,2\.2fr\)/);
