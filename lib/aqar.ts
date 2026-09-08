@@ -337,7 +337,11 @@ function areaCandidates(source: string) {
   return matches.map(match => match.value).filter((value, index, values) => values.indexOf(value) === index);
 }
 function explicitUnitPrice(source: string) {
-  return first(source, [labeled(`سعر\\s*(?:المتر|متر)(?:\\s+المربع)?`)]).value;
+  const currency = `(?:ر\\.?\\s*س\\.?|ريال|﷼|SAR|§)`;
+  return first(source, [
+    labeled(`سعر\\s*(?:المتر|متر)(?:\\s+المربع)?`),
+    `${amount}\\s*(?:${currency})?\\s*(?:للمتر|للمتر\\s+المربع|\\/\\s*(?:م(?:²|2)|متر(?:\\s+المربع)?))`,
+  ]).value;
 }
 function chooseArea(candidates: number[], price: number | null, unitPrice: number | null) {
   if (!candidates.length) return null;
@@ -349,6 +353,7 @@ function allAmounts(text: string, pattern: string, excludePercentages = false) {
   const values: number[] = []; const re = new RegExp(pattern, "gi"); let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
     if (excludePercentages && /^\s*(?:[%٪]|بالمئ(?:ة|ه))/.test(text.slice(re.lastIndex))) continue;
+    if (unitPriceContext(text, m.index, re.lastIndex, m[0])) continue;
     const v = matchedAmount(m); if (v && v > 0) values.push(v);
   }
   return values;
@@ -362,15 +367,20 @@ function incomeAmountContext(text: string, start: number, end: number) {
   if (lastEnd(incomeLabels) > lastEnd(priceLabels)) return true;
   return new RegExp(`^(?:\\s*(?:ر\\.?\\s*س\\.?|ريال|﷼|sar|§))?\\s*(?:${incomeLabels})\\b`, "i").test(after);
 }
-function unitPriceContext(text: string, start: number) {
-  return /(?:سعر\s*(?:المتر|متر)|سعر\s*المتر\s*المربع)[^\d\n]{0,20}$/i.test(text.slice(Math.max(0, start - 50), start));
+function unitPriceContext(text: string, start: number, end = start, raw = "") {
+  const before = text.slice(Math.max(0, start - 55), start);
+  const after = text.slice(end, end + 40);
+  // العبارة قد تسبق المبلغ («سعر المتر: 2500») أو تلحقه («2500 ريال للمتر»).
+  return /سعر\s*(?:ال)?متر(?:\s+المربع)?[^\d\n]{0,20}$/i.test(before)
+    || /سعر\s*(?:ال)?متر(?:\s+المربع)?/i.test(raw)
+    || /^\s*(?:ر\.?\s*س\.?|ريال|﷼|SAR|§)?\s*(?:\/\s*)?(?:للمتر|للمتر\s+المربع|متر\s*(?:مربع|²))/i.test(after);
 }
 function headerCurrencyAmounts(text: string) {
   const currency = `(?:ر\\.?\\s*س\\.?|ريال|﷼|SAR|§)`, candidates: { index: number; value: number }[] = [];
   for (const pattern of [`${amount}\\s*${currency}`, `${currency}\\s*${amount}`]) {
     const re = new RegExp(pattern, "gi"); let match: RegExpExecArray | null;
     while ((match = re.exec(text))) {
-      if (unitPriceContext(text, match.index) || incomeAmountContext(text, match.index, re.lastIndex)) continue;
+      if (unitPriceContext(text, match.index, re.lastIndex, match[0]) || incomeAmountContext(text, match.index, re.lastIndex)) continue;
       const value = matchedAmount(match); if (value && value > 0) candidates.push({ index: match.index, value });
     }
   }
@@ -509,8 +519,8 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const descriptionPrice = expandAbbreviatedAmount(dp[0], listedPrice);
   const price = preferDescription(descriptionPrice, listedPrice);
 
-  const descriptionUnitPrice = explicitUnitPrice(desc), structuredUnitPrice = explicitUnitPrice(structured);
-  const explicitSqmPrice = preferDescription(descriptionUnitPrice, structuredUnitPrice);
+  const headerUnitPrice = explicitUnitPrice(header), descriptionUnitPrice = explicitUnitPrice(desc), structuredUnitPrice = explicitUnitPrice(structured);
+  const explicitSqmPrice = descriptionUnitPrice ?? structuredUnitPrice ?? headerUnitPrice;
   const da = chooseArea(areaCandidates(desc), price, explicitSqmPrice);
   const sa = chooseArea(areaCandidates(structured), price, explicitSqmPrice);
   const area = preferDescription(da, sa);
