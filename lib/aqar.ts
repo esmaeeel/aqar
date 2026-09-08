@@ -376,7 +376,8 @@ function splitDescription(text: string) {
   const before = marker >= 0 ? text.slice(0, marker) : text;
   const structured = marker >= 0 ? text.slice(marker) : "";
   const finance = [...before.matchAll(/استكشف\s+خيارات\s+التمويل/g)];
-  return { desc: finance.length ? before.slice((finance.at(-1)?.index || 0) + finance.at(-1)![0].length).trim() : before.trim(), structured };
+  const financeMatch = finance.at(-1), financeEnd = financeMatch == null ? -1 : (financeMatch.index || 0) + financeMatch[0].length;
+  return { header: financeEnd >= 0 ? before.slice(0, financeEnd) : before, desc: financeEnd >= 0 ? before.slice(financeEnd).trim() : before.trim(), structured };
 }
 function countNamed(text: string, word: "مجلس" | "مقلط") {
   const n = normalizeText(text); const numeric = [...n.matchAll(new RegExp(`([\\d][\\d,.]*)\\s*(?:ال)?${word}`, "g"))].map(m => Number(m[1].replace(/,/g, "")));
@@ -489,12 +490,12 @@ export function listingLinks(html: string, category: string, city: string, neigh
 }
 
 export function parseListing(html: string, url: string, propertyType: string): Listing {
-  const text = htmlText(html).split("إعلانات مشابهة", 1)[0]; const { desc, structured } = splitDescription(text);
+  const text = htmlText(html).split("إعلانات مشابهة", 1)[0]; const { header, desc, structured } = splitDescription(text);
   const titleHtml = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "إعلان عقار";
   const title = htmlText(titleHtml).replace(/\s*\|\s*تطبيق عقار.*$/, ""); const listingId = url.match(/-(\d{5,})(?:\/[^/?#]*)?(?:[?#]|$)/)?.[1] || "";
   const pricePattern = labeled(`السعر(?:\\s+المطلوب)?|سعر\\s+البيع|المطلوب|الحد`);
-  const headerText = text.slice(0, 700), hp = headerCurrencyAmounts(headerText);
-  const headerPrice = hp.length >= 2 && headerText.includes("خصم") ? Math.min(...hp.slice(0, 2)) : hp[0];
+  const headerText = header.slice(-700), hp = headerCurrencyAmounts(headerText);
+  const headerPrice = hp.length >= 2 && headerText.includes("خصم") ? Math.min(...hp.slice(-2)) : hp.at(-1);
   const dp = allAmounts(desc, pricePattern, true), sp = allAmounts(structured, pricePattern, true);
   const listedPrice = headerPrice ?? sp[0];
   const descriptionPrice = expandAbbreviatedAmount(dp[0], listedPrice);
@@ -547,6 +548,7 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const annualPatterns = [
     incomeLabeled(`الدخل\\s+السنوي(?:\\s+الحالي)?|الدخل\\s+الحالي|الايجار\\s+السنوي|الإيجار\\s+السنوي|صافي\\s+الدخل|الدخل(?:\\s+الصافي|\\s+الإجمالي|\\s+الاجمالي)?|المدخول|مدخول`),
     `(?<!غير\\s)(?:العقار\\s+)?مؤجر(?:ة)?(?:\\s+حاليا)?(?:\\s+${annualWording})?\\s*(?:ب(?:مبلغ|قيمة|(?:ـ|[\\u064b-\\u065f])*))?\\s*[:\\-]?\\s*${amount}`,
+    `(?:تم\\s+)?تأجير(?:\\s+كامل)?[^\\d\\n]{0,40}?بمبلغ\\s*${amount}`,
   ];
   const monthlyPatterns = [incomeLabeled(`(?:إجمالي\\s+)?(?:الدخل|الإيجار)\\s+الشهري(?:\\s+الحالي)?`)];
   const incomeFrom = (source: string) => {
