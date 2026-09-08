@@ -156,6 +156,8 @@ test("keeps table swiping native and reorders once from a dedicated drag handle"
   assert.match(page, /className="columnDragHandle"/);
   assert.match(page, /className="sortHeader" onClick=\{\(\)=>sortBy\(column\.key\)\}/);
   assert.match(styles, /resultsTableWrap\{[^}]*touch-action:pan-x pan-y/);
+  assert.match(styles, /resultsTableWrap\{[^}]*overscroll-behavior-x:contain[^}]*overscroll-behavior-y:auto/);
+  assert.doesNotMatch(styles, /resultsTableWrap\{[^}]*overscroll-behavior:contain/);
   assert.match(styles, /columnDragHandle\{[^}]*touch-action:none/);
 });
 
@@ -261,5 +263,6 @@ test("refreshes from a deliberate downward pull without stealing horizontal tabl
   assert.match(page, /window\.location\.reload\(\)/);
   assert.match(page, /أفلت للتحديث/);
   assert.match(styles, /\.pullRefreshIndicator\{/);
-  assert.match(styles, /overscroll-behavior-y:none/);
+  assert.match(styles, /html,body\{overscroll-behavior-y:auto\}/);
+  assert.match(styles, /@media \(hover:none\),\(pointer:coarse\)\{html,body\{overscroll-behavior-y:none\}\.pullRefreshRoot\{will-change:transform\}\}/);
 });
