@@ -340,7 +340,7 @@ function explicitUnitPrice(source: string) {
   const currency = `(?:ر\\.?\\s*س\\.?|ريال|﷼|SAR|§)`;
   return first(source, [
     labeled(`سعر\\s*(?:المتر|متر)(?:\\s+المربع)?`),
-    `${amount}\\s*(?:${currency})?\\s*(?:للمتر|للمتر\\s+المربع|\\/\\s*(?:م(?:²|2)|متر(?:\\s+المربع)?))`,
+    `${amount}\\s*(?:${currency})?\\s*(?:سعر\\s*)?(?:للمتر|المتر(?:\\s+المربع)?|\\/\\s*(?:م(?:²|2)|متر(?:\\s+المربع)?))`,
   ]).value;
 }
 function chooseArea(candidates: number[], price: number | null, unitPrice: number | null) {
@@ -368,12 +368,12 @@ function incomeAmountContext(text: string, start: number, end: number) {
   return new RegExp(`^(?:\\s*(?:ر\\.?\\s*س\\.?|ريال|﷼|sar|§))?\\s*(?:${incomeLabels})\\b`, "i").test(after);
 }
 function unitPriceContext(text: string, start: number, end = start, raw = "") {
-  const before = text.slice(Math.max(0, start - 55), start);
-  const after = text.slice(end, end + 40);
+  const before = text.slice(Math.max(0, start - 80), start);
+  const after = text.slice(end, end + 80);
   // العبارة قد تسبق المبلغ («سعر المتر: 2500») أو تلحقه («2500 ريال للمتر»).
   return /سعر\s*(?:ال)?متر(?:\s+المربع)?[^\d\n]{0,20}$/i.test(before)
     || /سعر\s*(?:ال)?متر(?:\s+المربع)?/i.test(raw)
-    || /^\s*(?:ر\.?\s*س\.?|ريال|﷼|SAR|§)?\s*(?:\/\s*)?(?:للمتر|للمتر\s+المربع|متر\s*(?:مربع|²))/i.test(after);
+    || /^\s*(?:ر\.?\s*س\.?|ريال|﷼|SAR|§)?\s*(?:سعر\s*)?(?:\/\s*)?(?:للمتر|المتر(?:\s+المربع)?|متر\s*(?:مربع|²))/i.test(after);
 }
 function headerCurrencyAmounts(text: string) {
   const currency = `(?:ر\\.?\\s*س\\.?|ريال|﷼|SAR|§)`, candidates: { index: number; value: number }[] = [];
