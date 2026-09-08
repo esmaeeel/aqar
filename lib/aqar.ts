@@ -318,6 +318,7 @@ function preferDescription<T>(descriptionValue: T | null | undefined, structured
 function areaCandidates(source: string) {
   const labels = `المساحة\\s+حسب\\s+الصك|مساحة\\s+الأرض|بمساح(?:ة|ه)|المساح(?:ة|ه|ات)|مساحت(?:ها|ه)|مساح(?:ة|ه|ات)`;
   const areaCapture = `([\\d][\\d,.]*)`;
+  const totalArea = first(source, [`(?:إجمالي|اجمالي|مجموع)\\s+(?:المساحة|المساحات)${gap}${areaCapture}`]).value;
   const patterns = [
     `(?:${labels})(?![ء-يA-Za-z0-9_])${gap}${areaCapture}`,
     `${areaCapture}[^\\S\\n]*(?:م(?:²|2)|متر(?:اً|ا)?\\s+مربع)`,
@@ -334,7 +335,8 @@ function areaCandidates(source: string) {
     }
   }
   matches.sort((a, b) => a.index - b.index);
-  return matches.map(match => match.value).filter((value, index, values) => values.indexOf(value) === index);
+  const values = matches.map(match => match.value).filter((value, index, all) => all.indexOf(value) === index);
+  return totalArea != null ? [totalArea, ...values.filter(value => value !== totalArea)] : values;
 }
 function explicitUnitPrice(source: string) {
   const currency = `(?:ر\\.?\\s*س\\.?|ريال|﷼|SAR|§)`;
@@ -390,8 +392,9 @@ function splitDescription(text: string) {
   const marker = text.search(/\n\s*(?:المزيد\s*\n\s*)?تفاصيل\s+الإعلان/);
   const before = marker >= 0 ? text.slice(0, marker) : text;
   const structured = marker >= 0 ? text.slice(marker) : "";
-  const finance = [...before.matchAll(/استكشف\s+خيارات\s+التمويل/g)];
-  const financeMatch = finance.at(-1), financeEnd = financeMatch == null ? -1 : (financeMatch.index || 0) + financeMatch[0].length;
+  const finance = before.match(/استكشف\s+خيارات\s+التمويل/);
+  // السعر المرئي للإعلان يقع قبل أول دعوة للتمويل؛ ما بعده وصف ومبالغ قد لا تكون سعر البيع.
+  const financeEnd = finance?.index == null ? -1 : finance.index + finance[0].length;
   return { header: financeEnd >= 0 ? before.slice(0, financeEnd) : before, desc: financeEnd >= 0 ? before.slice(financeEnd).trim() : before.trim(), structured };
 }
 function countNamed(text: string, word: "مجلس" | "مقلط") {
