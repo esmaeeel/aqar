@@ -316,11 +316,14 @@ function preferDescription<T>(descriptionValue: T | null | undefined, structured
   return descriptionValue ?? structuredValue ?? null;
 }
 function areaCandidates(source: string) {
-  const labels = `المساحة\\s+حسب\\s+الصك|مساحة\\s+الأرض|بمساح(?:ة|ه)|المساح(?:ة|ه|ات)|مساحت(?:ها|ه)|مساح(?:ة|ه|ات)`;
+  const labels = `المساحة\\s+حسب\\s+الصك|مساحة\\s+الأرض|بمساح(?:ة|ه)|المساح(?:ة|ه)|مساحت(?:ها|ه)|مساح(?:ة|ه)`;
   const areaCapture = `([\\d][\\d,.]*)`;
-  const totalArea = first(source, [`(?:إجمالي|اجمالي|مجموع)\\s+(?:المساحة|المساحات)${gap}${areaCapture}`]).value;
+  const totalPropertyArea = first(source, [`(?:إجمالي|اجمالي|مجموع)\\s+(?:المساحة|المساحات|مساحة\\s+(?:العقار|الأرض))${gap}${areaCapture}`]).value;
+  const totalBuiltArea = first(source, [`(?:إجمالي|اجمالي|مجموع)\\s+مساحة\\s+مسطحات\\s+البناء${gap}${areaCapture}`]).value;
+  const totalArea = totalPropertyArea ?? totalBuiltArea;
   const patterns = [
     `(?:${labels})(?![ء-يA-Za-z0-9_])${gap}${areaCapture}`,
+    `(?:المساحات|مساحات)(?![ء-يA-Za-z0-9_])[^\\d\\n]{0,12}${areaCapture}`,
     `${areaCapture}[^\\S\\n]*(?:م(?:²|2)|متر(?:اً|ا)?\\s+مربع)`,
   ];
   const limitContext = /(?:لا\s+(?:توجد|يوجد)|دون|اقل\s+من|لا\s+تقل\s+عن|ابتداء\s+من|تبدا\s+من|الحد\s+الادني|حد\s+ادني)[^.،\n]{0,35}$/i;
