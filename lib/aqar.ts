@@ -518,15 +518,17 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const headerText = header.slice(-700), hp = headerCurrencyAmounts(headerText);
   const headerPrice = hp.length >= 2 && headerText.includes("خصم") ? Math.min(...hp.slice(-2)) : hp.at(-1);
   const dp = allAmounts(desc, pricePattern, true), sp = allAmounts(structured, pricePattern, true);
-  const listedPrice = headerPrice ?? sp[0];
-  const descriptionPrice = expandAbbreviatedAmount(dp[0], listedPrice);
-  const price = preferDescription(descriptionPrice, listedPrice);
-
   const headerUnitPrice = explicitUnitPrice(header), descriptionUnitPrice = explicitUnitPrice(desc), structuredUnitPrice = explicitUnitPrice(structured);
   const explicitSqmPrice = descriptionUnitPrice ?? structuredUnitPrice ?? headerUnitPrice;
-  const da = chooseArea(areaCandidates(desc), price, explicitSqmPrice);
-  const sa = chooseArea(areaCandidates(structured), price, explicitSqmPrice);
+  const headerIsUnitPrice = headerPrice != null && explicitSqmPrice != null && !conflicts([headerPrice, explicitSqmPrice], .02);
+  const listedPrice = (headerIsUnitPrice ? null : headerPrice) ?? sp[0];
+  const descriptionPrice = expandAbbreviatedAmount(dp[0], listedPrice);
+  const explicitTotalPrice = preferDescription(descriptionPrice, listedPrice);
+  const da = chooseArea(areaCandidates(desc), explicitTotalPrice, explicitSqmPrice);
+  const sa = chooseArea(areaCandidates(structured), explicitTotalPrice, explicitSqmPrice);
   const area = preferDescription(da, sa);
+  const derivedPrice = explicitTotalPrice == null && explicitSqmPrice != null && area != null ? explicitSqmPrice * area : null;
+  const price = explicitTotalPrice ?? derivedPrice;
 
   const apartmentPatterns = [labeled(`عدد\\s+الشقق`), `([\\d,.]+)\\s*(?:شقة|شقق)(?:\\s|،|\\.|$)`];
   const descriptionApartments = first(desc, apartmentPatterns).value, structuredApartments = first(structured, apartmentPatterns).value;
@@ -601,6 +603,7 @@ export function parseListing(html: string, url: string, propertyType: string): L
   addConflict("عرض الشارع", descriptionStreet, structuredStreet);
   addConflict("عمر العقار", descriptionAge.years, listingAge.years);
   addConflict("الدخل السنوي", descriptionIncome.value, structuredIncome.value, .02);
+  if (derivedPrice != null) warnings.push("حُسب السعر الإجمالي من سعر المتر الصريح والمساحة");
   if (selectedIncome.monthly) warnings.push("حُوّل الدخل الشهري إلى سنوي بضربه في 12"); if (incomeKind === "expected") warnings.push("الدخل المذكور متوقع وليس فعليًا مؤكدًا");
   for (const [v, w] of [[price,"السعر غير مذكور بوضوح"],[income,"الدخل السنوي غير مذكور"],[meters,"عدد العدادات غير مذكور"],[floors,"عدد الأدوار غير مذكور"],[street,"عرض الشارع غير مذكور"],[area,"المساحة غير مذكورة"]] as [number|null,string][]) if (v == null) warnings.push(w);
   return { listingId, url, title, city, neighborhood, propertyType, price, area, sqmPrice: price && area ? price / area : explicitSqmPrice,

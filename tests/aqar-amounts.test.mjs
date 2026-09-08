@@ -135,10 +135,11 @@ test("يعتمد سعر 6828963 الظاهر قبل التمويل ومساحت�
 });
 
 test("لا يعامل سعر المتر المصرح به في بيان 6750240 كسعر إجمالي", () => {
-  const html = `<h1>ورشة للبيع في مدينة الرياض</h1><p>السعر: 2,500 ﷼ للمتر. المساحة 900 م²</p><h3>تفاصيل الإعلان</h3><div>رقم الإعلان 6750240</div>`;
+  const html = `<h1>ورشة للبيع في مدينة الرياض</h1><p>السعر: 2,500 ﷼ للمتر. المساحة 5,800 م²</p><h3>تفاصيل الإعلان</h3><div>رقم الإعلان 6750240</div>`;
   const listing = parseListing(html, "https://sa.aqar.fm/ورش-للبيع/الرياض/ورشة-6750240", "ورشة");
-  assert.equal(listing.price, null);
+  assert.equal(listing.price, 14_500_000);
   assert.equal(listing.sqmPrice, 2_500);
+  assert.ok(listing.warnings.includes("حُسب السعر الإجمالي من سعر المتر الصريح والمساحة"));
 });
 
 test("يقدم وصف المعلن على قائمة التفاصيل عند ثبوت التعارض", () => {
@@ -249,7 +250,7 @@ test("البحث العام يلزم كلمات مطلوبة ويحتفظ بغر
   assert.match(pageSource, /generalSearchHasRequiredKeywords\(clean\.propertyType,clean\.keywords\)/);
 });
 
-test("يستخدم سعر المتر الصريح فقط عند تعذر حسابه ويتركه فارغًا عند غياب المصدرين", () => {
+test("يحسب السعر الإجمالي من سعر المتر الصريح ويترك سعر المتر فارغًا عند غياب المصدرين", () => {
   const explicit = parseListing(
     `<h1>أرض للبيع في مدينة الرياض</h1><p>سعر المتر 2,500 ريال، المساحة 400 م²</p>`,
     "https://sa.aqar.fm/أراضي-للبيع/الرياض/أرض-7654390",
@@ -260,7 +261,7 @@ test("يستخدم سعر المتر الصريح فقط عند تعذر حسا�
     "https://sa.aqar.fm/أراضي-للبيع/الرياض/أرض-7654391",
     "أرض",
   );
-  assert.equal(explicit.price, null);
+  assert.equal(explicit.price, 1_000_000);
   assert.equal(explicit.sqmPrice, 2_500);
   assert.equal(missing.sqmPrice, null);
 });
