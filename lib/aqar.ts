@@ -184,6 +184,11 @@ function htmlText(html: string) {
     .replace(/&nbsp;|&#160;/gi, " ").replace(/&amp;/gi, "&").replace(/&quot;/gi, '"')
     .replace(/&#39;|&apos;/gi, "'"))).replace(/[\t\r ]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
 }
+function listingPageText(html: string) {
+  // لا نقرأ ترويسة الموقع أو بطاقات الاقتراحات: تبدأ بيانات الإعلان الفعلية من عنوانه.
+  const heading = html.search(/<h1\b/i);
+  return htmlText(heading >= 0 ? html.slice(heading) : html).split("إعلانات مشابهة", 1)[0];
+}
 const arabicSmallNumbers: Record<string, number> = {
   "صفر": 0,
   "واحد": 1, "واحده": 1, "احد": 1, "احدي": 1,
@@ -490,9 +495,12 @@ export function listingLinks(html: string, category: string, city: string, neigh
 }
 
 export function parseListing(html: string, url: string, propertyType: string): Listing {
-  const text = htmlText(html).split("إعلانات مشابهة", 1)[0]; const { header, desc, structured } = splitDescription(text);
+  const listingId = url.match(/-(\d{5,})(?:\/[^/?#]*)?(?:[?#]|$)/)?.[1] || "";
+  const text = listingPageText(html); const sourceListingId = text.match(/رقم\s+الإعلان\s*[:：\-]?\s*(\d{5,})/)?.[1];
+  if (listingId && sourceListingId && sourceListingId !== listingId) throw new Error(`تعذر التحقق من هوية الإعلان: الرابط ${listingId} والصفحة ${sourceListingId}`);
+  const { header, desc, structured } = splitDescription(text);
   const titleHtml = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "إعلان عقار";
-  const title = htmlText(titleHtml).replace(/\s*\|\s*تطبيق عقار.*$/, ""); const listingId = url.match(/-(\d{5,})(?:\/[^/?#]*)?(?:[?#]|$)/)?.[1] || "";
+  const title = htmlText(titleHtml).replace(/\s*\|\s*تطبيق عقار.*$/, "");
   const pricePattern = labeled(`السعر(?:\\s+المطلوب)?|سعر\\s+البيع|المطلوب|الحد`);
   const headerText = header.slice(-700), hp = headerCurrencyAmounts(headerText);
   const headerPrice = hp.length >= 2 && headerText.includes("خصم") ? Math.min(...hp.slice(-2)) : hp.at(-1);
@@ -548,6 +556,7 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const annualPatterns = [
     incomeLabeled(`الدخل\\s+السنوي(?:\\s+الحالي)?|الدخل\\s+الحالي|الايجار\\s+السنوي|الإيجار\\s+السنوي|صافي\\s+الدخل|الدخل(?:\\s+الصافي|\\s+الإجمالي|\\s+الاجمالي)?|المدخول|مدخول`),
     `(?<!غير\\s)(?:العقار\\s+)?مؤجر(?:ة)?(?:\\s+حاليا)?(?:\\s+${annualWording})?\\s*(?:ب(?:مبلغ|قيمة|(?:ـ|[\\u064b-\\u065f])*))?\\s*[:\\-]?\\s*${amount}`,
+    `(?<!غير\\s)(?:العقار\\s+)?مؤجر(?:ة)?\\s+بعقود?\\s+سنوية[^\\d\\n]{0,30}${amount}`,
     `(?:تم\\s+)?تأجير(?:\\s+كامل)?[^\\d\\n]{0,40}?بمبلغ\\s*${amount}`,
   ];
   const monthlyPatterns = [incomeLabeled(`(?:إجمالي\\s+)?(?:الدخل|الإيجار)\\s+الشهري(?:\\s+الحالي)?`)];
