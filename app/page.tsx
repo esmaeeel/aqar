@@ -10,6 +10,8 @@ const LEGACY_LAST_FILTERS_KEY = "aqar-last-filters-clean-v2";
 const ARCHIVED_LISTINGS_KEY = "aqar-archived-listings-v1";
 const FAVORITE_LISTINGS_KEY = "aqar-favorite-listings-v1";
 const VIEWED_LISTING_IDS_KEY = "aqar-viewed-listing-ids-v1";
+const SYNC_SPACE_KEY = "aqar-sync-space-v1";
+const CLOUD_SYNC_ORIGIN = "https://aqar-investment-search.esmaeeel.workers.dev";
 const PULL_REFRESH_THRESHOLD = 72;
 const PULL_REFRESH_MAX_DISTANCE = 116;
 const defaults: Filters = { propertyType:"عام",purpose:"sale",locations:[{city:"الرياض",neighborhoods:[]}],keywords:[],mode:"strict",maxPages:2,maxListings:200,priceMin:0,priceMax:0,yieldMin:0,minMeters:0,minApartments:0,minRooms:0,minCommercialShops:0,minFloors:0,minStreet:0,areaMin:0,areaMax:0,minAge:0,maxAge:0,minDensity:0,sqmMin:0,sqmMax:0 };
@@ -25,6 +27,7 @@ type Profile={id:number;name:string;filtersJson:string};
 type SearchSource={category:string;city:string;neighborhood:string;page:number};
 type TrialStatus={limit:number;used:number;remaining:number;globalLimit:number;globalUsed:number;globalRemaining:number;canStart:boolean};
 type ResultSaveFeedback={tone:"working"|"success"|"error";text:string};
+type SyncedState={exists:boolean;archived:Listing[];favorites:Listing[];viewedIds:string[];version:number};
 const fmt=(v:number|null,d=0)=>v==null?"غير مذكور":new Intl.NumberFormat("ar-SA",{maximumFractionDigits:d}).format(v);
 const inputNumber=(value:unknown)=>Number(value)||0;
 function automaticPageCount(filters:Filters,locations:Location[],maxListings:number){
@@ -36,6 +39,9 @@ function automaticPageCount(filters:Filters,locations:Location[],maxListings:num
 function getDeviceId(){let id=localStorage.getItem("aqar-device-id");if(!id){id=crypto.randomUUID();localStorage.setItem("aqar-device-id",id)}return id}
 function deviceHeaders(json=false){return {"x-aqar-device-id":getDeviceId(),...(json?{"content-type":"application/json"}:{})}}
 function keywordsFromDraft(value:string){return value.split(/[،,]/).map(item=>item.trim()).filter(Boolean)}
+function syncApiUrl(space:string){const local=typeof window!=="undefined"&&["127.0.0.1","localhost"].includes(window.location.hostname);return `${local?CLOUD_SYNC_ORIGIN:""}/api/sync-state?space=${encodeURIComponent(space)}`}
+function validSyncedRows(value:unknown){return Array.isArray(value)?value.filter((row):row is Listing=>Boolean(row)&&typeof row==="object"&&typeof row.listingId==="string"&&typeof row.url==="string"):[]}
+function mergeSyncedRows(remote:Listing[],local:Listing[]){return [...new Map([...remote,...local].map(row=>[row.listingId,row])).values()]}
 
 export default function Home(){
   const [filters,setFilters]=useState<Filters>(defaults),[results,setResults]=useState<Listing[]>([]),[busy,setBusy]=useState(false);
@@ -188,6 +194,8 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
   const [favoritesLoaded,setFavoritesLoaded]=useState(false);
   const [viewedListingsLoaded,setViewedListingsLoaded]=useState(false);
   const [showFavorites,setShowFavorites]=useState(false);
+  const archivedRowsRef=useRef<Listing[]>([]),favoriteRowsRef=useRef<Listing[]>([]),viewedListingIdsRef=useRef<string[]>([]);
+  const syncSpaceRef=useRef(""),syncReadyRef=useRef(false),syncVersionRef=useRef(0),syncQueueRef=useRef<Promise<void>>(Promise.resolve());
   const [draggedColumn,setDraggedColumn]=useState<ColumnKey|null>(null);
   const [dropTargetColumn,setDropTargetColumn]=useState<ColumnKey|null>(null);
   const pointerDrag=useRef<{key:ColumnKey;pointerId:number;target:ColumnKey}|null>(null);
@@ -203,6 +211,20 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
   useEffect(()=>{if(favoritesLoaded)localStorage.setItem(FAVORITE_LISTINGS_KEY,JSON.stringify(favoriteRows))},[favoriteRows,favoritesLoaded]);
   useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(VIEWED_LISTING_IDS_KEY)||"[]") as unknown;if(Array.isArray(stored))setViewedListingIds(stored.filter((id):id is string=>typeof id==="string"))}catch{/* تجاهل سجل المشاهدة المحلي التالف */}setViewedListingsLoaded(true)},[]);
   useEffect(()=>{if(viewedListingsLoaded)localStorage.setItem(VIEWED_LISTING_IDS_KEY,JSON.stringify(viewedListingIds))},[viewedListingIds,viewedListingsLoaded]);
+  useEffect(()=>{archivedRowsRef.current=archivedRows},[archivedRows]);
+  useEffect(()=>{favoriteRowsRef.current=favoriteRows},[favoriteRows]);
+  useEffect(()=>{viewedListingIdsRef.current=viewedListingIds},[viewedListingIds]);
+  function queueSync(){const space=syncSpaceRef.current;if(!space||!syncReadyRef.current)return;syncQueueRef.current=syncQueueRef.current.catch(()=>{}).then(async()=>{const response=await fetch(syncApiUrl(space),{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify({archived:archivedRowsRef.current,favorites:favoriteRowsRef.current,viewedIds:viewedListingIdsRef.current})});if(response.ok){const data=await response.json() as {version?:number};syncVersionRef.current=Math.max(syncVersionRef.current,Number(data.version)||0)}})}
+  useEffect(()=>{
+    if(!archivedLoaded||!favoritesLoaded||!viewedListingsLoaded)return;
+    const space=new URLSearchParams(window.location.search).get("sync")||"";
+    if(!/^[a-z0-9-]{20,80}$/i.test(space))return;
+    let cancelled=false,timer:ReturnType<typeof setInterval>|undefined;
+    const apply=(data:SyncedState,mergeLocal=false)=>{const remoteArchived=validSyncedRows(data.archived),remoteFavorites=validSyncedRows(data.favorites),remoteViewed=Array.isArray(data.viewedIds)?data.viewedIds.filter((id):id is string=>typeof id==="string"):[];const nextArchived=mergeLocal?mergeSyncedRows(remoteArchived,archivedRowsRef.current):remoteArchived,nextFavorites=mergeLocal?mergeSyncedRows(remoteFavorites,favoriteRowsRef.current):remoteFavorites,nextViewed=mergeLocal?[...new Set([...remoteViewed,...viewedListingIdsRef.current])]:remoteViewed;archivedRowsRef.current=nextArchived;favoriteRowsRef.current=nextFavorites;viewedListingIdsRef.current=nextViewed;setArchivedRows(nextArchived);setFavoriteRows(nextFavorites);setViewedListingIds(nextViewed);syncVersionRef.current=Number(data.version)||0};
+    const pull=async(force=false)=>{try{const response=await fetch(syncApiUrl(space),{cache:"no-store"});if(!response.ok)return;const data=await response.json() as SyncedState;if(cancelled)return;if(force||Number(data.version)>syncVersionRef.current)apply(data,false)}catch{/* تبقى البيانات المحلية متاحة عند تعذر المزامنة */}};
+    void(async()=>{try{const response=await fetch(syncApiUrl(space),{cache:"no-store"});if(!response.ok)return;const data=await response.json() as SyncedState;if(cancelled)return;syncSpaceRef.current=space;const firstJoin=localStorage.getItem(SYNC_SPACE_KEY)!==space;apply(data,firstJoin);localStorage.setItem(SYNC_SPACE_KEY,space);syncReadyRef.current=true;if(firstJoin||!data.exists)queueSync();timer=setInterval(()=>void pull(false),10_000)}catch{/* تبقى البيانات المحلية متاحة عند تعذر المزامنة */}})();
+    return()=>{cancelled=true;if(timer)clearInterval(timer);syncReadyRef.current=false};
+  },[archivedLoaded,favoritesLoaded,viewedListingsLoaded]);
   const rentalSearch=purpose==="rent";
   const mixedCountMode=propertyType==="عام";
   const rowUsesRooms=(row:Listing)=>roomMode||(mixedCountMode&&ROOM_TYPES.has(row.propertyType));
@@ -250,10 +272,10 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
   function endColumnResize(event:ReactPointerEvent<HTMLSpanElement>){const drag=resizeDrag.current;if(!drag||drag.pointerId!==event.pointerId)return;event.preventDefault();event.stopPropagation();if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);resizeDrag.current=null;suppressSortUntil.current=Date.now()+300}
   function resetColumnWidth(event:ReactMouseEvent<HTMLSpanElement>,key:ColumnKey){event.preventDefault();event.stopPropagation();setColumnWidths(current=>current[key]===DEFAULT_COLUMN_WIDTHS[key]?current:{...current,[key]:DEFAULT_COLUMN_WIDTHS[key]});suppressSortUntil.current=Date.now()+300}
   function resizeColumnByKeyboard(event:ReactKeyboardEvent<HTMLSpanElement>,key:ColumnKey){if(!["ArrowLeft","ArrowRight","Home"].includes(event.key))return;event.preventDefault();event.stopPropagation();const width=event.key==="Home"?DEFAULT_COLUMN_WIDTHS[key]:clampColumnWidth(key,columnWidths[key]+(event.key==="ArrowLeft"?10:-10));setColumnWidths(current=>({...current,[key]:width}))}
-  function openListing(row:Listing){setViewedListingIds(current=>current.includes(row.listingId)?current:[...current,row.listingId]);window.open(row.url,"_blank","noopener,noreferrer")}
-  function archiveRow(row:Listing){setArchivedRows(current=>current.some(item=>item.listingId===row.listingId)?current:[...current,row]);setShowArchived(false)}
-  function unarchiveRow(row:Listing){setArchivedRows(current=>current.filter(item=>item.listingId!==row.listingId))}
-  function toggleFavoriteRow(row:Listing){setFavoriteRows(current=>current.some(item=>item.listingId===row.listingId)?current.filter(item=>item.listingId!==row.listingId):[...current,row])}
+  function openListing(row:Listing){setViewedListingIds(current=>{const next=current.includes(row.listingId)?current:[...current,row.listingId];viewedListingIdsRef.current=next;queueSync();return next});window.open(row.url,"_blank","noopener,noreferrer")}
+  function archiveRow(row:Listing){setArchivedRows(current=>{const next=current.some(item=>item.listingId===row.listingId)?current:[...current,row];archivedRowsRef.current=next;queueSync();return next});setShowArchived(false)}
+  function unarchiveRow(row:Listing){setArchivedRows(current=>{const next=current.filter(item=>item.listingId!==row.listingId);archivedRowsRef.current=next;queueSync();return next})}
+  function toggleFavoriteRow(row:Listing){setFavoriteRows(current=>{const next=current.some(item=>item.listingId===row.listingId)?current.filter(item=>item.listingId!==row.listingId):[...current,row];favoriteRowsRef.current=next;queueSync();return next})}
   function toggleArchived(){const next=!showArchived;setShowArchived(next);if(next){setShowFavorites(false);setTimeout(()=>document.getElementById("archived-results")?.scrollIntoView({behavior:"smooth",block:"start"}),50)}}
   function toggleFavorites(){const next=!showFavorites;setShowFavorites(next);if(next){setShowArchived(false);setTimeout(()=>document.getElementById("favorite-results")?.scrollIntoView({behavior:"smooth",block:"start"}),50)}}
   function chooseRowAction(event:React.MouseEvent<HTMLButtonElement>,row:Listing,action:"archive"|"favorite",archived:boolean){event.stopPropagation();if(action==="archive"){if(archived)unarchiveRow(row);else archiveRow(row)}else toggleFavoriteRow(row);(event.currentTarget.closest("details") as HTMLDetailsElement|null)?.removeAttribute("open")}

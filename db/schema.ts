@@ -31,3 +31,11 @@ export const trialBrowserLimits = sqliteTable("trial_browser_limits", {
   searchLimit: integer("search_limit").notNull(),
   updatedAtMs: integer("updated_at_ms").notNull(),
 });
+
+export const syncedListingState = sqliteTable("synced_listing_state", {
+  spaceId: text("space_id").primaryKey(),
+  archivedJson: text("archived_json").notNull().default("[]"),
+  favoritesJson: text("favorites_json").notNull().default("[]"),
+  viewedIdsJson: text("viewed_ids_json").notNull().default("[]"),
+  updatedAtMs: integer("updated_at_ms").notNull(),
+});

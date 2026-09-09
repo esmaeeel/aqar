@@ -222,6 +222,24 @@ test("places all result actions in one row above the result key", async () => {
   assert.match(page, /onShowSaved=\{loadSets\} onExport=\{exportExcel\} exportingExcel=\{exportingExcel\}/);
 });
 
+test("syncs viewed, archived, and favorite listings through a shared link", async () => {
+  const [page, route, schema, migration, drizzleMigration] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/sync-state/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../migrations/0006_synced_listing_state.sql", import.meta.url), "utf8"),
+    readFile(new URL("../drizzle/0006_synced_listing_state.sql", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /SYNC_SPACE_KEY/);
+  assert.match(page, /CLOUD_SYNC_ORIGIN/);
+  assert.match(page, /archived:archivedRowsRef\.current,favorites:favoriteRowsRef\.current,viewedIds:viewedListingIdsRef\.current/);
+  assert.match(page, /setInterval\(\(\)=>void pull\(false\),10_000\)/);
+  assert.match(route, /Access-Control-Allow-Origin/);
+  assert.match(route, /ON CONFLICT\(space_id\) DO UPDATE SET/);
+  assert.match(schema, /sqliteTable\("synced_listing_state"/);
+  assert.equal(migration, drizzleMigration);
+});
+
 test("shows the neighborhood and keeps resizable result-column widths locally", async () => {
   const [page, styles] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
