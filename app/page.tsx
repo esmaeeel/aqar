@@ -219,11 +219,10 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
     if(!archivedLoaded||!favoritesLoaded||!viewedListingsLoaded)return;
     const space=new URLSearchParams(window.location.search).get("sync")||"";
     if(!/^[a-z0-9-]{20,80}$/i.test(space))return;
-    let cancelled=false,timer:ReturnType<typeof setInterval>|undefined;
+    let cancelled=false;
     const apply=(data:SyncedState,mergeLocal=false)=>{const remoteArchived=validSyncedRows(data.archived),remoteFavorites=validSyncedRows(data.favorites),remoteViewed=Array.isArray(data.viewedIds)?data.viewedIds.filter((id):id is string=>typeof id==="string"):[];const nextArchived=mergeLocal?mergeSyncedRows(remoteArchived,archivedRowsRef.current):remoteArchived,nextFavorites=mergeLocal?mergeSyncedRows(remoteFavorites,favoriteRowsRef.current):remoteFavorites,nextViewed=mergeLocal?[...new Set([...remoteViewed,...viewedListingIdsRef.current])]:remoteViewed;archivedRowsRef.current=nextArchived;favoriteRowsRef.current=nextFavorites;viewedListingIdsRef.current=nextViewed;setArchivedRows(nextArchived);setFavoriteRows(nextFavorites);setViewedListingIds(nextViewed);syncVersionRef.current=Number(data.version)||0};
-    const pull=async(force=false)=>{try{const response=await fetch(syncApiUrl(space),{cache:"no-store"});if(!response.ok)return;const data=await response.json() as SyncedState;if(cancelled)return;if(force||Number(data.version)>syncVersionRef.current)apply(data,false)}catch{/* تبقى البيانات المحلية متاحة عند تعذر المزامنة */}};
-    void(async()=>{try{const response=await fetch(syncApiUrl(space),{cache:"no-store"});if(!response.ok)return;const data=await response.json() as SyncedState;if(cancelled)return;syncSpaceRef.current=space;const firstJoin=localStorage.getItem(SYNC_SPACE_KEY)!==space;apply(data,firstJoin);localStorage.setItem(SYNC_SPACE_KEY,space);syncReadyRef.current=true;if(firstJoin||!data.exists)queueSync();timer=setInterval(()=>void pull(false),10_000)}catch{/* تبقى البيانات المحلية متاحة عند تعذر المزامنة */}})();
-    return()=>{cancelled=true;if(timer)clearInterval(timer);syncReadyRef.current=false};
+    void(async()=>{try{const response=await fetch(syncApiUrl(space),{cache:"no-store"});if(!response.ok)return;const data=await response.json() as SyncedState;if(cancelled)return;syncSpaceRef.current=space;const firstJoin=localStorage.getItem(SYNC_SPACE_KEY)!==space;apply(data,firstJoin);localStorage.setItem(SYNC_SPACE_KEY,space);syncReadyRef.current=true;if(firstJoin||!data.exists)queueSync()}catch{/* تبقى البيانات المحلية متاحة عند تعذر المزامنة */}})();
+    return()=>{cancelled=true;syncReadyRef.current=false};
   },[archivedLoaded,favoritesLoaded,viewedListingsLoaded]);
   const rentalSearch=purpose==="rent";
   const mixedCountMode=propertyType==="عام";

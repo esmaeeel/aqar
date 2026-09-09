@@ -233,7 +233,8 @@ test("syncs viewed, archived, and favorite listings through a shared link", asyn
   assert.match(page, /SYNC_SPACE_KEY/);
   assert.match(page, /CLOUD_SYNC_ORIGIN/);
   assert.match(page, /archived:archivedRowsRef\.current,favorites:favoriteRowsRef\.current,viewedIds:viewedListingIdsRef\.current/);
-  assert.match(page, /setInterval\(\(\)=>void pull\(false\),10_000\)/);
+  assert.doesNotMatch(page, /setInterval\(|10_000/);
+  assert.match(page, /fetch\(syncApiUrl\(space\),\{cache:"no-store"\}\)/);
   assert.match(route, /Access-Control-Allow-Origin/);
   assert.match(route, /ON CONFLICT\(space_id\) DO UPDATE SET/);
   assert.match(schema, /sqliteTable\("synced_listing_state"/);
