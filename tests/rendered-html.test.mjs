@@ -235,6 +235,9 @@ test("syncs viewed, archived, and favorite listings through a shared link", asyn
   assert.match(page, /archived:archivedRowsRef\.current,favorites:favoriteRowsRef\.current,viewedIds:viewedListingIdsRef\.current/);
   assert.doesNotMatch(page, /setInterval\(|10_000/);
   assert.match(page, /fetch\(syncApiUrl\(space\),\{cache:"no-store"\}\)/);
+  assert.match(page, /params\.get\("import"\)==="local"/);
+  assert.match(page, /apply\(data,firstJoin\|\|importLocal\)/);
+  assert.match(page, /params\.delete\("import"\)/);
   assert.match(route, /Access-Control-Allow-Origin/);
   assert.match(route, /ON CONFLICT\(space_id\) DO UPDATE SET/);
   assert.match(schema, /sqliteTable\("synced_listing_state"/);
