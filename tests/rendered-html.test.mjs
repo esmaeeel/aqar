@@ -244,6 +244,25 @@ test("syncs viewed, archived, and favorite listings through a shared link", asyn
   assert.equal(migration, drizzleMigration);
 });
 
+test("syncs saved search profiles and result groups through the same shared link", async () => {
+  const [page, profilesRoute, savedResultsRoute, sharedStorage] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/profiles/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/saved-results/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../lib/shared-storage.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(page, /SYNC_STORED_DATA_KEY/);
+  assert.match(page, /storedApiUrl\("\/api\/profiles"\)/);
+  assert.match(page, /storedApiUrl\("\/api\/saved-results"\)/);
+  assert.match(page, /readProfiles\(false\),readSets\(false\)/);
+  assert.match(page, /localStorage\.setItem\(importKey,"1"\)/);
+  assert.doesNotMatch(page, /setInterval\(|10_000/);
+  assert.match(profilesRoute, /storedUserId\(req\)/);
+  assert.match(savedResultsRoute, /storedUserId\(req\)/);
+  assert.match(sharedStorage, /return `sync:\$\{space\}`/);
+  assert.match(sharedStorage, /Access-Control-Allow-Origin/);
+});
+
 test("shows the neighborhood and keeps resizable result-column widths locally", async () => {
   const [page, styles] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
