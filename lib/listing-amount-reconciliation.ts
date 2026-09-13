@@ -110,6 +110,51 @@ function explicitUnitPrice(source: string) {
   return null;
 }
 
+function hasExplicitTotalPrice(source: string) {
+  if (!source) return false;
+  const labels = `السعر\\s+المطلوب|سعر\\s+البيع|قيمة\\s+العقار|المطلوب|السعر`;
+  const matches = [...source.matchAll(new RegExp(`(?:${labels})[^\\d\\n]{0,18}(?:[\\d]|مليون|ألف|الف)`, "gi"))];
+  return matches.some(match => {
+    const start = match.index ?? 0;
+    const lineEnd = source.indexOf("\n", start);
+    const context = source.slice(start, lineEnd < 0 ? Math.min(source.length, start + 100) : lineEnd);
+    return !/(?:سعر\s*(?:ال)?متر|للمتر|لكل\s+متر|\/\s*(?:م|متر))/i.test(context);
+  });
+}
+
+function deedArea(source: string) {
+  const match = source.match(/المساحة\s+حسب\s+الصك[^\d\n]{0,18}([\d][\d,.]*)/i);
+  return parseNumber(match?.[1]);
+}
+
+type SchemaAmounts = { price: number | null; area: number | null };
+
+function schemaListingAmounts(html: string, listingId: string): SchemaAmounts | null {
+  const scripts = [...html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+  for (const script of scripts) {
+    try {
+      const value = JSON.parse(script[1].replace(/&quot;/gi, '"').replace(/&amp;/gi, "&"));
+      const roots = Array.isArray(value) ? value : [value];
+      for (const root of roots) {
+        if (!root || typeof root !== "object") continue;
+        const types = Array.isArray(root["@type"]) ? root["@type"] : [root["@type"]];
+        if (!types.some((type: unknown) => type === "RealEstateListing" || type === "Product")) continue;
+        const identity = `${root.url ?? ""} ${root["@id"] ?? ""}`;
+        if (listingId && !identity.includes(listingId)) continue;
+        const offer = Array.isArray(root.offers) ? root.offers[0] : root.offers;
+        const offered = offer?.itemOffered ?? root.itemOffered ?? root;
+        const floorSize = offered?.floorSize ?? root.floorSize;
+        const price = parseNumber(String(offer?.price ?? offer?.priceSpecification?.price ?? ""));
+        const area = parseNumber(String(floorSize?.value ?? offered?.area ?? ""));
+        if (price != null || area != null) return { price, area };
+      }
+    } catch {
+      // بيانات JSON-LD اختيارية؛ تبقى القيم المرئية هي البديل الآمن عند فسادها.
+    }
+  }
+  return null;
+}
+
 function nearlyEqual(a: number, b: number, tolerance = .02) {
   if (a <= 0 || b <= 0) return a === b;
   return Math.abs(a - b) / Math.max(a, b) <= tolerance;
@@ -139,18 +184,24 @@ export function reconcileListingAmounts(html: string, item: Listing) {
   const describedArea = firstArea(description);
   const detailsArea = structuredArea(structured);
   const oldArea = item.area;
+  const schema = schemaListingAmounts(html, item.listingId);
   const unitPrice = explicitUnitPrice(description) ?? explicitUnitPrice(structured) ?? explicitUnitPrice(text);
   const priceWasDerived = item.warnings.includes("حُسب السعر الإجمالي من سعر المتر الصريح والمساحة");
   const priceWasUnitPrice = unitPrice != null && item.price != null && nearlyEqual(item.price, unitPrice);
-  const checkedArea = !priceWasDerived && !priceWasUnitPrice && item.price != null && unitPrice != null
-    ? areaConsistentWithPrice([describedArea, detailsArea, oldArea], item.price, unitPrice)
+  const descriptionHasTotalPrice = hasExplicitTotalPrice(description);
+  const trustedPrice = descriptionHasTotalPrice && !priceWasDerived && !priceWasUnitPrice
+    ? item.price
+    : schema?.price ?? (priceWasDerived || priceWasUnitPrice ? null : item.price);
+  const checkedArea = trustedPrice != null && unitPrice != null
+    ? areaConsistentWithPrice([deedArea(description), schema?.area ?? null, describedArea, detailsArea, oldArea], trustedPrice, unitPrice)
     : null;
-  const explicitArea = checkedArea ?? describedArea ?? detailsArea;
+  const explicitArea = checkedArea ?? deedArea(description) ?? schema?.area ?? describedArea ?? detailsArea ?? oldArea;
   const areaChanged = explicitArea != null && (oldArea == null || !nearlyEqual(explicitArea, oldArea, .001));
   if (explicitArea != null) item.area = explicitArea;
+  item.price = trustedPrice;
 
   if (unitPrice != null) {
-    if ((item.price == null || priceWasUnitPrice || priceWasDerived) && item.area != null) {
+    if (item.price == null && item.area != null) {
       item.price = unitPrice * item.area;
       pushWarning(item, "حُسب السعر الإجمالي من سعر المتر الصريح والمساحة");
     }
@@ -164,9 +215,11 @@ export function reconcileListingAmounts(html: string, item: Listing) {
 
   if (areaChanged) {
     pushWarning(item, "اعتمدت المساحة المصرح بها صراحة بدل رقم مساحة جانبي في الإعلان");
-    if (unitPrice != null && priceWasDerived && item.area != null) item.price = unitPrice * item.area;
     if (unitPrice == null && item.price != null && item.area != null) item.sqmPrice = item.price / item.area;
   }
+
+  if (schema?.price != null && item.price != null && nearlyEqual(schema.price, item.price, .02))
+    item.warnings = item.warnings.filter(warning => !warning.startsWith("السعر مختلف بين وصف المعلن والقائمة"));
 
   return item;
 }

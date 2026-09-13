@@ -134,3 +134,56 @@ test("لا يخرج ثلاث قيم متناقضة إذا لم توجد مساح
   assert.equal(item.sqmPrice, 550);
   assert.ok(item.warnings.some(warning => warning.includes("سعر المتر المصرح به لا يتفق")));
 });
+
+function listingJsonLd({ id, price, area }) {
+  return `<script type="application/ld+json">${JSON.stringify({
+    "@type": ["RealEstateListing", "Product"],
+    url: `https://sa.aqar.fm/listing-${id}`,
+    offers: { price, itemOffered: { floorSize: { value: area, unitCode: "MTK" } } },
+  })}</script>`;
+}
+
+test("يعتمد بيانات المنصة المنظمة ويمنع طول الحدود من التحول إلى سعر كما في 6862905", () => {
+  const html = `${listingJsonLd({ id:"6862905", price:18_750_000, area:2_500 })}<h1>أرض للبيع</h1><div>18,750,000 ريال</div><div>استكشف خيارات التمويل</div><p>أرض تجارية للبيع مساحة 2500م. الحد الشمالي بطول 50.36م شارع 30م. السعر 7500 للمتر.</p>`;
+  const item = reconcileListingAmounts(html, listing({ listingId:"6862905", price:50.36, area:2_500, sqmPrice:.020144 }));
+  assert.equal(item.price, 18_750_000);
+  assert.equal(item.area, 2_500);
+  assert.equal(item.sqmPrice, 7_500);
+});
+
+test("تتقدم هوية الإعلان على بيانات إعلان مشابه مضمنة في الصفحة", () => {
+  const html = `${listingJsonLd({ id:"9999999", price:9_000_000, area:900 })}${listingJsonLd({ id:"6862905", price:18_750_000, area:2_500 })}<h1>أرض للبيع</h1><p>المساحة 2500م، السعر 7500 للمتر</p>`;
+  const item = reconcileListingAmounts(html, listing({ listingId:"6862905" }));
+  assert.equal(item.price, 18_750_000);
+  assert.equal(item.area, 2_500);
+  assert.equal(item.sqmPrice, 7_500);
+});
+
+test("تمنع بيانات المنصة مساحة إجمالية جانبية من إزاحة مساحة الإعلان كما في 6679749", () => {
+  const html = `${listingJsonLd({ id:"6679749", price:1_485_063, area:900 })}<h1>أرض للبيع</h1><div>استكشف خيارات التمويل</div><p>أرض ضمن مخطط إجمالي مساحته 2700م²</p><h3>تفاصيل الإعلان</h3><p>سعر المتر 1650.07 ريال، المساحة 900م²</p>`;
+  const item = reconcileListingAmounts(html, listing({ listingId:"6679749", price:1_485_063, area:2_700, sqmPrice:550.023 }));
+  assert.equal(item.area, 900);
+  assert.ok(Math.abs(item.sqmPrice - 1_650.07) < .01);
+});
+
+test("تعتمد مساحة القطعة المنظمة ولا تستبدلها بإجمالي قطعتين كما في 6452523", () => {
+  const html = `${listingJsonLd({ id:"6452523", price:500_000, area:240 })}<h1>أرض للبيع</h1><div>استكشف خيارات التمويل</div><p>قطعتان بإجمالي مساحة 480م²</p>`;
+  const item = reconcileListingAmounts(html, listing({ listingId:"6452523", price:500_000, area:480 }));
+  assert.equal(item.area, 240);
+  assert.ok(Math.abs(item.sqmPrice - 500_000 / 240) < 1e-9);
+});
+
+test("تبقى مساحة حسب الصك الصريحة مقدمة عند اختلافها عن المساحة المنظمة", () => {
+  const html = `${listingJsonLd({ id:"1234567", price:1_000_000, area:520 })}<h1>أرض للبيع</h1><div>استكشف خيارات التمويل</div><p>المساحة حسب الصك 376م²</p>`;
+  const item = reconcileListingAmounts(html, listing({ price:1_000_000, area:520 }));
+  assert.equal(item.area, 376);
+  assert.ok(Math.abs(item.sqmPrice - 1_000_000 / 376) < 1e-9);
+});
+
+test("يبقي السعر الإجمالي الصريح في وصف المعلن مقدمًا على السعر المنظم", () => {
+  const html = `${listingJsonLd({ id:"1234567", price:3_650_000, area:500 })}<h1>عمارة للبيع</h1><div>استكشف خيارات التمويل</div><p>السعر المطلوب 3,500,000 ريال، مساحة الأرض 500م²</p>`;
+  const item = reconcileListingAmounts(html, listing({ propertyType:"عمارة", price:3_500_000, area:500 }));
+  assert.equal(item.price, 3_500_000);
+  assert.equal(item.area, 500);
+  assert.equal(item.sqmPrice, 7_000);
+});
