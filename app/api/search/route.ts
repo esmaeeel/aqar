@@ -1,5 +1,6 @@
 import { evaluate, Filters, generalSearchHasRequiredKeywords, keywordMatches, listingKeywordSearchableText, listingLinks, listingMatchesRequestedLocation, locationUrl, parseListing, propertyTypeFromListingUrl, requestedPropertyTypeMatches, searchCategoriesFor } from "@/lib/aqar";
 import { isTrialTokenValid } from "@/lib/trial";
+import { shouldStopForSourceProtection } from "@/lib/source-protection";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
         if (filters.mode === "strict" ? item.status === "مطابقة" : item.nearEligible) results.push(item);
       } catch (error) {
         const message = error instanceof Error ? error.message : "تعذر قراءة إعلان"; warnings.push(`${links[i].listingId}: ${message}`);
-        if (/429|منع|تحقق|تسجيل دخول/.test(message)) break;
+        if (shouldStopForSourceProtection(message)) break;
       }
     }
     return Response.json({ results, discovered: allLinks.length, checkedListingIds, warnings, sourceUrl });
