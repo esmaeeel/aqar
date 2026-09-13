@@ -535,8 +535,9 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const { header, desc, structured } = splitDescription(text);
   const titleHtml = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "إعلان عقار";
   const title = htmlText(titleHtml).replace(/\s*\|\s*تطبيق عقار.*$/, "");
-  // لا يجوز أن تطابق «الحد» بداية «الحدود»، وإلا التُقط عرض الشارع التالي كسعر.
-  const pricePattern = labeled(`السعر(?:\\s+المطلوب)?|سعر\\s+البيع|المطلوب|الحد(?![ء-ي])`);
+  // «الحد» السعري يجب أن يليه المبلغ مباشرة؛ فلا نلتقط طول ضلع من «الحد الشمالي بطول 50.36م».
+  const priceLabel = `(?:(?:السعر(?:\\s+المطلوب)?|سعر\\s+البيع|المطلوب)${gap}|الحد(?![ء-ي])[^\\S\\n]*(?:\\n[^\\S\\n]*)?)`;
+  const pricePattern = `${priceLabel}${amount}`;
   const headerText = header.slice(-700), hp = headerCurrencyAmounts(headerText);
   const headerPrice = hp.length >= 2 && headerText.includes("خصم") ? Math.min(...hp.slice(-2)) : hp.at(-1);
   const dp = allAmounts(desc, pricePattern, true), sp = allAmounts(structured, pricePattern, true);
