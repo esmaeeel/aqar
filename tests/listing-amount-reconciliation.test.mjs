@@ -113,3 +113,24 @@ test("لا يغير السعر الإجمالي الصريح لمجرد وجود
   assert.equal(item.area, 500);
   assert.equal(item.sqmPrice, 4_000);
 });
+
+test("يراجع السعر والمساحة وسعر المتر معًا في كل إعلان كما في 6679749", () => {
+  const html = `
+    <h1>أرض للبيع في مدينة الرياض</h1>
+    <div>1,485,063 ﷼</div><div>المساحة 900 م²</div><div>استكشف خيارات التمويل</div>
+    <p>أرض بمساحة إجمالية 2,700 م²</p>
+    <h3>تفاصيل الإعلان</h3><p>المساحة 900 م²، سعر المتر 1,650.07 ريال</p>
+  `;
+  const item = reconcileListingAmounts(html, listing({ listingId:"6679749", price:1_485_063, area:2_700, sqmPrice:550.023 }));
+  assert.equal(item.area, 900);
+  assert.ok(Math.abs((item.price || 0) - (item.area || 0) * (item.sqmPrice || 0)) < 1);
+  assert.ok(Math.abs((item.sqmPrice || 0) - 1_650.07) < .01);
+});
+
+test("لا يخرج ثلاث قيم متناقضة إذا لم توجد مساحة تحقق سعر المتر المصرح به", () => {
+  const html = `<h1>أرض للبيع</h1><p>مساحة الأرض 2,700 م²، سعر المتر 1,650 ريال</p>`;
+  const item = reconcileListingAmounts(html, listing({ price:1_485_000, area:2_700, sqmPrice:550 }));
+  assert.equal(item.area, 2_700);
+  assert.equal(item.sqmPrice, 550);
+  assert.ok(item.warnings.some(warning => warning.includes("سعر المتر المصرح به لا يتفق")));
+});

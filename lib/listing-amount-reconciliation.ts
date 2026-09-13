@@ -115,6 +115,14 @@ function nearlyEqual(a: number, b: number, tolerance = .02) {
   return Math.abs(a - b) / Math.max(a, b) <= tolerance;
 }
 
+function areaConsistentWithPrice(candidates: Array<number | null>, totalPrice: number, unitPrice: number) {
+  const areas = [...new Set(candidates.filter((value): value is number => value != null && value > 0))];
+  if (!areas.length) return null;
+  const best = areas.reduce((current, area) =>
+    Math.abs(area * unitPrice - totalPrice) < Math.abs(current * unitPrice - totalPrice) ? area : current);
+  return Math.abs(best * unitPrice - totalPrice) / totalPrice <= .05 ? best : null;
+}
+
 function pushWarning(item: Listing, warning: string) {
   if (!item.warnings.includes(warning)) item.warnings.push(warning);
 }
@@ -130,21 +138,26 @@ export function reconcileListingAmounts(html: string, item: Listing) {
 
   const describedArea = firstArea(description);
   const detailsArea = structuredArea(structured);
-  const explicitArea = describedArea ?? detailsArea;
   const oldArea = item.area;
-  const areaChanged = explicitArea != null && (oldArea == null || !nearlyEqual(explicitArea, oldArea, .001));
-  if (explicitArea != null) item.area = explicitArea;
-
   const unitPrice = explicitUnitPrice(description) ?? explicitUnitPrice(structured) ?? explicitUnitPrice(text);
   const priceWasDerived = item.warnings.includes("حُسب السعر الإجمالي من سعر المتر الصريح والمساحة");
   const priceWasUnitPrice = unitPrice != null && item.price != null && nearlyEqual(item.price, unitPrice);
+  const checkedArea = !priceWasDerived && !priceWasUnitPrice && item.price != null && unitPrice != null
+    ? areaConsistentWithPrice([describedArea, detailsArea, oldArea], item.price, unitPrice)
+    : null;
+  const explicitArea = checkedArea ?? describedArea ?? detailsArea;
+  const areaChanged = explicitArea != null && (oldArea == null || !nearlyEqual(explicitArea, oldArea, .001));
+  if (explicitArea != null) item.area = explicitArea;
 
   if (unitPrice != null) {
     if ((item.price == null || priceWasUnitPrice || priceWasDerived) && item.area != null) {
       item.price = unitPrice * item.area;
       pushWarning(item, "حُسب السعر الإجمالي من سعر المتر الصريح والمساحة");
     }
-    item.sqmPrice = unitPrice;
+    if (item.price != null && item.area != null && !nearlyEqual(item.price, unitPrice * item.area, .05)) {
+      item.sqmPrice = item.price / item.area;
+      pushWarning(item, "سعر المتر المصرح به لا يتفق مع السعر الإجمالي والمساحة؛ حُسب سعر المتر من القيمتين المتفقتين");
+    } else item.sqmPrice = unitPrice;
   } else if (item.price != null && item.area != null) {
     item.sqmPrice = item.price / item.area;
   }
