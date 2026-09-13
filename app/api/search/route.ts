@@ -1,4 +1,5 @@
 import { evaluate, Filters, generalSearchHasRequiredKeywords, keywordMatches, listingKeywordSearchableText, listingLinks, listingMatchesRequestedLocation, locationUrl, parseListing, propertyTypeFromListingUrl, requestedPropertyTypeMatches, searchCategoriesFor } from "@/lib/aqar";
+import { reconcileListingAmounts } from "@/lib/listing-amount-reconciliation";
 import { isTrialTokenValid } from "@/lib/trial";
 import { shouldStopForSourceProtection } from "@/lib/source-protection";
 import { applyCommercialOnlyToAqarUrl } from "@/lib/commercial-filter";
@@ -19,23 +20,6 @@ async function fetchAqar(url: string) {
 }
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-function applyKnownListingCorrections(item: ReturnType<typeof parseListing>) {
-  if (item.listingId === "6755601") {
-    item.sqmPrice = 1350;
-    item.price = item.area != null ? item.sqmPrice * item.area : null;
-    item.warnings.push("صُحح الإعلان 6755601: 1,350 ريال هو سعر المتر وليس السعر الإجمالي");
-  }
-  if (item.listingId === "6452870") {
-    const priorSqmPrice = item.sqmPrice;
-    const priceWasDerived = item.warnings.includes("حُسب السعر الإجمالي من سعر المتر الصريح والمساحة");
-    item.area = 376;
-    if (priceWasDerived && priorSqmPrice != null) item.price = priorSqmPrice * item.area;
-    item.sqmPrice = item.price != null ? item.price / item.area : priorSqmPrice;
-    item.warnings.push("صُححت مساحة الإعلان 6452870 إلى 376 م²");
-  }
-  return item;
-}
-
 export async function POST(request: Request) {
   try {
     if (!await isTrialTokenValid(request.headers.get("x-aqar-trial-token"), request.headers.get("x-aqar-device-id"))) {
@@ -53,7 +37,8 @@ export async function POST(request: Request) {
       try {
         if (i) await pause(350);
         const parsedPropertyType = filters.propertyType === "عام" ? propertyTypeFromListingUrl(links[i].url) : filters.propertyType;
-        const parsed = applyKnownListingCorrections(parseListing(await fetchAqar(links[i].url), links[i].url, parsedPropertyType));
+        const listingHtml = await fetchAqar(links[i].url);
+        const parsed = reconcileListingAmounts(listingHtml, parseListing(listingHtml, links[i].url, parsedPropertyType));
         const item = evaluate(parsed, filters);
         if (!listingMatchesRequestedLocation(item.city, item.neighborhood, city, neighborhood)) {
           continue;
