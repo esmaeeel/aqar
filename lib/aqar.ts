@@ -546,11 +546,14 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const listedPrice = (headerIsUnitPrice ? null : headerPrice) ?? sp[0];
   const descriptionPrice = expandAbbreviatedAmount(dp[0], listedPrice);
   const explicitTotalPrice = preferDescription(descriptionPrice, listedPrice);
-  const ha = chooseArea(areaCandidates(header), explicitTotalPrice, explicitSqmPrice);
-  const da = chooseArea(areaCandidates(desc), explicitTotalPrice, explicitSqmPrice);
-  const sa = chooseArea(areaCandidates(structured), explicitTotalPrice, explicitSqmPrice);
+  const headerAreas = areaCandidates(header), descriptionAreas = areaCandidates(desc), structuredAreas = areaCandidates(structured);
+  const ha = chooseArea(headerAreas, explicitTotalPrice, explicitSqmPrice);
+  const da = chooseArea(descriptionAreas, explicitTotalPrice, explicitSqmPrice);
+  const sa = chooseArea(structuredAreas, explicitTotalPrice, explicitSqmPrice);
   const detailedArea = preferDescription(da, sa);
-  const area = singlePlotAreaFromAggregate(text, ha, detailedArea) ?? detailedArea ?? ha;
+  const consistentArea = chooseArea([...descriptionAreas, ...structuredAreas, ...headerAreas], explicitTotalPrice, explicitSqmPrice);
+  const area = singlePlotAreaFromAggregate(text, ha, detailedArea)
+    ?? (explicitTotalPrice != null && explicitSqmPrice != null ? consistentArea : detailedArea ?? ha);
   const derivedPrice = explicitTotalPrice == null && explicitSqmPrice != null && area != null ? explicitSqmPrice * area : null;
   const price = explicitTotalPrice ?? derivedPrice;
 
