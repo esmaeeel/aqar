@@ -362,6 +362,16 @@ function chooseArea(candidates: number[], price: number | null, unitPrice: numbe
     return candidates.reduce((best, value) => Math.abs(value * unitPrice - price) < Math.abs(best * unitPrice - price) ? value : best);
   return candidates[0];
 }
+function singlePlotAreaFromAggregate(source: string, headerArea: number | null, detailedArea: number | null) {
+  if (headerArea == null || detailedArea == null || headerArea <= 0 || detailedArea <= 0) return null;
+  const normalized = normalizeText(source);
+  if (/كل\s+قطعه|لكل\s+قطعه|للقطعه/.test(normalized)) return null;
+  let plotCount = /قطعت(?:ين|ان|ا)(?:\s+ارض)?/.test(normalized) ? 2 : 0;
+  const numericCount = normalized.match(/(?:عدد\s+القطع|قطع)\s*[:\-]?\s*([2-9])(?:\s|$)/)?.[1];
+  if (numericCount) plotCount = Number(numericCount);
+  if (plotCount < 2) return null;
+  return Math.abs(detailedArea - headerArea * plotCount) / detailedArea <= .02 ? headerArea : null;
+}
 function allAmounts(text: string, pattern: string, excludePercentages = false) {
   const values: number[] = []; const re = new RegExp(pattern, "gi"); let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
@@ -536,9 +546,11 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const listedPrice = (headerIsUnitPrice ? null : headerPrice) ?? sp[0];
   const descriptionPrice = expandAbbreviatedAmount(dp[0], listedPrice);
   const explicitTotalPrice = preferDescription(descriptionPrice, listedPrice);
+  const ha = chooseArea(areaCandidates(header), explicitTotalPrice, explicitSqmPrice);
   const da = chooseArea(areaCandidates(desc), explicitTotalPrice, explicitSqmPrice);
   const sa = chooseArea(areaCandidates(structured), explicitTotalPrice, explicitSqmPrice);
-  const area = preferDescription(da, sa);
+  const detailedArea = preferDescription(da, sa);
+  const area = singlePlotAreaFromAggregate(text, ha, detailedArea) ?? detailedArea ?? ha;
   const derivedPrice = explicitTotalPrice == null && explicitSqmPrice != null && area != null ? explicitSqmPrice * area : null;
   const price = explicitTotalPrice ?? derivedPrice;
 
