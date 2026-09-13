@@ -202,6 +202,7 @@
 .rowActionMenuList button:hover,.rowActionMenuList button:focus-visible{background:#edf5f1;color:var(--green);outline:none}
 .resultsTable tbody tr:has(.rowActionMenu[open]){position:relative;z-index:8}
 .resultsTable tbody tr:has(.rowActionMenu[open])>td{position:relative;z-index:9;overflow:visible}
+.resultsTableWrap:has(.rowActionMenu[open]){padding-bottom:78px;scroll-padding-bottom:78px}
 .resultsTable tbody tr.viewedRow td,.resultsTable tbody tr.viewedRow td:first-child{background:#fff}
 .archivedResults{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
 .archivedResultsHead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}

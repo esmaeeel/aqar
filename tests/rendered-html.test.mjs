@@ -217,6 +217,8 @@ test("places all result actions in one row above the result key", async () => {
   assert.match(styles, /\.resultsTable tbody tr\.near td\{background:#f3e1cf;color:var\(--ink\)\}/);
   assert.match(styles, /tr:has\(\.rowActionMenu\[open\]\)/);
   assert.match(styles, /\.rowActionMenuList\{[^}]*inset-inline-start:0;inset-inline-end:auto/);
+  assert.match(page, /onToggle=.*scrollIntoView\(\{block:"nearest",inline:"nearest"\}\)/);
+  assert.match(styles, /\.resultsTableWrap:has\(\.rowActionMenu\[open\]\)\{padding-bottom:78px;scroll-padding-bottom:78px\}/);
   assert.doesNotMatch(styles, /\.resultsTable th:first-child,\.resultsTable td:first-child\{position:sticky/);
   assert.match(page, /separateResultsSummary=rows\.length>=100\|\|displayCities\.length>3\|\|resultCityText\.length>42/);
   assert.match(page, /resultsToolbar \$\{separateResultsSummary\?"separateSummary":"compactSummary"\}/);
