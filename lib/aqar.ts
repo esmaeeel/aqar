@@ -318,6 +318,14 @@ function preferDescription<T>(descriptionValue: T | null | undefined, structured
 function areaCandidates(source: string) {
   const labels = `المساحة\\s+حسب\\s+الصك|مساحة\\s+الأرض|بمساح(?:ة|ه)|المساح(?:ة|ه)|مساحت(?:ها|ه)|مساح(?:ة|ه)`;
   const areaCapture = `([\\d][\\d,.]*)`;
+  const dimensions = new RegExp(`(?:${labels})(?![ء-يA-Za-z0-9_])${gap}${areaCapture}\\s*(?:[xX×*]|في)\\s*${areaCapture}`, "gi");
+  const dimensionAreas: { index: number; value: number }[] = [];
+  let dimensionMatch: RegExpExecArray | null;
+  while ((dimensionMatch = dimensions.exec(source))) {
+    const firstSide = parseAmount(dimensionMatch[1]), secondSide = parseAmount(dimensionMatch[2]);
+    if (firstSide != null && secondSide != null && firstSide > 0 && secondSide > 0)
+      dimensionAreas.push({ index: dimensionMatch.index, value: firstSide * secondSide });
+  }
   const totalPropertyArea = first(source, [`(?:إجمالي|اجمالي|مجموع)\\s+(?:المساحة|المساحات|مساحة\\s+(?:العقار|الأرض))${gap}${areaCapture}`]).value;
   const totalBuiltArea = first(source, [`(?:إجمالي|اجمالي|مجموع)\\s+مساحة\\s+مسطحات\\s+البناء${gap}${areaCapture}`]).value;
   const totalArea = totalPropertyArea ?? totalBuiltArea;
@@ -338,7 +346,7 @@ function areaCandidates(source: string) {
     }
   }
   matches.sort((a, b) => a.index - b.index);
-  const values = matches.map(match => match.value).filter((value, index, all) => all.indexOf(value) === index);
+  const values = [...dimensionAreas, ...matches].map(match => match.value).filter((value, index, all) => all.indexOf(value) === index);
   return totalArea != null ? [totalArea, ...values.filter(value => value !== totalArea)] : values;
 }
 function explicitUnitPrice(source: string) {
