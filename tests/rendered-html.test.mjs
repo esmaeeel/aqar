@@ -59,10 +59,13 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.doesNotMatch(page, /className="topActions"/);
   assert.match(page, /شروط البحث المحفوظة/);
   assert.doesNotMatch(page, /اختر بحثًا محفوظًا/);
-  assert.match(page, /className="profileItemActions"/);
-  assert.match(page, /onContextMenu=\{event=>\{event\.preventDefault\(\);setContextProfileId\(profile\.id\)\}\}/);
-  assert.match(page, />تعديل المسمى<\/button>/);
-  assert.match(page, />حذف<\/button>/);
+  assert.doesNotMatch(page, /onContextMenu=/);
+  assert.match(page, /className="profileItemAction" aria-label=\{`تعديل مسمى \$\{profile\.name\}`\}/);
+  assert.match(page, /title="تعديل المسمى"/);
+  assert.match(page, />✎<\/button>/);
+  assert.match(page, /className="profileItemAction danger" aria-label=\{`حذف \$\{profile\.name\}`\}/);
+  assert.match(page, /title="حذف"/);
+  assert.match(page, />×<\/button>/);
   assert.match(page, /onClick=\{\(\)=>loadProfile\(profile\)\}/);
   assert.match(profilesRoute, /export async function PUT/);
   assert.match(page, /"ابدأ البحث"/);
