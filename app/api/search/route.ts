@@ -1,6 +1,7 @@
 import { evaluate, Filters, generalSearchHasRequiredKeywords, keywordMatches, listingKeywordSearchableText, listingLinks, listingMatchesRequestedLocation, locationUrl, parseListing, propertyTypeFromListingUrl, requestedPropertyTypeMatches, searchCategoriesFor } from "@/lib/aqar";
 import { isTrialTokenValid } from "@/lib/trial";
 import { shouldStopForSourceProtection } from "@/lib/source-protection";
+import { applyCommercialOnlyToAqarUrl } from "@/lib/commercial-filter";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +24,11 @@ export async function POST(request: Request) {
     if (!await isTrialTokenValid(request.headers.get("x-aqar-trial-token"), request.headers.get("x-aqar-device-id"))) {
       return Response.json({ error: "ابدأ البحث من الصفحة للحصول على محاولة تجريبية صالحة." }, { status: 403 });
     }
-    const body = await request.json() as { filters: Filters; city: string; neighborhood?: string; category: string; page: number; remaining: number; excludeListingIds?: string[] };
+    const body = await request.json() as { filters: Filters & { commercialOnly?: boolean }; city: string; neighborhood?: string; category: string; page: number; remaining: number; excludeListingIds?: string[] };
     const { filters, city, category } = body; const neighborhood = body.neighborhood || "";
     if (!searchCategoriesFor(filters.propertyType, filters.purpose, filters.keywords).includes(category)) return Response.json({ error: "نوع البحث غير صالح." }, { status: 400 });
-    if (!generalSearchHasRequiredKeywords(filters.propertyType, filters.keywords)) return Response.json({ error: "عند اختيار «عام»، اكتب نوع العقار أو وصفه في «كلمات مطلوبة» أولًا." }, { status: 400 });
-    const sourceUrl = locationUrl(category, city, neighborhood, Math.max(1, Math.min(25, Number(body.page)||1)));
+    if (!filters.commercialOnly && !generalSearchHasRequiredKeywords(filters.propertyType, filters.keywords)) return Response.json({ error: "عند اختيار «عام»، اكتب نوع العقار أو وصفه في «كلمات مطلوبة» أولًا، أو فعّل «تجاري»." }, { status: 400 });
+    const sourceUrl = applyCommercialOnlyToAqarUrl(locationUrl(category, city, neighborhood, Math.max(1, Math.min(25, Number(body.page)||1))), Boolean(filters.commercialOnly));
     const searchHtml = await fetchAqar(sourceUrl); const allLinks = listingLinks(searchHtml, category, city, neighborhood, filters.purpose); const excluded = new Set(body.excludeListingIds || []); const links = allLinks.filter(link => !excluded.has(link.listingId)).slice(0, Math.max(1, Math.min(20, Number(body.remaining)||20)));
     const results = []; const warnings: string[] = []; const checkedListingIds: string[] = [];
     for (let i=0;i<links.length;i++) {

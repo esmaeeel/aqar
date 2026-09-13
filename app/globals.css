@@ -48,9 +48,11 @@
 .choiceBlock{grid-column:span 7;padding:8px 10px}
 .locationsBlock{grid-column:span 5}
 .numericBlock{grid-column:span 12}
-.propertyKeywordsRow{display:grid;grid-template-columns:minmax(140px,.8fr) minmax(260px,2.2fr);align-items:start;gap:7px}
+.propertyKeywordsRow{display:grid;grid-template-columns:minmax(140px,.8fr) auto minmax(260px,2.2fr);align-items:start;gap:7px}
 .propertyKeywordsRow>label{width:100%;min-width:0}
 .propertyKeywordsRow small{font-weight:400;color:var(--muted);line-height:1.35}
+.commercialOnlyToggle{align-self:start;margin-top:21px;min-height:34px;border:1px solid #b7c7c1;border-radius:10px;background:#fff;color:var(--green);padding:5px 12px;font-weight:800;cursor:pointer}
+.commercialOnlyToggle[aria-pressed="true"]{border-color:var(--green);background:var(--green);color:#fff;box-shadow:0 5px 12px rgba(11,93,80,.18)}
 .choiceRow{display:grid;grid-template-columns:minmax(180px,1fr) minmax(310px,1.5fr);align-items:stretch;gap:7px;margin-top:7px;padding-top:7px;border-top:1px solid #e3e9e5}
 .choiceRow>fieldset{width:100%}
 .choiceRow fieldset{min-height:38px;padding:4px 9px;background:#fff;gap:9px}
@@ -109,7 +111,7 @@
 @media(max-width:900px){
   .searchPanel{padding:14px}
   .choiceBlock,.locationsBlock,.numericBlock{grid-column:span 12}
-  .propertyKeywordsRow{grid-template-columns:minmax(150px,.8fr) minmax(320px,2fr)}
+  .propertyKeywordsRow{grid-template-columns:minmax(150px,.8fr) auto minmax(320px,2fr)}
   .choiceRow{grid-template-columns:minmax(190px,1fr) minmax(320px,1.5fr)}
   .numericCompactGrid{gap:6px}
   /* على الجوال يستفيد مربع «أقل» من الفراغ بجوار النطاقات بدلاً من صف مستقل. */
@@ -120,7 +122,7 @@
 }
 
 @media(max-width:760px){
-  .propertyKeywordsRow{grid-template-columns:minmax(130px,.75fr) minmax(0,1.5fr)}
+  .propertyKeywordsRow{grid-template-columns:minmax(130px,.75fr) auto minmax(0,1.5fr)}
   .choiceRow{grid-template-columns:1fr 1.5fr}
 }
 
@@ -129,7 +131,8 @@
   .profileMenu>summary{padding-inline:7px;font-size:.75rem}
   .profileControls button{padding:6px 7px;font-size:.7rem}
   .formBlock{padding:10px}
-  .propertyKeywordsRow{grid-template-columns:minmax(100px,.72fr) minmax(0,1.45fr)}
+  .propertyKeywordsRow{grid-template-columns:minmax(100px,.72fr) auto minmax(0,1.45fr)}
+  .commercialOnlyToggle{padding-inline:9px}
   .choiceRow{display:grid;grid-template-columns:minmax(105px,.72fr) minmax(0,1.45fr)}
   .choiceRow>fieldset{width:100%}
   .location{grid-template-columns:minmax(86px,.72fr) minmax(0,1.45fr) 34px;gap:5px}
