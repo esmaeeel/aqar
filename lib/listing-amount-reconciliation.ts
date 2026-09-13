@@ -34,7 +34,7 @@ function splitListingText(text: string) {
   const marker = text.search(/\n\s*(?:المزيد\s*\n\s*)?تفاصيل\s+الإعلان/);
   const before = marker >= 0 ? text.slice(0, marker) : text;
   const structured = marker >= 0 ? text.slice(marker) : "";
-  const finance = before.match(/استكشف\s+خيارات\s+التمويل/);
+  const finance = [...before.matchAll(/استكشف\s+خيارات\s+التمويل|استأجر\s+الآن/g)].at(-1);
   const financeEnd = finance?.index == null ? -1 : finance.index + finance[0].length;
   return {
     description: financeEnd >= 0 ? before.slice(financeEnd).trim() : before.trim(),
@@ -160,6 +160,11 @@ function nearlyEqual(a: number, b: number, tolerance = .02) {
   return Math.abs(a - b) / Math.max(a, b) <= tolerance;
 }
 
+function isAbbreviatedVersion(value: number | null, reference: number | null) {
+  if (value == null || reference == null || value >= 10_000 || reference < 10_000) return false;
+  return nearlyEqual(value * 1_000, reference, .02) || nearlyEqual(value * 1_000_000, reference, .02);
+}
+
 function areaConsistentWithPrice(candidates: Array<number | null>, totalPrice: number, unitPrice: number) {
   const areas = [...new Set(candidates.filter((value): value is number => value != null && value > 0))];
   if (!areas.length) return null;
@@ -189,7 +194,8 @@ export function reconcileListingAmounts(html: string, item: Listing) {
   const priceWasDerived = item.warnings.includes("حُسب السعر الإجمالي من سعر المتر الصريح والمساحة");
   const priceWasUnitPrice = unitPrice != null && item.price != null && nearlyEqual(item.price, unitPrice);
   const descriptionHasTotalPrice = hasExplicitTotalPrice(description);
-  const trustedPrice = descriptionHasTotalPrice && !priceWasDerived && !priceWasUnitPrice
+  const descriptionPriceIsAbbreviated = isAbbreviatedVersion(item.price, schema?.price ?? null);
+  const trustedPrice = descriptionHasTotalPrice && !descriptionPriceIsAbbreviated && !priceWasDerived && !priceWasUnitPrice
     ? item.price
     : schema?.price ?? (priceWasDerived || priceWasUnitPrice ? null : item.price);
   const checkedArea = trustedPrice != null && unitPrice != null

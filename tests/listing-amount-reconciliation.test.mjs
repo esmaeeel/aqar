@@ -187,3 +187,10 @@ test("يبقي السعر الإجمالي الصريح في وصف المعلن
   assert.equal(item.area, 500);
   assert.equal(item.sqmPrice, 7_000);
 });
+
+test("يوسع سعر الإيجار المختصر ولا يخلط عرض التمويل بالسعر كما في 6872478", () => {
+  const html = `${listingJsonLd({ id:"6872478", price:85_000, area:103 })}<h1>دور للإيجار</h1><div>85,000 ريال / سنوي</div><div>استأجر الآن وأدفع لاحقًا ابتداءً من 7,580 ريال شهريا</div><button>استأجر الآن</button><p>السعر 85 دفعة 90 دفعتين</p>`;
+  const item = reconcileListingAmounts(html, listing({ listingId:"6872478", propertyType:"دور", price:85, area:103 }));
+  assert.equal(item.price, 85_000);
+  assert.equal(item.area, 103);
+});

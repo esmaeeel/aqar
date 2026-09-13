@@ -413,10 +413,12 @@ function splitDescription(text: string) {
   const marker = text.search(/\n\s*(?:المزيد\s*\n\s*)?تفاصيل\s+الإعلان/);
   const before = marker >= 0 ? text.slice(0, marker) : text;
   const structured = marker >= 0 ? text.slice(marker) : "";
-  const finance = before.match(/استكشف\s+خيارات\s+التمويل/);
-  // السعر المرئي للإعلان يقع قبل أول دعوة للتمويل؛ ما بعده وصف ومبالغ قد لا تكون سعر البيع.
-  const financeEnd = finance?.index == null ? -1 : finance.index + finance[0].length;
-  return { header: financeEnd >= 0 ? before.slice(0, financeEnd) : before, desc: financeEnd >= 0 ? before.slice(financeEnd).trim() : before.trim(), structured };
+  const financeMatches = [...before.matchAll(/استكشف\s+خيارات\s+التمويل|استأجر\s+الآن/g)];
+  const firstFinance = financeMatches[0], lastFinance = financeMatches.at(-1);
+  // سعر الإعلان يقع قبل أول دعوة تمويل/استئجار، والوصف يبدأ بعد آخر زر منها.
+  const financeStart = firstFinance?.index ?? -1;
+  const financeEnd = lastFinance?.index == null ? -1 : lastFinance.index + lastFinance[0].length;
+  return { header: financeStart >= 0 ? before.slice(0, financeStart) : before, desc: financeEnd >= 0 ? before.slice(financeEnd).trim() : before.trim(), structured };
 }
 function countNamed(text: string, word: "مجلس" | "مقلط") {
   const n = normalizeText(text); const numeric = [...n.matchAll(new RegExp(`([\\d][\\d,.]*)\\s*(?:ال)?${word}`, "g"))].map(m => Number(m[1].replace(/,/g, "")));
@@ -484,7 +486,7 @@ function conflicts(values: number[], tolerance = .02) {
   return (Math.max(...values) - Math.min(...values)) / Math.min(...values) > tolerance;
 }
 function expandAbbreviatedAmount(value: number | undefined, reference: number | undefined) {
-  if (value == null || reference == null || value >= 10_000 || reference < 100_000) return value;
+  if (value == null || reference == null || value >= 10_000 || reference < 1_000) return value;
   return [value * 1_000, value * 1_000_000].sort((a, b) => Math.abs(a - reference) - Math.abs(b - reference))[0];
 }
 
