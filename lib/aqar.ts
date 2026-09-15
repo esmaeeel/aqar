@@ -384,7 +384,7 @@ function allAmounts(text: string, pattern: string, excludePercentages = false) {
 function incomeAmountContext(text: string, start: number, end: number) {
   const lineStart = text.lastIndexOf("\n", start - 1) + 1, nextLine = text.indexOf("\n", end), lineEnd = nextLine < 0 ? text.length : nextLine;
   const before = normalizeText(text.slice(lineStart, start)), after = normalizeText(text.slice(end, lineEnd));
-  const incomeLabels = `مؤجر(?:ه)?|ال?ايجار|الدخل|المدخول|مدخول|ريع`;
+  const incomeLabels = `م(?:ؤ|و|أ|ا)جر(?:ه)?|ال?ايجار|الدخل|المدخول|مدخول|ريع`;
   const priceLabels = `السعر(?:\\s+المطلوب)?|سعر\\s+البيع|المطلوب|الحد`;
   const lastEnd = (pattern: string) => [...before.matchAll(new RegExp(pattern, "g"))].at(-1)?.index ?? -1;
   if (lastEnd(incomeLabels) > lastEnd(priceLabels)) return true;
@@ -598,10 +598,11 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const age = descriptionAge.label ?? listingAge.label;
 
   const annualWording = `(?:سنويين|سنوين|سنويا|سنوي(?:اً|ًا)?|بالسن(?:ة|ه))`;
+  const rentedWording = `م(?:ؤ|و|أ|ا)جر(?:ة)?`;
   const annualPatterns = [
     incomeLabeled(`الدخل\\s+السنوي(?:\\s+الحالي)?|الدخل\\s+الحالي|الايجار\\s+السنوي|الإيجار\\s+السنوي|صافي\\s+الدخل|الدخل(?:\\s+الصافي|\\s+الإجمالي|\\s+الاجمالي)?|المدخول|مدخول|(?:ب)?دخل(?:ه|ها)?(?:\\s+السنوي)?`),
-    `(?<!غير\\s)(?:العقار\\s+)?مؤجر(?:ة)?(?:\\s+حاليا)?(?:\\s+${annualWording})?\\s*(?:ب(?:مبلغ|قيمة|(?:ـ|[\\u064b-\\u065f])*))?\\s*[:\\-]?\\s*${amount}`,
-    `(?<!غير\\s)(?:العقار\\s+)?مؤجر(?:ة)?\\s+بعقود?\\s+سنوية[^\\d\\n]{0,30}${amount}`,
+    `(?<!غير\\s)(?:العقار\\s+)?${rentedWording}(?:\\s+(?:حاليا|بالكامل))*(?:\\s+${annualWording})?\\s*(?:ب(?:مبلغ|قيمة|(?:ـ|[\\u064b-\\u065f])*))?\\s*[:\\-]?\\s*${amount}`,
+    `(?<!غير\\s)(?:العقار\\s+)?${rentedWording}\\s+بعقود?\\s+سنوية[^\\d\\n]{0,30}${amount}`,
     `(?:تم\\s+)?تأجير(?:\\s+كامل)?[^\\d\\n]{0,40}?بمبلغ\\s*${amount}`,
   ];
   const monthlyPatterns = [incomeLabeled(`(?:إجمالي\\s+)?(?:الدخل|الإيجار)\\s+الشهري(?:\\s+الحالي)?`)];
@@ -611,7 +612,16 @@ export function parseListing(html: string, url: string, propertyType: string): L
   };
   const descriptionIncome = incomeFrom(desc), structuredIncome = incomeFrom(structured);
   const selectedIncome = descriptionIncome.value != null ? descriptionIncome : structuredIncome;
-  const income = selectedIncome.value, match = selectedIncome.match;
+  const match = selectedIncome.match;
+  const incomeAmountTail = match.index >= 0
+    ? match.source.slice(match.index + match.raw.length, match.index + match.raw.length + 18)
+    : "";
+  const incomeHasExplicitUnit = /(?:الف|ألف|مليون|ريال|﷼|sar)/i.test(match.raw)
+    || /^\s*(?:الف|ألف|مليون(?:ين|ان)?|ريال|﷼|sar)(?=\s|[،,.;]|$)/i.test(incomeAmountTail);
+  const income = selectedIncome.value != null && selectedIncome.value < 10_000
+    && !incomeHasExplicitUnit
+    ? expandAbbreviatedAmount(selectedIncome.value, price ?? undefined) ?? selectedIncome.value
+    : selectedIncome.value;
   const context = match.index >= 0 ? match.source.slice(Math.max(0, match.index - 55), match.index + match.raw.length + 70) : "";
   const incomeKind = income == null ? "unknown" : /متوقع|المتوقع|يمكن|قابل للزيادة|بعد|يصل|يوصل|تقريبي/.test(context) ? "expected" : "actual";
   const rentalListing = decodeURIComponent(new URL(url).pathname).includes("للإيجار");
