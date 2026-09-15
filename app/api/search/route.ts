@@ -11,14 +11,30 @@ function errorMessage(status: number) {
   if (status === 401 || status === 403) return `منع موقع عقار القراءة الآلية مؤقتًا (${status}). لن تحاول الأداة تجاوز الحماية.`;
   return `تعذر قراءة موقع عقار (${status}).`;
 }
-async function fetchAqar(url: string) {
-  const response = await fetch(url, { headers: { "Accept": "text/html,application/xhtml+xml", "Accept-Language": "ar-SA,ar;q=0.9", "User-Agent": "Mozilla/5.0 (compatible; AqarResearchTool/1.0; respectful batch reader)" }, redirect: "follow" });
-  if (!response.ok) throw new Error(errorMessage(response.status));
-  const html = await response.text();
-  if (/captcha|تحقق أنك لست روبوت|سجل الدخول للمتابعة/i.test(html)) throw new Error("طلب موقع عقار تحققًا أو تسجيل دخول؛ توقف الجمع دون تجاوز الحماية.");
-  return html;
-}
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const AQAR_TRANSIENT_RETRY_MS = 1_400;
+const transientRequestPatternError = (error: unknown) => error instanceof Error
+  && /the string did not match the expected pattern/i.test(error.message);
+
+async function fetchAqar(url: string) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await fetch(url, { headers: { "Accept": "text/html,application/xhtml+xml", "Accept-Language": "ar-SA,ar;q=0.9", "User-Agent": "Mozilla/5.0 (compatible; AqarResearchTool/1.0; respectful batch reader)" }, redirect: "follow" });
+      if (!response.ok) throw new Error(errorMessage(response.status));
+      const html = await response.text();
+      if (/captcha|تحقق أنك لست روبوت|سجل الدخول للمتابعة/i.test(html)) throw new Error("طلب موقع عقار تحققًا أو تسجيل دخول؛ توقف الجمع دون تجاوز الحماية.");
+      return html;
+    } catch (error) {
+      if (attempt === 0 && transientRequestPatternError(error)) {
+        await pause(AQAR_TRANSIENT_RETRY_MS);
+        continue;
+      }
+      if (transientRequestPatternError(error)) throw new Error("تعذر الاتصال مؤقتًا بمنصة عقار بعد إعادة المحاولة.");
+      throw error;
+    }
+  }
+  throw new Error("تعذر الاتصال مؤقتًا بمنصة عقار بعد إعادة المحاولة.");
+}
 
 export async function POST(request: Request) {
   try {

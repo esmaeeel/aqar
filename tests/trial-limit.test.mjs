@@ -65,3 +65,13 @@ test("requires one reservation before the search requests are sent", async () =>
   assert.ok(tokenCheck >= 0 && tokenCheck < externalFetch);
   assert.match(searchRoute, /request\.headers\.get\("x-aqar-device-id"\)/);
 });
+
+test("يبقي الطلبات سريعة ويبطئ فقط عند خطأ الاتصال المؤقت", async () => {
+  const searchRoute = await read("app/api/search/route.ts");
+
+  assert.match(searchRoute, /if\s*\(i\)\s*await pause\(350\)/);
+  assert.match(searchRoute, /const AQAR_TRANSIENT_RETRY_MS = 1_400/);
+  assert.match(searchRoute, /attempt === 0 && transientRequestPatternError\(error\)/);
+  assert.match(searchRoute, /await pause\(AQAR_TRANSIENT_RETRY_MS\)/);
+  assert.doesNotMatch(searchRoute, /const AQAR_REQUEST_GAP_MS = 1_400/);
+});
