@@ -313,3 +313,11 @@ test("refreshes from a deliberate downward pull without stealing horizontal tabl
   assert.match(styles, /html,body\{overscroll-behavior-y:auto\}/);
   assert.match(styles, /@media \(hover:none\),\(pointer:coarse\)\{html,body\{overscroll-behavior-y:none\}\.pullRefreshRoot\{will-change:transform\}\}/);
 });
+
+test("retries the iPhone request-pattern failure once before stopping clearly", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /CLIENT_TRANSIENT_RETRY_MS=1_400/);
+  assert.match(page, /attempt===0&&transientRequestPatternError\(error\)/);
+  assert.match(page, /requestSearchPage\(\{filters:clean/);
+  assert.match(page, /تعذر الاتصال مؤقتًا بمنصة عقار بعد إعادة المحاولة/);
+});
