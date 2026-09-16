@@ -238,7 +238,7 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
   const rowUsesRooms=(row:Listing)=>roomMode||(mixedCountMode&&ROOM_TYPES.has(row.propertyType));
   const hiddenColumns=hiddenResultColumnKeys(propertyType,purpose);
   const columns:TableColumn[]=[
-    {key:"neighborhood",label:"الحي",value:r=>r.neighborhood||null,render:r=>r.neighborhood||"غير مذكور"},
+    {key:"neighborhood",label:"المدينة/الحي",value:r=>[r.city,r.neighborhood].filter(Boolean).join("/")||null,render:r=>[r.city,r.neighborhood].filter(Boolean).join("/")||"غير مذكور"},
     {key:"price",label:"السعر",value:r=>r.price,render:r=>fmt(r.price),className:"money priceActionColumn"},
     {key:"income",label:"الدخل السنوي",value:r=>r.income,render:r=>fmt(r.income)},
     {key:"yieldPct",label:"العائد",value:r=>r.yieldPct,render:r=>r.yieldPct==null?"غير مذكور":`${fmt(r.yieldPct,2)}%${r.incomeKind==="expected"?" متوقع":""}`},

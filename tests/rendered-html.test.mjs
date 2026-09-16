@@ -268,13 +268,14 @@ test("syncs saved search profiles and result groups through the same shared link
   assert.match(sharedStorage, /Access-Control-Allow-Origin/);
 });
 
-test("shows the neighborhood and keeps resizable result-column widths locally", async () => {
+test("shows the city with the neighborhood and keeps resizable result-column widths locally", async () => {
   const [page, styles] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /key:"neighborhood",label:"الحي"/);
+  assert.match(page, /key:"neighborhood",label:"المدينة\/الحي"/);
+  assert.match(page, /\[r\.city,r\.neighborhood\]\.filter\(Boolean\)\.join\("\/"\)/);
   assert.match(page, /DEFAULT_COLUMN_WIDTHS:Record<ColumnKey,number>/);
   assert.match(page, /MIN_COLUMN_WIDTHS:Record<ColumnKey,number>/);
   assert.match(page, /clampColumnWidth/);
