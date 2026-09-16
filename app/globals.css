@@ -214,9 +214,6 @@
 .archivedTableWrap{max-height:52vh}
 @media (hover:hover) and (pointer:fine){.rowArchiveButton{opacity:0;pointer-events:none}.resultsTable tbody tr:hover .rowArchiveButton,.resultsTable tbody tr:focus-within .rowArchiveButton{opacity:1;pointer-events:auto}}
 
-.resultsTable thead th:first-child{position:sticky;inset-inline-start:0;z-index:7;box-shadow:-5px 0 9px rgba(22,49,45,.12)}
-.resultsTable tbody td:first-child{position:sticky;inset-inline-start:0;z-index:2;box-shadow:-5px 0 9px rgba(22,49,45,.1)}
-.resultsTable tbody tr:has(.rowActionMenu[open])>td:first-child{position:sticky;inset-inline-start:0;z-index:10}
 
 .pullRefreshRoot{position:relative;min-height:100vh}
 .pullRefreshRoot.pullRefreshSettled{transition:transform .2s ease}
@@ -226,21 +223,23 @@
 .pullRefreshIndicator.refreshing .pullRefreshIcon{animation:pullRefreshSpin .7s linear infinite}
 @keyframes pullRefreshSpin{to{transform:rotate(360deg)}}
 html,body{overscroll-behavior-y:auto}
-@media (hover:none),(pointer:coarse){html,body{overscroll-behavior-y:none}.pullRefreshRoot{will-change:transform}}
+@media (hover:none),(pointer:coarse){html,body{overscroll-behavior-y:none}.pullRefreshRoot:not(.pullRefreshSettled){will-change:transform}}
 @media (hover:hover) and (pointer:fine){.pullRefreshIndicator{display:none}}
 
-/* Keep the user-selected first column painted above horizontally scrolling cells on iOS. */
-.resultsTableWrap{isolation:isolate}
-.resultsTable thead th:first-child{position:-webkit-sticky;position:sticky;right:0;left:auto;inset-inline-start:0;z-index:9;background-clip:padding-box;-webkit-transform:translateZ(0);transform:translateZ(0);backface-visibility:hidden}
-.resultsTable tbody td:first-child{position:-webkit-sticky;position:sticky;right:0;left:auto;inset-inline-start:0;z-index:5;background-clip:padding-box;-webkit-transform:translateZ(0);transform:translateZ(0);backface-visibility:hidden}
-.resultsTable tbody tr:has(.rowActionMenu[open])>td:first-child{position:-webkit-sticky;position:sticky;right:0;left:auto;inset-inline-start:0;z-index:10}
-@media (hover:none),(pointer:coarse){.pullRefreshRoot{will-change:auto}.pullRefreshRoot:not(.pullRefreshSettled){will-change:transform}}
 
-/* Safari can clip text inside a sticky table cell during momentum scrolling. */
-.resultsTableWrap{-webkit-overflow-scrolling:auto}
-.resultsTable thead th:first-child{-webkit-transform:none;transform:none;backface-visibility:visible}
-.resultsTable tbody td:first-child{overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere;-webkit-transform:none;transform:none;backface-visibility:visible}
-.resultsTable tbody tr:hover td:first-child{filter:none}
+
+/* The frozen column has its own viewport: never horizontally sticky in RTL. */
+.resultsTableFrame{position:relative;min-width:0}
+.resultsTableFrame.withPinnedColumn>.resultsTableWrap th:first-child,.resultsTableFrame.withPinnedColumn>.resultsTableWrap td:first-child{visibility:hidden}
+.resultsPinnedPane{position:absolute;top:1px;right:1px;bottom:1px;z-index:10;visibility:hidden;overflow-x:hidden;overflow-y:auto;scrollbar-width:none;border-radius:0 13px 13px 0;box-shadow:-5px 0 9px rgba(22,49,45,.12);background:#fff;overscroll-behavior-x:contain;touch-action:pan-x pan-y}
+.resultsPinnedPane::-webkit-scrollbar{display:none}
+.pinnedResultsTable{width:100%;min-width:100%;margin:0}
+.pinnedResultsTable tbody td{overflow:hidden;text-overflow:ellipsis}
+.pinnedResultsTable td.priceActionColumn{overflow:visible}
+.pinnedResultsTable .rowActionMenu{position:static}
+.pinnedResultsTable .rowActionMenuList{inset-inline:0;min-width:0}
+.pinnedResultsTable .rowActionMenuList button{white-space:normal}
+.resultsTableFrame:has(.rowActionMenu[open])>.resultsTableWrap,.resultsTableFrame:has(.rowActionMenu[open])>.resultsPinnedPane{padding-bottom:78px;scroll-padding-bottom:78px}
 
 /* امنع اتساع صفحة الجوال خارج الشاشة، مع إبقاء تمرير جدول النتائج داخله فقط. */
 html,body{max-width:100%;overflow-x:hidden}

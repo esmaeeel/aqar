@@ -211,7 +211,7 @@ test("places all result actions in one row above the result key", async () => {
   assert.match(page, /FAVORITE_LISTINGS_KEY/);
   assert.match(page, /VIEWED_LISTING_IDS_KEY/);
   assert.match(page, /className="rowActionMenu"/);
-  assert.match(page, /viewedListingIds\.includes\(r\.listingId\)\?"viewedRow"/);
+  assert.match(page, /viewedListingIds\.includes\(row\.listingId\)\?"viewedRow"/);
   assert.match(styles, /\.resultsTable tbody tr\.viewedRow td,\.resultsTable tbody tr\.viewedRow td:first-child\{background:#fff\}/);
   assert.match(styles, /\.legend button\.near\{background:#ead4bb;color:#815529\}/);
   assert.match(styles, /\.resultsTable tbody tr\.near td\{background:#f3e1cf;color:var\(--ink\)\}/);
@@ -293,16 +293,6 @@ test("shows the city with the neighborhood and keeps resizable result-column wid
   assert.match(page, /onDoubleClick=\{event=>resetColumnWidth\(event,column\.key\)\}/);
   assert.match(styles, /table-layout:fixed/);
   assert.match(styles, /\.columnResizeHandle\{/);
-  assert.match(styles, /\.resultsTable thead th:first-child\{position:sticky;inset-inline-start:0;z-index:7/);
-  assert.match(styles, /\.resultsTable tbody td:first-child\{position:sticky;inset-inline-start:0;z-index:2/);
-  assert.match(styles, /\.resultsTableWrap\{isolation:isolate\}/);
-  assert.match(styles, /\.resultsTable thead th:first-child\{position:-webkit-sticky;position:sticky;right:0;left:auto;inset-inline-start:0;z-index:9/);
-  assert.match(styles, /\.resultsTable tbody td:first-child\{position:-webkit-sticky;position:sticky;right:0;left:auto;inset-inline-start:0;z-index:5/);
-  assert.match(styles, /\.resultsTable tbody td:first-child\{[^}]*-webkit-transform:translateZ\(0\);transform:translateZ\(0\);backface-visibility:hidden/);
-  assert.match(styles, /\.pullRefreshRoot\{will-change:auto\}\.pullRefreshRoot:not\(\.pullRefreshSettled\)\{will-change:transform\}/);
-  assert.match(styles, /\.resultsTableWrap\{-webkit-overflow-scrolling:auto\}/);
-  assert.match(styles, /\.resultsTable tbody td:first-child\{overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere;-webkit-transform:none;transform:none;backface-visibility:visible\}/);
-  assert.match(styles, /\.resultsTable tbody tr:hover td:first-child\{filter:none\}/);
 });
 
 test("exports visible results as a real Excel workbook", async () => {
@@ -328,7 +318,6 @@ test("refreshes from a deliberate downward pull without stealing horizontal tabl
   assert.match(page, /أفلت للتحديث/);
   assert.match(styles, /\.pullRefreshIndicator\{/);
   assert.match(styles, /html,body\{overscroll-behavior-y:auto\}/);
-  assert.match(styles, /@media \(hover:none\),\(pointer:coarse\)\{html,body\{overscroll-behavior-y:none\}\.pullRefreshRoot\{will-change:transform\}\}/);
 });
 
 test("retries the iPhone request-pattern failure once before stopping clearly", async () => {
