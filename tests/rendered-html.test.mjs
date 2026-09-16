@@ -288,6 +288,8 @@ test("shows the city with the neighborhood and keeps resizable result-column wid
   assert.match(page, /onDoubleClick=\{event=>resetColumnWidth\(event,column\.key\)\}/);
   assert.match(styles, /table-layout:fixed/);
   assert.match(styles, /\.columnResizeHandle\{/);
+  assert.match(styles, /\.resultsTable thead th:first-child\{position:sticky;inset-inline-start:0;z-index:7/);
+  assert.match(styles, /\.resultsTable tbody td:first-child\{position:sticky;inset-inline-start:0;z-index:2/);
 });
 
 test("exports visible results as a real Excel workbook", async () => {

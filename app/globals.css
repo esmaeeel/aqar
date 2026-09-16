@@ -214,6 +214,10 @@
 .archivedTableWrap{max-height:52vh}
 @media (hover:hover) and (pointer:fine){.rowArchiveButton{opacity:0;pointer-events:none}.resultsTable tbody tr:hover .rowArchiveButton,.resultsTable tbody tr:focus-within .rowArchiveButton{opacity:1;pointer-events:auto}}
 
+.resultsTable thead th:first-child{position:sticky;inset-inline-start:0;z-index:7;box-shadow:-5px 0 9px rgba(22,49,45,.12)}
+.resultsTable tbody td:first-child{position:sticky;inset-inline-start:0;z-index:2;box-shadow:-5px 0 9px rgba(22,49,45,.1)}
+.resultsTable tbody tr:has(.rowActionMenu[open])>td:first-child{position:sticky;inset-inline-start:0;z-index:10}
+
 .pullRefreshRoot{position:relative;min-height:100vh}
 .pullRefreshRoot.pullRefreshSettled{transition:transform .2s ease}
 .pullRefreshIndicator{position:absolute;top:-50px;left:50%;transform:translateX(-50%);height:38px;display:flex;align-items:center;gap:8px;padding:7px 13px;border:1px solid #b7c7c1;border-radius:999px;background:rgba(255,255,255,.97);color:var(--green);box-shadow:0 8px 24px rgba(24,55,49,.14);font-size:.78rem;font-weight:800;white-space:nowrap;pointer-events:none}
