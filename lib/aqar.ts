@@ -441,18 +441,19 @@ function roomCounts(source: string) {
   const majlis = countNamed(source, "مجلس"), maqlat = countNamed(source, "مقلط");
   return { rooms: bedrooms == null ? null : bedrooms + majlis + maqlat, bedrooms, majlis, maqlat };
 }
-function totalBuildingRooms(source: string) {
+function totalBuildingRooms(source: string, acceptGenericRoomCount = false) {
   return first(source, [
     labeled(`(?:إجمالي|اجمالي|الإجمالي|الاجمالي|مجموع)\\s+(?:عدد\\s+)?الغرف`),
     labeled(`عدد\\s+الغرف\\s+(?:الإجمالي|الاجمالي|الكلي)`),
     `([\\d,.]+)\\s*(?:غرفة|غرف)\\s*(?:إجمالاً|اجمالا|بالمجموع)`,
+    ...(acceptGenericRoomCount ? [labeled(`عدد\\s+الغرف(?:\\s+النوم)?`)] : []),
   ]).value;
 }
 function ageFromSource(source: string) {
   const n = normalizeDigits(source).toLowerCase().replace(/ـ/g, "").replace(/[\u064b-\u065f\u0670]/g, "")
     .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/[^\S\n]+/g, " ").replace(/\n +/g, "\n").trim();
   const labels = `عمر\\s*(?:العقار|العمارة|العماره|الفيلا|الشقة|الشقه|الدور|الورشة|الورشه)|عمرها|عمره|العمر`;
-  const qualified = n.match(new RegExp(`(?:${labels})[^\\d\\n]{0,24}?(?:(اكثر\\s+من|فوق)\\s*)?([\\d]{1,3})\\s*(?:سنه|سنوات|عام|اعوام)`, "i"));
+  const qualified = n.match(new RegExp(`(?:${labels})[^\\d\\n]{0,24}?(?:(اكثر\\s+من|فوق)\\s*)?([\\d]{1,3})\\s*(?:سن[هة]|سنوات|عام|اعوام)`, "i"));
   const fieldGap = `[ \\t:：\\-–—]*(?:\\n[ \\t]*)?`;
   const bareField = n.match(new RegExp(`(?:${labels})${fieldGap}(?:(اكثر\\s+من|فوق)\\s*)?([\\d]{1,3})(?=\\s*(?:\\n|$))`, "i"));
   const m = qualified ?? bareField;
@@ -576,7 +577,8 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const descriptionRooms = roomCounts(desc), structuredRooms = roomCounts(structured);
   const selectedRooms = descriptionRooms.rooms != null ? descriptionRooms : structuredRooms;
   const { rooms, bedrooms, majlis, maqlat } = selectedRooms;
-  const descriptionTotalRooms = totalBuildingRooms(desc), structuredTotalRooms = totalBuildingRooms(structured);
+  const buildingRoomCount = propertyType === "عمارة";
+  const descriptionTotalRooms = totalBuildingRooms(desc, buildingRoomCount), structuredTotalRooms = totalBuildingRooms(structured, buildingRoomCount);
   const totalRooms = preferDescription(descriptionTotalRooms, structuredTotalRooms);
 
   const meterLabels = `عدد\\s+عدادات\\s+الكهرباء|عدادات\\s+الكهرباء|عدد\\s+العدادات`;
