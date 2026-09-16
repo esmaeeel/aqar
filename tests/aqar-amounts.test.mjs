@@ -644,11 +644,11 @@ test("يفصل الحد الأدنى للشقق عن الحد الأدنى لل�
 test("يطابق أعمدة النتائج الشروط الظاهرة لكل نوع عقار", () => {
   assert.deepEqual([...hiddenResultColumnKeys("عمارة", "sale")], []);
   assert.deepEqual([...hiddenResultColumnKeys("عام", "sale")], []);
-  assert.deepEqual([...hiddenResultColumnKeys("فيلا", "sale")].sort(), ["commercialShops", "density", "meters"]);
-  assert.deepEqual([...hiddenResultColumnKeys("شقة", "sale")].sort(), ["commercialShops", "density", "floors", "meters"]);
-  assert.deepEqual([...hiddenResultColumnKeys("دور", "sale")].sort(), ["commercialShops", "density", "floors", "meters"]);
+  assert.deepEqual([...hiddenResultColumnKeys("فيلا", "sale")].sort(), ["commercialShops", "count", "density", "meters"]);
+  assert.deepEqual([...hiddenResultColumnKeys("شقة", "sale")].sort(), ["commercialShops", "count", "density", "floors", "meters"]);
+  assert.deepEqual([...hiddenResultColumnKeys("دور", "sale")].sort(), ["commercialShops", "count", "density", "floors", "meters"]);
   for (const propertyType of ["استراحة", "شاليه"])
-    assert.deepEqual([...hiddenResultColumnKeys(propertyType, "sale")].sort(), ["commercialShops", "density", "meters"]);
+    assert.deepEqual([...hiddenResultColumnKeys(propertyType, "sale")].sort(), ["commercialShops", "count", "density", "meters"]);
   assert.deepEqual([...hiddenResultColumnKeys("أرض", "sale")].sort(), ["age", "commercialShops", "count", "density", "floors", "meters", "yieldPct"]);
   for (const propertyType of ["مستودع", "ورشة", "محل", "مكتب", "استوديو", "غرفة"])
     assert.deepEqual([...hiddenResultColumnKeys(propertyType, "sale")].sort(), ["commercialShops", "count", "density", "floors", "meters"]);

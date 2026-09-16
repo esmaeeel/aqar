@@ -155,7 +155,7 @@ export default function Home(){
       <div className="trialNotice" aria-live="polite"><span>{trial?`المتبقي ${trial.remaining} من ${trial.limit} عملية بحث`:`المتبقي 100 من 100 عملية بحث`}</span>{trial?.globalRemaining===0?<span>انتهى الحد الإجمالي للتجربة.</span>:trial?.remaining===0?<span>استخدم هذا المتصفح جميع عملياته.</span>:null}</div>
       <div className="run"><label className="listingLimit runListingLimit">أقصى إعلانات<input type="number" min="5" max="500" value={filters.maxListings||""} onChange={e=>update("maxListings",inputNumber(e.target.value))}/></label><button className="primary" disabled={busy||trialBlocked} onClick={search}>{busy?"جارٍ البحث…":trial?.globalRemaining===0?"انتهت التجربة":trial?.remaining===0?"انتهى حد هذا المتصفح":"ابدأ البحث"}</button></div>{busy&&<progress value={progress} max="100"/>}{message&&<div className="status">{message}</div>}{warnings.length>0&&<details className="warnings"><summary>ملاحظات أثناء القراءة ({warnings.length})</summary>{warnings.map((w,i)=><p key={i}>{w}</p>)}</details>}
     </section>
-    <Results rows={results} roomMode={ROOM_TYPES.has(filters.propertyType)} propertyType={filters.propertyType} purpose={filters.purpose} cities={[...new Set(filters.locations.map(location=>location.city.trim()).filter(Boolean))]} onSave={saveResults} saveDisabled={!results.length||savingResults} saving={savingResults} searchBusy={busy} saveFeedback={resultSaveFeedback} onShowSaved={loadSets} onExport={exportExcel} exportingExcel={exportingExcel}/>
+    <Results rows={results} propertyType={filters.propertyType} purpose={filters.purpose} cities={[...new Set(filters.locations.map(location=>location.city.trim()).filter(Boolean))]} onSave={saveResults} saveDisabled={!results.length||savingResults} saving={savingResults} searchBusy={busy} saveFeedback={resultSaveFeedback} onShowSaved={loadSets} onExport={exportExcel} exportingExcel={exportingExcel}/>
     {tab==="saved"&&<section className="panel saved" id="saved-results"><div className="sectionHead"><div><h2>المجموعات المحفوظة</h2><p>لا تُحفظ النتائج إلا عند ضغط زر الحفظ.</p></div><button className="ghost" onClick={()=>setTab("search")}>إخفاء المجموعات</button></div>{sets.length?sets.map(s=><article className="savedRow" key={s.id}><div><strong>{s.name}</strong><small>{s.propertyType} · {s.count} نتيجة</small></div><div><button onClick={()=>openSet(s)}>فتح</button><button className="danger" onClick={()=>deleteSet(s.id)}>حذف المجموعة</button></div></article>):<div className="empty">لا توجد مجموعات محفوظة بعد.</div>}</section>}
     <footer>أداة مستقلة · لا تتجاوز تسجيل الدخول أو حماية موقع عقار · البيانات غير المذكورة تبقى «غير مذكور»</footer>
   </main>
@@ -193,7 +193,7 @@ const DEFAULT_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:132,price:116
 const MIN_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:92,price:96,income:96,yieldPct:68,area:78,sqmPrice:78,count:72,housingUnits:90,commercialShops:100,totalRooms:88,meters:70,floors:68,street:80,density:90,age:68};
 const clampColumnWidth=(key:ColumnKey,width:number)=>Math.max(MIN_COLUMN_WIDTHS[key],Math.min(MAX_COLUMN_WIDTH,Math.round(width)));
 
-function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,saving,searchBusy,saveFeedback,onShowSaved,onExport,exportingExcel}:{rows:Listing[];roomMode:boolean;propertyType:string;purpose:Filters["purpose"];cities:string[];onSave:(rows:Listing[])=>void;saveDisabled:boolean;saving:boolean;searchBusy:boolean;saveFeedback:ResultSaveFeedback|null;onShowSaved:()=>void;onExport:(rows:Listing[])=>void;exportingExcel:boolean}){
+function Results({rows,propertyType,purpose,cities,onSave,saveDisabled,saving,searchBusy,saveFeedback,onShowSaved,onExport,exportingExcel}:{rows:Listing[];propertyType:string;purpose:Filters["purpose"];cities:string[];onSave:(rows:Listing[])=>void;saveDisabled:boolean;saving:boolean;searchBusy:boolean;saveFeedback:ResultSaveFeedback|null;onShowSaved:()=>void;onExport:(rows:Listing[])=>void;exportingExcel:boolean}){
   const [preferredStatus,setPreferredStatus]=useState<Listing["status"]|null>(null);
   const [viewedListingIds,setViewedListingIds]=useState<string[]>([]);
   const [sort,setSort]=useState<{key:ColumnKey;direction:"asc"|"desc"}|null>(null);
@@ -239,8 +239,6 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
     return()=>{cancelled=true;syncReadyRef.current=false};
   },[archivedLoaded,favoritesLoaded,viewedListingsLoaded]);
   const rentalSearch=purpose==="rent";
-  const mixedCountMode=propertyType==="عام";
-  const rowUsesRooms=(row:Listing)=>roomMode||(mixedCountMode&&ROOM_TYPES.has(row.propertyType));
   const hiddenColumns=hiddenResultColumnKeys(propertyType,purpose);
   const columns:TableColumn[]=[
     {key:"neighborhood",label:"المدينة/الحي",value:r=>[r.city,r.neighborhood].filter(Boolean).join("/")||null,render:r=>[r.city,r.neighborhood].filter(Boolean).join("/")||"غير مذكور"},
@@ -249,7 +247,7 @@ function Results({rows,roomMode,propertyType,purpose,cities,onSave,saveDisabled,
     {key:"yieldPct",label:"العائد",value:r=>r.yieldPct,render:r=>r.yieldPct==null?"غير مذكور":`${fmt(r.yieldPct,2)}%${r.incomeKind==="expected"?" متوقع":""}`},
     {key:"area",label:"المساحة",value:r=>r.area,render:r=>r.area==null?"غير مذكور":`${fmt(r.area,1)} م²`},
     {key:"sqmPrice",label:"سعر المتر",value:r=>r.sqmPrice,render:r=>r.sqmPrice==null?"":fmt(r.sqmPrice,2)},
-    {key:"count",label:mixedCountMode?"شقق / غرف":roomMode?"الغرف":"الشقق",value:r=>rowUsesRooms(r)?r.rooms:r.apartments,render:r=>{const usesRooms=rowUsesRooms(r);return <>{fmt(usesRooms?r.rooms:r.apartments)}{usesRooms&&r.rooms!=null&&<small>{fmt(r.bedrooms)} غرفة + {r.majlis} مجلس + {r.maqlat} مقلط</small>}</>}},
+    {key:"count",label:"شقق",value:r=>r.apartments,render:r=>fmt(r.apartments)},
     {key:"housingUnits",label:"وحدة سكنية",value:r=>r.housingUnits,render:r=>fmt(r.housingUnits)},
     {key:"commercialShops",label:"المحلات",value:r=>r.commercialShops,render:r=>fmt(r.commercialShops)},
     {key:"totalRooms",label:"إجمالي الغرف",value:r=>r.totalRooms,render:r=>fmt(r.totalRooms)},

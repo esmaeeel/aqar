@@ -89,6 +89,7 @@ export function hiddenNumericFilterKeys(propertyType: string, purpose: Filters["
 export function hiddenResultColumnKeys(propertyType: string, purpose: Filters["purpose"]): Set<string> {
   const filterToColumn: Partial<Record<keyof Filters, string>> = {
     minMeters: "meters",
+    minApartments: "count",
     minCommercialShops: "commercialShops",
     minFloors: "floors",
     minDensity: "density",
@@ -101,8 +102,6 @@ export function hiddenResultColumnKeys(propertyType: string, purpose: Filters["p
       .map(key => filterToColumn[key])
       .filter((key): key is string => Boolean(key)),
   );
-  const hiddenFilters = hiddenNumericFilterKeys(propertyType, purpose);
-  if (hiddenFilters.has("minApartments") && hiddenFilters.has("minRooms")) hiddenColumns.add("count");
   return hiddenColumns;
 }
 
