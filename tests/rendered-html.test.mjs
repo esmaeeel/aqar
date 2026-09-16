@@ -300,6 +300,9 @@ test("shows the city with the neighborhood and keeps resizable result-column wid
   assert.match(styles, /\.resultsTable tbody td:first-child\{position:-webkit-sticky;position:sticky;right:0;left:auto;inset-inline-start:0;z-index:5/);
   assert.match(styles, /\.resultsTable tbody td:first-child\{[^}]*-webkit-transform:translateZ\(0\);transform:translateZ\(0\);backface-visibility:hidden/);
   assert.match(styles, /\.pullRefreshRoot\{will-change:auto\}\.pullRefreshRoot:not\(\.pullRefreshSettled\)\{will-change:transform\}/);
+  assert.match(styles, /\.resultsTableWrap\{-webkit-overflow-scrolling:auto\}/);
+  assert.match(styles, /\.resultsTable tbody td:first-child\{overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere;-webkit-transform:none;transform:none;backface-visibility:visible\}/);
+  assert.match(styles, /\.resultsTable tbody tr:hover td:first-child\{filter:none\}/);
 });
 
 test("exports visible results as a real Excel workbook", async () => {

@@ -236,6 +236,12 @@ html,body{overscroll-behavior-y:auto}
 .resultsTable tbody tr:has(.rowActionMenu[open])>td:first-child{position:-webkit-sticky;position:sticky;right:0;left:auto;inset-inline-start:0;z-index:10}
 @media (hover:none),(pointer:coarse){.pullRefreshRoot{will-change:auto}.pullRefreshRoot:not(.pullRefreshSettled){will-change:transform}}
 
+/* Safari can clip text inside a sticky table cell during momentum scrolling. */
+.resultsTableWrap{-webkit-overflow-scrolling:auto}
+.resultsTable thead th:first-child{-webkit-transform:none;transform:none;backface-visibility:visible}
+.resultsTable tbody td:first-child{overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere;-webkit-transform:none;transform:none;backface-visibility:visible}
+.resultsTable tbody tr:hover td:first-child{filter:none}
+
 /* امنع اتساع صفحة الجوال خارج الشاشة، مع إبقاء تمرير جدول النتائج داخله فقط. */
 html,body{max-width:100%;overflow-x:hidden}
 main{width:100%;min-width:0}
