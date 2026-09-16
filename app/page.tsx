@@ -185,8 +185,8 @@ function LocationAutocomplete({location,index,onChange,onAdd,onRemove}:{location
 
 type ColumnKey="neighborhood"|"price"|"income"|"yieldPct"|"area"|"sqmPrice"|"count"|"housingUnits"|"commercialShops"|"totalRooms"|"meters"|"floors"|"street"|"density"|"age";
 type TableColumn={key:ColumnKey;label:string;value:(row:Listing)=>string|number|null;render:(row:Listing)=>ReactNode;className?:string};
-const DEFAULT_COLUMN_ORDER:ColumnKey[]=["neighborhood","count","housingUnits","commercialShops","totalRooms","meters","floors","street","area","price","income","yieldPct","density","age","sqmPrice"];
-const COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v7";
+const DEFAULT_COLUMN_ORDER:ColumnKey[]=["price","area","age","income","yieldPct","sqmPrice","count","meters","street","totalRooms","housingUnits","commercialShops","floors","neighborhood","density"];
+const COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v8";
 const COLUMN_WIDTHS_KEY="aqar-mobile-table-column-widths-v1";
 const MAX_COLUMN_WIDTH=360;
 const DEFAULT_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:132,price:116,income:108,yieldPct:76,area:88,sqmPrice:90,count:94,housingUnits:96,commercialShops:112,totalRooms:96,meters:76,floors:72,street:88,density:100,age:72};

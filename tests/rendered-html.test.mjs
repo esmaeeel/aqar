@@ -276,6 +276,8 @@ test("shows the city with the neighborhood and keeps resizable result-column wid
 
   assert.match(page, /key:"neighborhood",label:"المدينة\/الحي"/);
   assert.match(page, /\[r\.city,r\.neighborhood\]\.filter\(Boolean\)\.join\("\/"\)/);
+  assert.match(page, /DEFAULT_COLUMN_ORDER:ColumnKey\[\]=\["price","area","age","income","yieldPct","sqmPrice","count","meters","street","totalRooms","housingUnits","commercialShops","floors","neighborhood","density"\]/);
+  assert.match(page, /COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v8"/);
   assert.match(page, /DEFAULT_COLUMN_WIDTHS:Record<ColumnKey,number>/);
   assert.match(page, /MIN_COLUMN_WIDTHS:Record<ColumnKey,number>/);
   assert.match(page, /clampColumnWidth/);
