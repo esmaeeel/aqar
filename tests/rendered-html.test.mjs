@@ -276,8 +276,11 @@ test("shows the city with the neighborhood and keeps resizable result-column wid
 
   assert.match(page, /key:"neighborhood",label:"المدينة\/الحي"/);
   assert.match(page, /\[r\.city,r\.neighborhood\]\.filter\(Boolean\)\.join\("\/"\)/);
-  assert.match(page, /DEFAULT_COLUMN_ORDER:ColumnKey\[\]=\["price","area","age","income","yieldPct","sqmPrice","count","meters","street","totalRooms","housingUnits","commercialShops","floors","neighborhood","density"\]/);
-  assert.match(page, /COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v8"/);
+  assert.match(page, /DEFAULT_COLUMN_ORDER:ColumnKey\[\]=\["price","area","age","income","yieldPct","sqmPrice","count","meters","street","totalRooms","housingUnits","commercialShops","floors","neighborhood","density","listingId"\]/);
+  assert.match(page, /COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v9"/);
+  assert.match(page, /key:"listingId",label:"رقم الإعلان"/);
+  assert.match(page, /setPrivateView\(Boolean\(syncSpace\(\)\)\)/);
+  assert.match(page, /privateView\|\|column\.key!=="listingId"/);
   assert.match(page, /key:"count",label:"شقق",value:r=>r\.apartments,render:r=>fmt\(r\.apartments\)/);
   assert.doesNotMatch(page, /شقق \/ غرف/);
   assert.match(page, /DEFAULT_COLUMN_WIDTHS:Record<ColumnKey,number>/);

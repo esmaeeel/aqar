@@ -183,14 +183,14 @@ function LocationAutocomplete({location,index,onChange,onAdd,onRemove}:{location
   </div>
 }
 
-type ColumnKey="neighborhood"|"price"|"income"|"yieldPct"|"area"|"sqmPrice"|"count"|"housingUnits"|"commercialShops"|"totalRooms"|"meters"|"floors"|"street"|"density"|"age";
+type ColumnKey="neighborhood"|"price"|"income"|"yieldPct"|"area"|"sqmPrice"|"count"|"housingUnits"|"commercialShops"|"totalRooms"|"meters"|"floors"|"street"|"density"|"age"|"listingId";
 type TableColumn={key:ColumnKey;label:string;value:(row:Listing)=>string|number|null;render:(row:Listing)=>ReactNode;className?:string};
-const DEFAULT_COLUMN_ORDER:ColumnKey[]=["price","area","age","income","yieldPct","sqmPrice","count","meters","street","totalRooms","housingUnits","commercialShops","floors","neighborhood","density"];
-const COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v8";
+const DEFAULT_COLUMN_ORDER:ColumnKey[]=["price","area","age","income","yieldPct","sqmPrice","count","meters","street","totalRooms","housingUnits","commercialShops","floors","neighborhood","density","listingId"];
+const COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v9";
 const COLUMN_WIDTHS_KEY="aqar-mobile-table-column-widths-v1";
 const MAX_COLUMN_WIDTH=360;
-const DEFAULT_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:132,price:116,income:108,yieldPct:76,area:88,sqmPrice:90,count:94,housingUnits:96,commercialShops:112,totalRooms:96,meters:76,floors:72,street:88,density:100,age:72};
-const MIN_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:92,price:96,income:96,yieldPct:68,area:78,sqmPrice:78,count:72,housingUnits:90,commercialShops:100,totalRooms:88,meters:70,floors:68,street:80,density:90,age:68};
+const DEFAULT_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:132,price:116,income:108,yieldPct:76,area:88,sqmPrice:90,count:94,housingUnits:96,commercialShops:112,totalRooms:96,meters:76,floors:72,street:88,density:100,age:72,listingId:100};
+const MIN_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:92,price:96,income:96,yieldPct:68,area:78,sqmPrice:78,count:72,housingUnits:90,commercialShops:100,totalRooms:88,meters:70,floors:68,street:80,density:90,age:68,listingId:90};
 const clampColumnWidth=(key:ColumnKey,width:number)=>Math.max(MIN_COLUMN_WIDTHS[key],Math.min(MAX_COLUMN_WIDTH,Math.round(width)));
 
 function Results({rows,propertyType,purpose,cities,onSave,saveDisabled,saving,searchBusy,saveFeedback,onShowSaved,onExport,exportingExcel}:{rows:Listing[];propertyType:string;purpose:Filters["purpose"];cities:string[];onSave:(rows:Listing[])=>void;saveDisabled:boolean;saving:boolean;searchBusy:boolean;saveFeedback:ResultSaveFeedback|null;onShowSaved:()=>void;onExport:(rows:Listing[])=>void;exportingExcel:boolean}){
@@ -200,6 +200,7 @@ function Results({rows,propertyType,purpose,cities,onSave,saveDisabled,saving,se
   const [columnOrder,setColumnOrder]=useState<ColumnKey[]>(DEFAULT_COLUMN_ORDER);
   const [columnOrderLoaded,setColumnOrderLoaded]=useState(false);
   const [columnWidths,setColumnWidths]=useState<Record<ColumnKey,number>>(DEFAULT_COLUMN_WIDTHS);
+  const [privateView,setPrivateView]=useState(false);
   const [columnWidthsLoaded,setColumnWidthsLoaded]=useState(false);
   const [archivedRows,setArchivedRows]=useState<Listing[]>([]);
   const [archivedLoaded,setArchivedLoaded]=useState(false);
@@ -219,6 +220,7 @@ function Results({rows,propertyType,purpose,cities,onSave,saveDisabled,saving,se
   useEffect(()=>{if(columnOrderLoaded)localStorage.setItem(COLUMN_ORDER_KEY,JSON.stringify(columnOrder))},[columnOrder,columnOrderLoaded]);
   useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(COLUMN_WIDTHS_KEY)||"{}") as Partial<Record<ColumnKey,number>>;setColumnWidths(Object.fromEntries(DEFAULT_COLUMN_ORDER.map(key=>[key,typeof stored[key]==="number"?clampColumnWidth(key,stored[key]!):DEFAULT_COLUMN_WIDTHS[key]])) as Record<ColumnKey,number>)}catch{/* تجاهل مقاسات محلية تالفة */}setColumnWidthsLoaded(true)},[]);
   useEffect(()=>{if(columnWidthsLoaded)localStorage.setItem(COLUMN_WIDTHS_KEY,JSON.stringify(columnWidths))},[columnWidths,columnWidthsLoaded]);
+  useEffect(()=>{setPrivateView(Boolean(syncSpace()))},[]);
   useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(ARCHIVED_LISTINGS_KEY)||"[]") as Listing[];if(Array.isArray(stored))setArchivedRows(stored.filter(row=>row&&typeof row.listingId==="string"&&typeof row.url==="string"))}catch{/* تجاهل أرشيفًا محليًا تالفًا */}setArchivedLoaded(true)},[]);
   useEffect(()=>{if(archivedLoaded)localStorage.setItem(ARCHIVED_LISTINGS_KEY,JSON.stringify(archivedRows))},[archivedRows,archivedLoaded]);
   useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(FAVORITE_LISTINGS_KEY)||"[]") as Listing[];if(Array.isArray(stored))setFavoriteRows(stored.filter(row=>row&&typeof row.listingId==="string"&&typeof row.url==="string"))}catch{/* تجاهل مفضلة محلية تالفة */}setFavoritesLoaded(true)},[]);
@@ -256,7 +258,8 @@ function Results({rows,propertyType,purpose,cities,onSave,saveDisabled,saving,se
     {key:"street",label:"عرض الشارع",value:r=>r.street,render:r=>r.street==null?"غير مذكور":`${fmt(r.street)} م`},
     {key:"density",label:"شقق/100م²",value:r=>r.density,render:r=>r.density==null?"غير مذكور":fmt(r.density,2)},
     {key:"age",label:"العمر",value:r=>r.age||null,render:r=>r.age?String(r.age).replace(/\s*(?:سنوات|سنة)\s*$/u,""):"غير مذكور"},
-  ].filter(column=>(propertyType==="عمارة"||propertyType==="عام"||!["housingUnits","commercialShops","totalRooms"].includes(column.key))&&(PRICE_PER_SQM_TYPES.has(propertyType)||column.key!=="sqmPrice")&&(!rentalSearch||!["income","yieldPct"].includes(column.key))&&!hiddenColumns.has(column.key));
+    {key:"listingId",label:"رقم الإعلان",value:r=>r.listingId,render:r=>r.listingId},
+  ].filter(column=>(privateView||column.key!=="listingId")&&(propertyType==="عمارة"||propertyType==="عام"||!["housingUnits","commercialShops","totalRooms"].includes(column.key))&&(PRICE_PER_SQM_TYPES.has(propertyType)||column.key!=="sqmPrice")&&(!rentalSearch||!["income","yieldPct"].includes(column.key))&&!hiddenColumns.has(column.key));
   const archivedIds=new Set(archivedRows.map(row=>row.listingId));
   const favoriteIds=new Set(favoriteRows.map(row=>row.listingId));
   const visibleRows=rows.filter(row=>!archivedIds.has(row.listingId));
