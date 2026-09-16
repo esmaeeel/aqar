@@ -229,6 +229,13 @@ html,body{overscroll-behavior-y:auto}
 @media (hover:none),(pointer:coarse){html,body{overscroll-behavior-y:none}.pullRefreshRoot{will-change:transform}}
 @media (hover:hover) and (pointer:fine){.pullRefreshIndicator{display:none}}
 
+/* Keep the user-selected first column painted above horizontally scrolling cells on iOS. */
+.resultsTableWrap{isolation:isolate}
+.resultsTable thead th:first-child{position:-webkit-sticky;position:sticky;right:0;left:auto;inset-inline-start:0;z-index:9;background-clip:padding-box;-webkit-transform:translateZ(0);transform:translateZ(0);backface-visibility:hidden}
+.resultsTable tbody td:first-child{position:-webkit-sticky;position:sticky;right:0;left:auto;inset-inline-start:0;z-index:5;background-clip:padding-box;-webkit-transform:translateZ(0);transform:translateZ(0);backface-visibility:hidden}
+.resultsTable tbody tr:has(.rowActionMenu[open])>td:first-child{position:-webkit-sticky;position:sticky;right:0;left:auto;inset-inline-start:0;z-index:10}
+@media (hover:none),(pointer:coarse){.pullRefreshRoot{will-change:auto}.pullRefreshRoot:not(.pullRefreshSettled){will-change:transform}}
+
 /* امنع اتساع صفحة الجوال خارج الشاشة، مع إبقاء تمرير جدول النتائج داخله فقط. */
 html,body{max-width:100%;overflow-x:hidden}
 main{width:100%;min-width:0}
