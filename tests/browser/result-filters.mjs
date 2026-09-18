@@ -38,6 +38,32 @@ try{
     return route.fulfill({status:response.status,body:await response.text(),contentType:'text/html'});
   });
   await page.goto('https://aqar.test/');
+  // Missing city highlights both requested fields without reserving a search.
+  const propertyInput=page.locator('.propertyKeywordsRow select');
+  const keywordInput=page.getByPlaceholder('مثل: دوبلكس، موقف، مطبخ، مكيف');
+  const cityInput=page.getByRole('combobox',{name:'المدينة',exact:true});
+  const startButton=page.getByRole('button',{name:'ابدأ البحث',exact:true});
+  const expectErrors=async expected=>{
+    for(const input of [propertyInput,keywordInput]){
+      assert.equal(await input.getAttribute('aria-invalid'),String(expected));
+      if(expected)assert.equal(await input.evaluate(element=>getComputedStyle(element).borderTopColor),'rgb(191, 48, 48)');
+    }
+  };
+  await expectErrors(false);
+  await startButton.click();await expectErrors(true);
+  assert.match(await page.locator('.status').textContent(),/أضف مدينة واحدة/);
+  await propertyInput.selectOption('عمارة');await expectErrors(true);
+  await keywordInput.fill('موقف');await expectErrors(true);
+  await cityInput.fill('الدمام');await cityInput.press('Tab');await expectErrors(false);
+  await page.getByRole('button',{name:'مسح الحقول',exact:true}).click();await expectErrors(false);
+  await page.getByRole('button',{name:'تجاري',exact:true}).click();
+  await startButton.click();await expectErrors(true);
+  await cityInput.fill('الدمام');await cityInput.press('Tab');await expectErrors(false);
+  await page.getByRole('button',{name:'تجاري',exact:true}).click();
+  await startButton.click();await expectErrors(true); // Existing general-keywords validation remains.
+  assert.match(await page.locator('.status').textContent(),/عند اختيار «عام»/);
+  await page.getByRole('button',{name:'مسح الحقول',exact:true}).click();await expectErrors(false);
+  assert.ok(requests.every(request=>request.startsWith('GET ')),'Invalid forms must not reserve quota');
   await page.getByRole('button',{name:'نتائج محفوظة',exact:true}).click();
   await page.getByRole('button',{name:'فتح',exact:true}).click();
   const main=page.getByRole('region',{name:'جدول مقارنة نتائج العقارات',exact:true});

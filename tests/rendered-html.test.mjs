@@ -95,8 +95,8 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(page, /split\(\/\[،,\]\//);
   assert.match(page, /عند اختيار «عام»/);
   assert.match(page, /setGeneralKeywordError\(true\);setMessage\("عند اختيار «عام»/);
-  assert.match(page, /className=\{generalKeywordError\?"generalKeywordError":undefined\}/);
-  assert.match(page, /aria-invalid=\{generalKeywordError\}/);
+  assert.match(page, /className=\{searchFieldsError\?"generalKeywordError":undefined\}/);
+  assert.match(page, /aria-invalid=\{searchFieldsError\}/);
   assert.match(page, /className="propertyKeywordsRow"/);
   assert.match(page, />كلمات للبحث<input/);
   assert.match(page, /placeholder="مثل: دوبلكس، موقف، مطبخ، مكيف"/);
