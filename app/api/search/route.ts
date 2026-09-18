@@ -56,6 +56,8 @@ export async function POST(request: Request) {
         const listingHtml = await fetchAqar(links[i].url);
         const parsed = reconcileListingAmounts(listingHtml, parseListing(listingHtml, links[i].url, parsedPropertyType));
         const item = evaluate(parsed, filters);
+        item.purpose = filters.purpose;
+        if (filters.commercialOnly) item.sourceCommercialOnly = true;
         if (!listingMatchesRequestedLocation(item.city, item.neighborhood, city, neighborhood)) {
           continue;
         }

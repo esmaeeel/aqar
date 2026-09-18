@@ -8,7 +8,7 @@ const require=createRequire(import.meta.url);
 const pw=require(process.env.AQAR_PLAYWRIGHT_MODULE||'playwright');
 const engine=process.env.AQAR_BROWSER||'webkit';
 const {default:worker}=await import('../../dist/server/index.js');
-const rows=Array.from({length:30},(_,i)=>({listingId:String(6837497+i),title:`عمارة اختبار ${i}`,url:`https://sa.aqar.fm/test-${6837497+i}`,city:'الخبر',neighborhood:'الثقبة',propertyType:'عمارة',price:2000000+i*10000,area:500+i,age:'16',income:160000,yieldPct:8,incomeKind:'actual',status:['مطابقة','قريبة','بيانات ناقصة'][i%3],apartments:10,score:1}));
+const rows=Array.from({length:30},(_,i)=>({listingId:String(6837497+i),title:`عمارة اختبار ${i}`,url:`https://sa.aqar.fm/test-${6837497+i}`,city:'الخبر',neighborhood:'الثقبة',propertyType:'عمارة',purpose:'sale',price:2000000+i*10000,area:500+i,age:'16',income:160000,yieldPct:8,incomeKind:'actual',status:['مطابقة','قريبة','بيانات ناقصة'][i%3],apartments:10,score:1}));
 const browser=await pw[engine].launch({headless:true,...(process.env.AQAR_BROWSER_EXECUTABLE?{executablePath:process.env.AQAR_BROWSER_EXECUTABLE}:{})});
 console.log(engine,'launched');
 try{

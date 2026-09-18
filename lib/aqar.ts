@@ -106,6 +106,7 @@ export function hiddenResultColumnKeys(propertyType: string, purpose: Filters["p
 }
 
 export type Listing = {
+  purpose?: Filters["purpose"]; sourceCommercialOnly?: boolean;
   listingId: string; url: string; title: string; city: string; neighborhood: string;
   propertyType: string; price: number | null; area: number | null; sqmPrice: number | null;
   apartments: number | null; housingUnits: number | null; commercialShops: number | null; rooms: number | null; totalRooms: number | null; bedrooms: number | null;
@@ -699,4 +700,29 @@ export function evaluate(item: Listing, f: Filters) {
   let near=true; for(const [v,lo,hi] of [[item.price,f.priceMin,f.priceMax],[item.sqmPrice,sqmMin,sqmMax],[item.area,f.areaMin,f.areaMax],[minAgeValue,minAge,0],[maxAgeValue,0,maxAge]] as [number|null,number,number][]){if(v==null)continue;if(lo>0&&v<lo*(1-NEAR_TOLERANCE))near=false;if(hi>0&&v>hi*(1+NEAR_TOLERANCE))near=false}
   for(const [v,min] of [[item.yieldPct,yieldMin],[item.meters,minMeters],[item.apartments,minApartments],[roomCount,minRooms],[count,minLegacyCount],[item.commercialShops,minCommercialShops],[item.floors,minFloors],[item.street,f.minStreet],[item.density,minDensity]] as [number|null,number][]){if(v!=null&&min>0&&v<min*(1-NEAR_TOLERANCE))near=false}
   item.nearEligible=near; return item;
+}
+
+// A view of the stored rows, never a mutation of the user's archive or saved set.
+export function filterResultRows(rows: Listing[], filters: Filters & { commercialOnly?: boolean }) {
+  const locations = filters.locations.filter(location => location.city.trim());
+  const hidden = hiddenNumericFilterKeys(filters.propertyType, filters.purpose);
+  const active = { ...filters, ...Object.fromEntries([...hidden].map(key => [key, 0])) };
+  return rows.flatMap(row => {
+    if (locations.length && !locations.some(location =>
+      row.city && canonicalCity(row.city) === canonicalCity(location.city)
+      && (!location.neighborhoods.filter(value => value.trim()).length
+        || location.neighborhoods.some(hood => neighborhoodsMatch(location.city, row.neighborhood || "", hood))))) return [];
+    const propertyType = row.propertyType && row.propertyType !== "عام"
+      ? row.propertyType : propertyTypeFromListingUrl(row.url);
+    if (filters.propertyType !== "عام" && propertyType !== filters.propertyType) return [];
+    const category = listingCategoryFromUrl(row.url);
+    const purpose = row.purpose || (category.endsWith("للبيع") ? "sale" : category.endsWith("للإيجار") ? "rent" : undefined);
+    if (purpose !== filters.purpose) return [];
+    // Only a source classification is evidence of «تجاري», not a word in the description.
+    if (filters.commercialOnly && row.sourceCommercialOnly !== true) return [];
+    const searchable = listingKeywordSearchableText({ ...row, propertyType });
+    if (filters.keywords.length && !filters.keywords.some(word => keywordMatches(word, searchable))) return [];
+    const result = evaluate({ ...row, propertyType }, active);
+    return (filters.mode === "strict" ? result.status === "مطابقة" : result.nearEligible) ? [result] : [];
+  });
 }
