@@ -52,7 +52,7 @@ test("requires one reservation before the search requests are sent", async () =>
   assert.doesNotMatch(page, /نسخ معرّف المتصفح|جارٍ تحديد المتصفح|navigator\.clipboard\.writeText\(browserId\)/);
   assert.doesNotMatch(page, /cooldownSeconds|nextAllowedAt|retryAfterSeconds/);
   assert.doesNotMatch(page, /تبدأ المدينة بـ«الرياض» وبقية الحقول فارغة عند كل فتح/);
-  assert.match(page, /locations:\[\{city:"الرياض",neighborhoods:\[\]\}\]/);
+  assert.match(page, /const defaults: SearchFilters = .*locations:\[\{city:"",neighborhoods:\[\]\}\]/);
   assert.match(page, /function clearFields\(\)\{setFilters\(\{\.\.\.defaults,locations:\[\{city:"",neighborhoods:\[\]\}\]\}\)/);
   assert.match(page, /placeSuggestions\(location\.city,CITY_NAMES\)/);
   assert.match(page, /!cityQuery\|\|CITY_NAMES\.includes\(cityQuery\)\?CITY_NAMES:placeSuggestions/);

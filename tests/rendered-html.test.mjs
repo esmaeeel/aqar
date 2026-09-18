@@ -36,6 +36,7 @@ test("server-renders the Arabic property search site and browser limits", async 
   assert.match(html, /المتبقي 100 من 100 عملية بحث/);
   assert.doesNotMatch(html, /المتبقي الإجمالي|الحد الإجمالي 1000 عملية بحث/);
   assert.match(html, /جدول مقارنة نتائج العقارات/);
+  assert.match(html, /<input[^>]*placeholder="مثل: الرياض"[^>]*value=""/);
   assert.match(html, /مستودع/);
   for (const propertyType of ["استراحة", "شاليه", "محل", "مكتب", "استوديو", "غرفة", "عام"])
     assert.match(html, new RegExp(propertyType));
@@ -71,7 +72,7 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(page, /"ابدأ البحث"/);
   assert.doesNotMatch(page, /ابدأ البحث في عقار/);
   assert.match(page, /propertyType:\s*"عام"/);
-  assert.match(page, /locations:\[\{city:"الرياض",neighborhoods:\[\]\}\]/);
+  assert.match(page, /const defaults: SearchFilters = .*locations:\[\{city:"",neighborhoods:\[\]\}\]/);
   assert.match(page, /mode:\s*"strict"/);
   assert.match(page, /> جميع الشروط<\/label>/);
   assert.doesNotMatch(page, /جميع الشروط تمامًا/);
