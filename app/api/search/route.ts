@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       return Response.json({ error: "ابدأ البحث من الصفحة للحصول على محاولة تجريبية صالحة." }, { status: 403 });
     }
     const body = await request.json() as { filters: Filters & { commercialOnly?: boolean }; city: string; neighborhood?: string; category: string; page: number; remaining: number; excludeListingIds?: string[] };
-    const { filters, city, category } = body; const neighborhood = body.neighborhood || "";
+    const { filters, category } = body; const city = (body.city || "").trim(), neighborhood = city ? body.neighborhood || "" : "";
     if (!searchCategoriesFor(filters.propertyType, filters.purpose, filters.keywords).includes(category)) return Response.json({ error: "نوع البحث غير صالح." }, { status: 400 });
     if (!filters.commercialOnly && !generalSearchHasRequiredKeywords(filters.propertyType, filters.keywords)) return Response.json({ error: "عند اختيار «عام»، اكتب نوع العقار أو وصفه في «كلمات مطلوبة» أولًا، أو فعّل «تجاري»." }, { status: 400 });
     const sourceUrl = applyCommercialOnlyToAqarUrl(locationUrl(category, city, neighborhood, Math.max(1, Math.min(25, Number(body.page)||1))), Boolean(filters.commercialOnly));

@@ -62,7 +62,7 @@ const PROPERTY_TYPE_BY_CATEGORY: Record<string, string> = {
 };
 
 export function generalSearchHasRequiredKeywords(propertyType: string, keywords: string[] | undefined) {
-  return propertyType !== "عام" || Boolean(keywords?.length);
+  return Boolean(CATEGORIES[propertyType] && propertyType !== "عام") || Boolean(keywords?.some(word => word.trim()));
 }
 
 export function listingCategoryFromUrl(url: string) {
@@ -494,9 +494,23 @@ function expandAbbreviatedAmount(value: number | undefined, reference: number | 
 }
 
 export function locationUrl(category: string, city: string, neighborhood: string, page: number) {
-  const parts = [category, city.trim().replace(/\s+/g, "-")];
-  const hood = neighborhood.trim().replace(/^حي[\s-]+/, ""); if (hood) parts.push(`حي-${hood.replace(/\s+/g, "-")}`); if (page > 1) parts.push(String(page));
+  const parts = [category], selectedCity = city.trim();
+  if (selectedCity) parts.push(selectedCity.replace(/\s+/g, "-"));
+  const hood = neighborhood.trim().replace(/^حي[\s-]+/, ""); if (selectedCity && hood) parts.push(`حي-${hood.replace(/\s+/g, "-")}`); if (page > 1) parts.push(String(page));
   return `${AQAR_ORIGIN}/${parts.map(encodeURIComponent).join("/")}`;
+}
+
+export function searchSourcesFor(filters: Filters) {
+  const selected = filters.locations.filter(location => location.city.trim());
+  // One nationwide scope, not a separate search for every city.
+  const locations = selected.length ? selected : [{ city: "", neighborhoods: [] }];
+  const sources: { category: string; city: string; neighborhood: string; page: number }[] = [];
+  for (let page = 1; page <= filters.maxPages; page++)
+    for (const category of searchCategoriesFor(filters.propertyType, filters.purpose, filters.keywords))
+      for (const location of locations)
+        for (const neighborhood of (location.neighborhoods.length ? location.neighborhoods : [""]))
+          sources.push({ category, city: location.city.trim(), neighborhood, page });
+  return sources;
 }
 function normalizedLocation(value: string, neighborhood = false) {
   let result = normalizeText(value).replace(/ة/g, "ه").replace(/[ؤئ]/g, "ء").replace(/ء$/g, "")
@@ -505,15 +519,18 @@ function normalizedLocation(value: string, neighborhood = false) {
   return result;
 }
 export function listingMatchesRequestedLocation(parsedCity: string, parsedNeighborhood: string, city: string, neighborhood = "") {
+  if (!city.trim()) return true;
   const requestedCity = canonicalCity(city);
   if (parsedCity && canonicalCity(parsedCity) !== requestedCity) return false;
   return !(neighborhood && parsedNeighborhood && !neighborhoodsMatch(requestedCity, parsedNeighborhood, neighborhood));
 }
 function linkInRequestedLocation(url: string, category: string, city: string, neighborhood = "") {
   let parts: string[];
-  try { parts = new URL(url).pathname.split("/").filter(Boolean).map(decodeURIComponent); } catch { return false; }
+  try { const parsed = new URL(url); if (parsed.origin !== AQAR_ORIGIN) return false; parts = parsed.pathname.split("/").filter(Boolean).map(decodeURIComponent); } catch { return false; }
   const index = parts.findIndex(part => normalizedLocation(part) === normalizedLocation(category));
-  if (index < 0 || normalizedLocation(parts[index + 1] || "") !== normalizedLocation(city)) return false;
+  if (index < 0) return false;
+  if (!city.trim()) return true;
+  if (normalizedLocation(parts[index + 1] || "") !== normalizedLocation(city)) return false;
   return !neighborhood || parts.slice(index + 2).some(part => neighborhoodsMatch(city, part, neighborhood));
 }
 export function listingLinks(html: string, category: string, city: string, neighborhood = "", purpose: Filters["purpose"] | "" = "") {

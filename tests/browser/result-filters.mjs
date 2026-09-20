@@ -11,7 +11,7 @@ const rows=makeRows(0),archived=makeRows(100),favorites=makeRows(200);
 try{
   const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   page.setDefaultTimeout(8000);
-  const errors=[],requests=[];let savedRows;
+  const errors=[],requests=[],searchRequests=[];let savedRows,allowSearch=false,reservations=0;
   page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(({archived,favorites})=>{
     localStorage.setItem('aqar-archived-listings-v1',JSON.stringify(archived));
@@ -22,8 +22,16 @@ try{
     if(url.hostname!=='aqar.test')return route.abort();
     if(path.startsWith('/api/')){
       requests.push(`${request.method()} ${path}`);
-      assert.notEqual(path,'/api/search','Filtering must never search');
-      assert.ok(path!='/api/trial'||request.method()==='GET','Filtering must never reserve quota');
+      if(path==='/api/search'){
+        assert.ok(allowSearch,'Filtering must never search');
+        assert.equal(request.headers()['x-aqar-trial-token'],'offline-token');
+        const payload=request.postDataJSON();searchRequests.push(payload);
+        return route.fulfill({json:{results:[],discovered:payload.filters.maxListings,checkedListingIds:Array.from({length:payload.filters.maxListings},(_,i)=>String(8000000+i)),warnings:[]}});
+      }
+      if(path==='/api/trial'&&request.method()==='POST'){
+        assert.ok(allowSearch,'Invalid forms or filtering must never reserve quota');reservations++;
+        return route.fulfill({json:{token:'offline-token',status:{remaining:99,limit:100,globalRemaining:999}}});
+      }
       let data={};
       if(path==='/api/trial')data={remaining:100,limit:100,globalRemaining:1000};
       if(path==='/api/profiles')data={profiles:[]};
@@ -38,7 +46,7 @@ try{
     return route.fulfill({status:response.status,body:await response.text(),contentType:'text/html'});
   });
   await page.goto('https://aqar.test/');
-  // Missing city highlights both requested fields without reserving a search.
+  // A meaningful type OR keywords allows a nationwide search; city alone is insufficient.
   const propertyInput=page.locator('.propertyKeywordsRow select');
   const keywordInput=page.getByPlaceholder('مثل: دوبلكس، موقف، مطبخ، مكيف');
   const cityInput=page.getByRole('combobox',{name:'المدينة',exact:true});
@@ -51,19 +59,33 @@ try{
   };
   await expectErrors(false);
   await startButton.click();await expectErrors(true);
-  assert.match(await page.locator('.status').textContent(),/أضف مدينة واحدة/);
-  await propertyInput.selectOption('عمارة');await expectErrors(true);
-  await keywordInput.fill('موقف');await expectErrors(true);
-  await cityInput.fill('الدمام');await cityInput.press('Tab');await expectErrors(false);
-  await page.getByRole('button',{name:'مسح الحقول',exact:true}).click();await expectErrors(false);
-  await page.getByRole('button',{name:'تجاري',exact:true}).click();
-  await startButton.click();await expectErrors(true);
-  await cityInput.fill('الدمام');await cityInput.press('Tab');await expectErrors(false);
-  await page.getByRole('button',{name:'تجاري',exact:true}).click();
-  await startButton.click();await expectErrors(true); // Existing general-keywords validation remains.
   assert.match(await page.locator('.status').textContent(),/عند اختيار «عام»/);
+  await cityInput.fill('الدمام');await cityInput.press('Tab');
+  await startButton.click();await expectErrors(true);
+  assert.equal(reservations,0);
+  await cityInput.fill('');await cityInput.press('Tab');
+  async function runSearch(expectedCity,expectedCategory){
+    allowSearch=true;const before=searchRequests.length,used=reservations;
+    const response=page.waitForResponse(response=>response.url().endsWith('/api/search'));
+    await startButton.click();await response;
+    await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(button=>button.textContent==='ابدأ البحث'&&!button.disabled));
+    assert.equal(searchRequests.length,before+1,'Respect maxListings; do not fan out across all cities');
+    assert.equal(reservations,used+1,'Only one reservation per search');
+    assert.equal(searchRequests.at(-1).city,expectedCity);
+    assert.equal(searchRequests.at(-1).category,expectedCategory);
+    assert.equal(searchRequests.at(-1).filters.locations.length,expectedCity?1:0);
+    await expectErrors(false);allowSearch=false;
+  }
+  await propertyInput.selectOption('شقة');await expectErrors(false);
+  await runSearch('','شقق-للبيع');
+  await propertyInput.selectOption('عام');
+  for(const word of ['مزرعة','ملعب']){await keywordInput.fill(word);await runSearch('','عقارات');}
+  await cityInput.fill('الدمام');await cityInput.press('Tab');
+  await runSearch('الدمام','عقارات');
+  await page.getByRole('button',{name:'مسح الحقول',exact:true}).click();
+  await page.getByRole('button',{name:'تجاري',exact:true}).click();
+  await runSearch('','عقارات');
   await page.getByRole('button',{name:'مسح الحقول',exact:true}).click();await expectErrors(false);
-  assert.ok(requests.every(request=>request.startsWith('GET ')),'Invalid forms must not reserve quota');
   await page.getByRole('button',{name:'نتائج محفوظة',exact:true}).click();
   await page.getByRole('button',{name:'فتح',exact:true}).click();
   const main=page.getByRole('region',{name:'جدول مقارنة نتائج العقارات',exact:true});
