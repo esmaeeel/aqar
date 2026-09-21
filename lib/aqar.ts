@@ -1,4 +1,4 @@
-import { canonicalCity, neighborhoodsMatch } from "@/lib/locations";
+import { aqarNeighborhoodSourcePath, canonicalCity, neighborhoodsMatch } from "@/lib/locations";
 
 export const AQAR_ORIGIN = "https://sa.aqar.fm";
 const NEAR_TOLERANCE = 0.20;
@@ -496,7 +496,9 @@ function expandAbbreviatedAmount(value: number | undefined, reference: number | 
 export function locationUrl(category: string, city: string, neighborhood: string, page: number) {
   const parts = [category], selectedCity = city.trim();
   if (selectedCity) parts.push(selectedCity.replace(/\s+/g, "-"));
-  const hood = neighborhood.trim().replace(/^حي[\s-]+/, ""); if (selectedCity && hood) parts.push(`حي-${hood.replace(/\s+/g, "-")}`); if (page > 1) parts.push(String(page));
+  const hood = neighborhood.trim().replace(/^حي[\s-]+/, "");
+  if (selectedCity && hood) parts.push(...(aqarNeighborhoodSourcePath(category, selectedCity, hood) ?? [`حي-${hood.replace(/\s+/g, "-")}`]));
+  if (page > 1) parts.push(String(page));
   return `${AQAR_ORIGIN}/${parts.map(encodeURIComponent).join("/")}`;
 }
 
@@ -531,7 +533,14 @@ function linkInRequestedLocation(url: string, category: string, city: string, ne
   if (index < 0) return false;
   if (!city.trim()) return true;
   if (normalizedLocation(parts[index + 1] || "") !== normalizedLocation(city)) return false;
-  return !neighborhood || parts.slice(index + 2).some(part => neighborhoodsMatch(city, part, neighborhood));
+  if (!neighborhood) return true;
+  // Prefer the explicit address in the listing slug over Aqar's directory label.
+  // e.g. /حي-ظهرة-نمار/شارع-التوحيد-حي-العوالي-مدينة-الرياض-...-6883853
+  // This only admits a candidate; the actual ad is checked again after parsing.
+  const listingSlug = parts.slice(index + 2).find(part => /-\d{5,}$/.test(part)) || "";
+  const titleNeighborhood = listingSlug.replace(/-/g, " ").match(/(?:^|\s)حي\s+(.+?)(?=\s+(?:مدينة|محافظة)\s)/)?.[1];
+  if (titleNeighborhood) return neighborhoodsMatch(city, titleNeighborhood, neighborhood);
+  return parts.slice(index + 2).some(part => neighborhoodsMatch(city, part.replace(/-/g, " "), neighborhood));
 }
 export function listingLinks(html: string, category: string, city: string, neighborhood = "", purpose: Filters["purpose"] | "" = "") {
   const out = new Map<string, string>(); const decoded = html.replace(/&amp;/g, "&");
