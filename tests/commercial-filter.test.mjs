@@ -30,7 +30,7 @@ test("يضع زر تجاري بين نوع العقار وكلمات البحث 
 });
 
 test("يبقي بحث الكلمات مستقلًا ويطبق تصنيف تجاري في مسار البحث", () => {
-  assert.match(routeSource, /applyCommercialOnlyToAqarUrl\(locationUrl/);
+  assert.match(routeSource, /applyCommercialOnlyToAqarUrl\(sourceBaseUrl \? directoryPageUrl\(sourceBaseUrl, pageNumber\) : locationUrl/);
   assert.match(routeSource, /Boolean\(filters\.commercialOnly\)/);
   assert.match(routeSource, /if \(filters\.keywords\?\.length\)/);
   assert.match(routeSource, /keywordMatches\(k, searchable\)/);

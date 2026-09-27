@@ -41,6 +41,7 @@ test('nationwide links and final validation allow different cities while selecte
 test('search route reads the nationwide feed and returns actual cities without widening a selected city',async()=>{
   const dependencies={
     '@/lib/aqar':aqarUrl,
+    '@/lib/neighborhood-discovery':moduleUrl((await read('../lib/neighborhood-discovery.ts')).replace('"@/lib/aqar"',JSON.stringify(aqarUrl)).replace('"@/lib/locations"',JSON.stringify(locations))),
     '@/lib/trial':moduleUrl('export const isTrialTokenValid=async()=>true;'),
     '@/lib/listing-amount-reconciliation':moduleUrl('export const reconcileListingAmounts=(html,item)=>item;'),
     '@/lib/source-protection':moduleUrl(await read('../lib/source-protection.ts')),

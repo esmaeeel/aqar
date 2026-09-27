@@ -106,18 +106,6 @@ export function neighborhoodsMatch(city: string, left: string, right: string) {
   return neighborhoodKey(canonicalNeighborhood(city, left)) === neighborhoodKey(canonicalNeighborhood(city, right));
 }
 
-// Aqar's search directory is not always the advertised neighborhood. These are
-// verified source routes, NOT aliases: final listing location checks stay strict.
-const AQAR_NEIGHBORHOOD_SOURCE_PATHS = [
-  { category: "أراضي-للبيع", city: "الرياض", neighborhood: "العوالي", path: ["غرب-الرياض", "حي-ظهرة-نمار"] },
-];
-
-export function aqarNeighborhoodSourcePath(category: string, city: string, neighborhood: string) {
-  return AQAR_NEIGHBORHOOD_SOURCE_PATHS.find(source => source.category === category
-    && source.city === canonicalCity(city)
-    && neighborhoodsMatch(source.city, source.neighborhood, neighborhood))?.path;
-}
-
 export function placeSuggestions(value: string, options: string[], limit = 8) {
   const key = placeKey(value);
   if (!key) return options.slice(0, limit);

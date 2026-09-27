@@ -1,4 +1,4 @@
-import { aqarNeighborhoodSourcePath, canonicalCity, neighborhoodsMatch } from "@/lib/locations";
+import { canonicalCity, neighborhoodsMatch } from "@/lib/locations";
 
 export const AQAR_ORIGIN = "https://sa.aqar.fm";
 const NEAR_TOLERANCE = 0.20;
@@ -497,7 +497,7 @@ export function locationUrl(category: string, city: string, neighborhood: string
   const parts = [category], selectedCity = city.trim();
   if (selectedCity) parts.push(selectedCity.replace(/\s+/g, "-"));
   const hood = neighborhood.trim().replace(/^حي[\s-]+/, "");
-  if (selectedCity && hood) parts.push(...(aqarNeighborhoodSourcePath(category, selectedCity, hood) ?? [`حي-${hood.replace(/\s+/g, "-")}`]));
+  if (selectedCity && hood) parts.push(`حي-${hood.replace(/\s+/g, "-")}`);
   if (page > 1) parts.push(String(page));
   return `${AQAR_ORIGIN}/${parts.map(encodeURIComponent).join("/")}`;
 }

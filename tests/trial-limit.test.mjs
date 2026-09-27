@@ -60,8 +60,8 @@ test("requires one reservation before the search requests are sent", async () =>
   assert.match(page, /localStorage\.removeItem\(LEGACY_LAST_FILTERS_KEY\)/);
   assert.doesNotMatch(page, /localStorage\.(?:getItem|setItem)\(LEGACY_LAST_FILTERS_KEY/);
 
-  const tokenCheck = searchRoute.indexOf("isTrialTokenValid");
-  const externalFetch = searchRoute.indexOf("const searchHtml = await fetchAqar");
+  const tokenCheck = searchRoute.indexOf("if (!await isTrialTokenValid");
+  const externalFetch = searchRoute.indexOf("await discoverNeighborhoodSource");
   assert.ok(tokenCheck >= 0 && tokenCheck < externalFetch);
   assert.match(searchRoute, /request\.headers\.get\("x-aqar-device-id"\)/);
 });

@@ -11,7 +11,7 @@ const rows=makeRows(0),archived=makeRows(100),favorites=makeRows(200);
 try{
   const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   page.setDefaultTimeout(8000);
-  const errors=[],requests=[],searchRequests=[];let savedRows,allowSearch=false,reservations=0;
+  const errors=[],requests=[],searchRequests=[];let savedRows,allowSearch=false,reservations=0,discoveryMode=false,unresolvedMode=false;
   page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(({archived,favorites})=>{
     localStorage.setItem('aqar-archived-listings-v1',JSON.stringify(archived));
@@ -26,6 +26,13 @@ try{
         assert.ok(allowSearch,'Filtering must never search');
         assert.equal(request.headers()['x-aqar-trial-token'],'offline-token');
         const payload=request.postDataJSON();searchRequests.push(payload);
+        if(discoveryMode){
+          if(unresolvedMode)return route.fulfill({status:502,json:{code:'SOURCE_UNRESOLVED',error:'تعذر تحديد مصدر الحي؛ هذا لا يعني عدم وجود عروض فيه.'}});
+          const sourceBaseUrl='https://sa.aqar.fm/شقق-للبيع/الدمام/حي-التصنيف-الأوسع';
+          if(!payload.sourceDiscovery&&!payload.sourceBaseUrl)return route.fulfill({json:{sourceDiscovery:{pending:[sourceBaseUrl],visited:['https://sa.aqar.fm/شقق-للبيع/الدمام']}}});
+          if(payload.page>1)assert.equal(payload.sourceBaseUrl,sourceBaseUrl,'Reuse the discovered source on later pages');
+          return route.fulfill({json:{sourceBaseUrl,results:[],discovered:payload.page===1?2:3,checkedListingIds:payload.page===1?['8100001','8100002']:['8100003','8100004','8100005'],warnings:[]}});
+        }
         return route.fulfill({json:{results:[],discovered:payload.filters.maxListings,checkedListingIds:Array.from({length:payload.filters.maxListings},(_,i)=>String(8000000+i)),warnings:[]}});
       }
       if(path==='/api/trial'&&request.method()==='POST'){
@@ -86,6 +93,26 @@ try{
   await page.getByRole('button',{name:'تجاري',exact:true}).click();
   await runSearch('','عقارات');
   await page.getByRole('button',{name:'مسح الحقول',exact:true}).click();await expectErrors(false);
+  // Discovery continues across requests and pages, but reserves only one trial.
+  await propertyInput.selectOption('شقة');
+  await cityInput.fill('الدمام');await cityInput.press('Tab');
+  await page.getByPlaceholder('ابدأ الكتابة: الروضة…').fill('حي فرعي تجريبي');
+  await page.locator('.listingLimit input').fill('5');
+  discoveryMode=true;allowSearch=true;
+  let discoveryStart=searchRequests.length,quotaStart=reservations;
+  await startButton.click();
+  await page.waitForFunction(()=>document.querySelector('.status')?.textContent.includes('اكتمل البحث'));
+  assert.equal(reservations,quotaStart+1);
+  assert.deepEqual(searchRequests.slice(discoveryStart).map(request=>request.page),[1,1,2]);
+  assert.deepEqual(searchRequests.at(-1).excludeListingIds,['8100001','8100002']);
+  unresolvedMode=true;discoveryStart=searchRequests.length;quotaStart=reservations;
+  await startButton.click();
+  await page.waitForFunction(()=>document.querySelector('.status')?.textContent.includes('هذا لا يعني عدم وجود عروض'));
+  assert.equal(searchRequests.length,discoveryStart+1);
+  assert.equal(reservations,quotaStart+1);
+  assert.doesNotMatch(await page.locator('.status').textContent(),/اكتمل البحث/);
+  discoveryMode=false;unresolvedMode=false;allowSearch=false;
+  await page.getByRole('button',{name:'مسح الحقول',exact:true}).click();
   await page.getByRole('button',{name:'نتائج محفوظة',exact:true}).click();
   await page.getByRole('button',{name:'فتح',exact:true}).click();
   const main=page.getByRole('region',{name:'جدول مقارنة نتائج العقارات',exact:true});
