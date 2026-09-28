@@ -50,6 +50,8 @@
 .numericBlock{grid-column:span 12}
 .propertyKeywordsRow{display:grid;grid-template-columns:minmax(140px,.8fr) auto minmax(260px,2.2fr);align-items:start;gap:7px}
 .propertyKeywordsRow>label{width:100%;min-width:0}
+.keywordFields{display:grid;gap:7px;min-width:0}
+.keywordFields>label{min-width:0}
 .propertyKeywordsRow small{font-weight:400;color:var(--muted);line-height:1.35}
 .commercialOnlyToggle{align-self:start;margin-top:21px;min-height:34px;border:1px solid #b7c7c1;border-radius:10px;background:#fff;color:var(--green);padding:5px 12px;font-weight:800;cursor:pointer}
 .commercialOnlyToggle[aria-pressed="true"]{border-color:var(--green);background:var(--green);color:#fff;box-shadow:0 5px 12px rgba(11,93,80,.18)}

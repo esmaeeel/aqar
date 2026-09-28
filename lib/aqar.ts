@@ -27,7 +27,7 @@ export const CATEGORIES: Record<string, Record<string, string[]>> = {
 export type Location = { city: string; neighborhoods: string[] };
 export type Filters = {
   propertyType: string; purpose: "sale" | "rent"; locations: Location[];
-  keywords: string[]; mode: "strict" | "near"; maxPages: number; maxListings: number;
+  keywords: string[]; excludedKeywords?: string[]; mode: "strict" | "near"; maxPages: number; maxListings: number;
   priceMin: number; priceMax: number; yieldMin: number; minMeters: number;
   minApartments: number; minRooms: number; minCommercialShops: number; minFloors: number; minStreet: number; areaMin: number;
   areaMax: number; minAge: number; maxAge: number; minDensity: number; sqmMin: number; sqmMax: number;
@@ -450,6 +450,29 @@ function totalBuildingRooms(source: string, acceptGenericRoomCount = false) {
     ...(acceptGenericRoomCount ? [labeled(`عدد\\s+الغرف(?:\\s+النوم)?`)] : []),
   ]).value;
 }
+
+const EXCLUSION_NEGATIONS = new Set(["غير", "بدون", "بلا", "دون", "ليس", "ليست", "مو", "مش", "لا"]);
+export function excludedKeywordMatches(keywords: string[] | undefined, item: Pick<Listing, "title" | "description">) {
+  if (!Array.isArray(keywords) || !keywords.length) return false;
+  for (const keyword of keywords) {
+    if (typeof keyword !== "string") continue;
+    const size = (normalizeText(keyword).match(/[\p{L}\p{N}]+/gu) || []).length;
+    if (!size) continue;
+    for (const field of [item.title, item.description]) {
+      if (!keywordMatches(keyword, field)) continue;
+      // Compare each phrase in its own field, so «غير مؤثثة» does not count as
+      // a positive mention and separate title/description sentences do not join.
+      for (const segment of normalizeText(field).split(/[،,؛;.!؟?\n]+/)) {
+        const tokens = segment.match(/[\p{L}\p{N}]+/gu) || [];
+        for (let index = 0; index <= tokens.length - size; index++) {
+          if (EXCLUSION_NEGATIONS.has(tokens[index - 1])) continue;
+          if (keywordMatches(keyword, tokens.slice(index, index + size).join(" "))) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
 function ageFromSource(source: string) {
   const n = normalizeDigits(source).toLowerCase().replace(/ـ/g, "").replace(/[\u064b-\u065f\u0670]/g, "")
     .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/[^\S\n]+/g, " ").replace(/\n +/g, "\n").trim();
@@ -748,6 +771,7 @@ export function filterResultRows(rows: Listing[], filters: Filters & { commercia
     if (filters.commercialOnly && row.sourceCommercialOnly !== true) return [];
     const searchable = listingKeywordSearchableText({ ...row, propertyType });
     if (filters.keywords.length && !filters.keywords.some(word => keywordMatches(word, searchable))) return [];
+    if (excludedKeywordMatches(filters.excludedKeywords, row)) return [];
     const result = evaluate({ ...row, propertyType }, active);
     return (filters.mode === "strict" ? result.status === "مطابقة" : result.nearEligible) ? [result] : [];
   });

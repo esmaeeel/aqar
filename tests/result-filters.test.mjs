@@ -4,7 +4,7 @@ import test from 'node:test';
 import ts from 'typescript';
 const dataModule=source=>'data:text/javascript;base64,'+Buffer.from(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64');
 const locations=dataModule(await readFile(new URL('../lib/locations.ts',import.meta.url),'utf8'));
-const {filterResultRows}=await import(dataModule((await readFile(new URL('../lib/aqar.ts',import.meta.url),'utf8')).replace('"@/lib/locations"',JSON.stringify(locations))));
+const {filterResultRows,excludedKeywordMatches}=await import(dataModule((await readFile(new URL('../lib/aqar.ts',import.meta.url),'utf8')).replace('"@/lib/locations"',JSON.stringify(locations))));
 const filters={propertyType:'عام',purpose:'sale',locations:[],keywords:[],mode:'strict',priceMin:0,priceMax:0,areaMin:0,areaMax:0,sqmMin:0,sqmMax:0,yieldMin:0,minMeters:0,minApartments:0,minRooms:0,minCommercialShops:0,minFloors:0,minStreet:0,minAge:0,maxAge:0,minDensity:0};
 const listing={listingId:'7000001',url:'https://sa.aqar.fm/عمائر-للبيع/الدمام/عمارة-7000001',title:'عمارة مواقف سيارات',description:'',city:'الدمام',neighborhood:'طيبة',propertyType:'عمارة',price:2000000,area:500,sqmPrice:4000,income:160000,incomeKind:'actual',yieldPct:8,apartments:10,totalRooms:26,rooms:null,meters:10,commercialShops:2,floors:3,street:20,age:'16',density:2,status:'بيانات ناقصة',score:1,nearEligible:false};
 const ids=rows=>rows.map(row=>row.listingId);
@@ -43,4 +43,18 @@ test('purpose, keywords and commercial use actual data and hidden conditions do 
   assert.equal(filterResultRows([listing],{...filters,commercialOnly:true}).length,0);
   assert.equal(filterResultRows([{...listing,sourceCommercialOnly:true}],{...filters,commercialOnly:true}).length,1);
   assert.equal(filterResultRows([{...listing,propertyType:'أرض',age:null}],{...filters,propertyType:'أرض',maxAge:2,minApartments:100}).length,1);
+});
+test('excluded phrases reject advertised features but not their negation',()=>{
+  assert.equal(excludedKeywordMatches(['مؤثثة'],{title:'شقة مؤثثة بالكامل',description:''}),true);
+  assert.equal(excludedKeywordMatches(['مؤثث'],{title:'شقة مؤثثة بالكامل',description:''}),true);
+  assert.equal(excludedKeywordMatches(['مفروش'],{title:'شقة',description:'الشقة مفروشة وجاهزة'}),true);
+  assert.equal(excludedKeywordMatches(['مؤثثة'],{title:'شقة غير مؤثثة',description:''}),false);
+  assert.equal(excludedKeywordMatches(['أثاث'],{title:'شقة',description:'بدون أثاث'}),false);
+  assert.equal(excludedKeywordMatches(['مطبخ راكب'],{title:'شقة',description:'يوجد مطبخ راكب'}),true);
+  assert.equal(excludedKeywordMatches(['مؤثثة'],{title:'شقة غير',description:'مؤثثة بالكامل'}),true);
+  const rows=[listing,{...listing,listingId:'2',title:'عمارة مفروشة'},{...listing,listingId:'3',title:'عمارة غير مفروشة'}];
+  const original=JSON.stringify(rows);
+  assert.deepEqual(ids(filterResultRows(rows,{...filters,excludedKeywords:['مفروش']})),['7000001','3']);
+  assert.deepEqual(ids(filterResultRows(rows,filters)),['7000001','2','3']);
+  assert.equal(JSON.stringify(rows),original);
 });

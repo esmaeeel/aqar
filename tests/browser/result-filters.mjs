@@ -56,6 +56,9 @@ try{
   // A meaningful type OR keywords allows a nationwide search; city alone is insufficient.
   const propertyInput=page.locator('.propertyKeywordsRow select');
   const keywordInput=page.getByPlaceholder('مثل: دوبلكس، موقف، مطبخ، مكيف');
+  const excludedInput=page.getByRole('textbox',{name:'مواصفات مستبعدة'});
+  const keywordBox=await keywordInput.boundingBox(),excludedBox=await excludedInput.boundingBox();
+  assert.ok(keywordBox&&excludedBox&&excludedBox.y>keywordBox.y,'Excluded field sits below keywords');
   const cityInput=page.getByRole('combobox',{name:'المدينة',exact:true});
   const startButton=page.getByRole('button',{name:'ابدأ البحث',exact:true});
   const expectErrors=async expected=>{
@@ -129,6 +132,12 @@ try{
   }
   await allTables(5);
   const initialRequests=requests.length;
+  await excludedInput.fill('موقف سيارة');
+  await allTables(0);
+  await excludedInput.fill('مكيف');
+  await allTables(5);
+  await excludedInput.fill('');
+  await allTables(5);
   const city=page.getByRole('combobox',{name:'المدينة',exact:true});
   await city.fill('الدمام');
   await page.getByRole('option',{name:'الدمام',exact:true}).click();

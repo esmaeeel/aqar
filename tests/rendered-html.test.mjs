@@ -99,6 +99,8 @@ test("removes the disposable starter preview from the finished site", async () =
   assert.match(page, /aria-invalid=\{generalKeywordError\}/);
   assert.match(page, /className="propertyKeywordsRow"/);
   assert.match(page, />كلمات للبحث<input/);
+  assert.ok(page.indexOf('>مواصفات مستبعدة<input') > page.indexOf('>كلمات للبحث<input'));
+  assert.match(page, /setExcludedKeywordDraft\(\(loaded\.excludedKeywords\|\|\[\]\)\.join/);
   assert.match(page, /placeholder="مثل: دوبلكس، موقف، مطبخ، مكيف"/);
   assert.match(page, /ابدأ الكتابة: الروضة…/);
   assert.doesNotMatch(page, /ابدأ الكتابة: الشف…/);

@@ -10,7 +10,7 @@ const {locationUrl,searchSourcesFor,listingLinks,listingMatchesRequestedLocation
 const filters={propertyType:'عام',purpose:'sale',locations:[],keywords:['ملعب'],mode:'strict',maxPages:2,maxListings:5,priceMin:0,priceMax:0,areaMin:0,areaMax:0,sqmMin:0,sqmMax:0,yieldMin:0,minMeters:0,minApartments:0,minRooms:0,minCommercialShops:0,minFloors:0,minStreet:0,minAge:0,maxAge:0,minDensity:0};
 const ads=[
   {id:'7000001',city:'الدمام',category:'شقق-للبيع',description:'شقة بجوار ملعب'},
-  {id:'7000002',city:'الرياض',category:'شقق-للبيع',description:'شقة بجوار ملعب'},
+  {id:'7000002',city:'الرياض',category:'شقق-للبيع',description:'شقة مؤثثة بجوار ملعب'},
   {id:'7000003',city:'جدة',category:'شقق-للإيجار',description:'شقة بجوار ملعب'},
 ];
 const adUrl=ad=>`https://sa.aqar.fm/${ad.category}/${ad.city}/حي-النور/شقة-${ad.id}`;
@@ -66,5 +66,10 @@ test('search route reads the nationwide feed and returns actual cities without w
     assert.equal(data.results.length,2);
     assert.equal(data.warnings.length,0);
     assert.equal(calls[0],'https://sa.aqar.fm/عقارات');
+    const excludedResponse=await POST(new Request('https://aqar.test/api/search',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({filters:{...filters,excludedKeywords:['مؤثثة']},category:'عقارات',city:'',neighborhood:'',page:1,remaining:2})}));
+    const excludedData=await excludedResponse.json();
+    assert.equal(excludedResponse.status,200);
+    assert.deepEqual(excludedData.results.map(row=>row.city),['الدمام']);
+    assert.deepEqual(excludedData.checkedListingIds,['7000001','7000002']);
   }finally{globalThis.fetch=originalFetch;}
 });

@@ -1,4 +1,4 @@
-import { evaluate, Filters, generalSearchHasRequiredKeywords, keywordMatches, listingKeywordSearchableText, listingLinks, listingMatchesRequestedLocation, locationUrl, parseListing, propertyTypeFromListingUrl, requestedPropertyTypeMatches, searchCategoriesFor } from "@/lib/aqar";
+import { evaluate, excludedKeywordMatches, Filters, generalSearchHasRequiredKeywords, keywordMatches, listingKeywordSearchableText, listingLinks, listingMatchesRequestedLocation, locationUrl, parseListing, propertyTypeFromListingUrl, requestedPropertyTypeMatches, searchCategoriesFor } from "@/lib/aqar";
 import { reconcileListingAmounts } from "@/lib/listing-amount-reconciliation";
 import { isTrialTokenValid } from "@/lib/trial";
 import { shouldStopForSourceProtection } from "@/lib/source-protection";
@@ -101,6 +101,7 @@ export async function POST(request: Request) {
           if (!matched.length) continue;
           item.warnings.push(`طابقت كلمات الوصف: ${matched.join("، ")}`);
         }
+        if (excludedKeywordMatches(filters.excludedKeywords, item)) continue;
         if (filters.mode === "strict" ? item.status === "مطابقة" : item.nearEligible) results.push(item);
       } catch (error) {
         const message = error instanceof Error ? error.message : "تعذر قراءة إعلان"; warnings.push(`${links[i].listingId}: ${message}`);
