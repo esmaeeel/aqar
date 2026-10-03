@@ -103,6 +103,7 @@ export function hiddenResultColumnKeys(propertyType: string, purpose: Filters["p
       .map(key => filterToColumn[key])
       .filter((key): key is string => Boolean(key)),
   );
+  if (propertyType === "عمارة") hiddenColumns.add("rooms");
   return hiddenColumns;
 }
 

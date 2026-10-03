@@ -285,7 +285,7 @@ test("shows the city with the neighborhood and keeps resizable result-column wid
   assert.match(page, /setPrivateView\(Boolean\(syncSpace\(\)\)\)/);
   assert.match(page, /privateView\|\|column\.key!=="listingId"/);
   assert.match(page, /key:"count",label:"شقق",value:r=>r\.apartments,render:r=>fmt\(r\.apartments\)/);
-  assert.match(page, /key:"rooms",label:"غرف",value:r=>r\.propertyType==="عمارة"\?r\.totalRooms\?\?r\.rooms:r\.rooms/);
+  assert.match(page, /key:"rooms",label:"غرف",value:r=>r\.rooms,render:r=>r\.propertyType==="عمارة"\?"—":fmt\(r\.rooms\)/);
   assert.doesNotMatch(page, /شقق \/ غرف/);
   assert.match(page, /DEFAULT_COLUMN_WIDTHS:Record<ColumnKey,number>/);
   assert.match(page, /MIN_COLUMN_WIDTHS:Record<ColumnKey,number>/);
