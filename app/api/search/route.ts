@@ -30,11 +30,11 @@ async function fetchAqarPage(url: string): Promise<SourcePage> {
         await pause(AQAR_TRANSIENT_RETRY_MS);
         continue;
       }
-      if (transientRequestPatternError(error)) throw new Error("تعذر الاتصال مؤقتًا بمنصة عقار بعد إعادة المحاولة.");
+      if (transientRequestPatternError(error)) throw new Error("تعذر اتصال خادم البحث بمنصة عقار بعد إعادة المحاولة.");
       throw error;
     }
   }
-  throw new Error("تعذر الاتصال مؤقتًا بمنصة عقار بعد إعادة المحاولة.");
+  throw new Error("تعذر اتصال خادم البحث بمنصة عقار بعد إعادة المحاولة.");
 }
 
 async function fetchAqar(url: string) { return (await fetchAqarPage(url)).html; }

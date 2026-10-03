@@ -329,5 +329,5 @@ test("retries the iPhone request-pattern failure once before stopping clearly", 
   assert.match(page, /CLIENT_TRANSIENT_RETRY_MS=1_400/);
   assert.match(page, /attempt===0&&transientRequestPatternError\(error\)/);
   assert.match(page, /requestSearchPage\(\{filters:clean/);
-  assert.match(page, /تعذر الاتصال مؤقتًا بمنصة عقار بعد إعادة المحاولة/);
+  assert.match(page, /تعذر اتصال المتصفح بخادم البحث بعد إعادة المحاولة/);
 });

@@ -18,4 +18,6 @@ test("يبقي التوقف عند حماية منصة عقار", () => {
   assert.equal(shouldStopForSourceProtection("منع موقع عقار القراءة الآلية مؤقتًا (403)."), true);
   assert.equal(shouldStopForSourceProtection("طلب موقع عقار تحققًا أو تسجيل دخول؛ توقف الجمع دون تجاوز الحماية."), true);
   assert.equal(shouldStopForSourceProtection("تعذر الاتصال مؤقتًا بمنصة عقار بعد إعادة المحاولة."), true);
+  assert.equal(shouldStopForSourceProtection("تعذر اتصال المتصفح بخادم البحث بعد إعادة المحاولة."), true);
+  assert.equal(shouldStopForSourceProtection("تعذر اتصال خادم البحث بمنصة عقار بعد إعادة المحاولة."), true);
 });
