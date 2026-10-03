@@ -195,14 +195,14 @@ function LocationAutocomplete({location,index,onChange,onAdd,onRemove}:{location
   </div>
 }
 
-type ColumnKey="neighborhood"|"price"|"income"|"yieldPct"|"area"|"sqmPrice"|"count"|"housingUnits"|"commercialShops"|"totalRooms"|"meters"|"floors"|"street"|"density"|"age"|"listingId";
+type ColumnKey="neighborhood"|"price"|"income"|"yieldPct"|"area"|"sqmPrice"|"count"|"rooms"|"housingUnits"|"commercialShops"|"totalRooms"|"meters"|"floors"|"street"|"density"|"age"|"listingId";
 type TableColumn={key:ColumnKey;label:string;value:(row:Listing)=>string|number|null;render:(row:Listing)=>ReactNode;className?:string};
-const DEFAULT_COLUMN_ORDER:ColumnKey[]=["price","area","age","income","yieldPct","sqmPrice","count","meters","street","totalRooms","housingUnits","commercialShops","floors","neighborhood","density","listingId"];
+const DEFAULT_COLUMN_ORDER:ColumnKey[]=["price","area","age","income","yieldPct","sqmPrice","count","rooms","meters","street","totalRooms","housingUnits","commercialShops","floors","neighborhood","density","listingId"];
 const COLUMN_ORDER_KEY="aqar-mobile-table-column-order-v9";
 const COLUMN_WIDTHS_KEY="aqar-mobile-table-column-widths-v1";
 const MAX_COLUMN_WIDTH=360;
-const DEFAULT_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:132,price:116,income:108,yieldPct:76,area:88,sqmPrice:90,count:94,housingUnits:96,commercialShops:112,totalRooms:96,meters:76,floors:72,street:88,density:100,age:72,listingId:100};
-const MIN_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:92,price:96,income:96,yieldPct:68,area:78,sqmPrice:78,count:72,housingUnits:90,commercialShops:100,totalRooms:88,meters:70,floors:68,street:80,density:90,age:68,listingId:90};
+const DEFAULT_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:132,price:116,income:108,yieldPct:76,area:88,sqmPrice:90,count:94,rooms:76,housingUnits:96,commercialShops:112,totalRooms:96,meters:76,floors:72,street:88,density:100,age:72,listingId:100};
+const MIN_COLUMN_WIDTHS:Record<ColumnKey,number>={neighborhood:92,price:96,income:96,yieldPct:68,area:78,sqmPrice:78,count:72,rooms:68,housingUnits:90,commercialShops:100,totalRooms:88,meters:70,floors:68,street:80,density:90,age:68,listingId:90};
 const clampColumnWidth=(key:ColumnKey,width:number)=>Math.max(MIN_COLUMN_WIDTHS[key],Math.min(MAX_COLUMN_WIDTH,Math.round(width)));
 
 function Results({rows,filters,onSave,saveDisabled,saving,searchBusy,saveFeedback,onShowSaved,onExport,exportingExcel}:{rows:Listing[];filters:SearchFilters;onSave:(rows:Listing[])=>void;saveDisabled:boolean;saving:boolean;searchBusy:boolean;saveFeedback:ResultSaveFeedback|null;onShowSaved:()=>void;onExport:(rows:Listing[])=>void;exportingExcel:boolean}){
@@ -230,7 +230,7 @@ function Results({rows,filters,onSave,saveDisabled,saving,searchBusy,saveFeedbac
   const pointerDrag=useRef<{key:ColumnKey;pointerId:number;target:ColumnKey}|null>(null);
   const resizeDrag=useRef<{key:ColumnKey;pointerId:number;startX:number;startWidth:number}|null>(null);
   const suppressSortUntil=useRef(0);
-  useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(COLUMN_ORDER_KEY)||"[]") as ColumnKey[];if(stored.length===DEFAULT_COLUMN_ORDER.length&&DEFAULT_COLUMN_ORDER.every(key=>stored.includes(key)))setColumnOrder(stored)}catch{/* تجاهل ترتيب محلي تالف */}setColumnOrderLoaded(true)},[]);
+  useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(COLUMN_ORDER_KEY)||"[]") as ColumnKey[];if(Array.isArray(stored)&&stored.length===DEFAULT_COLUMN_ORDER.length&&DEFAULT_COLUMN_ORDER.every(key=>stored.includes(key)))setColumnOrder(stored);else if(Array.isArray(stored)&&stored.length===DEFAULT_COLUMN_ORDER.length-1&&DEFAULT_COLUMN_ORDER.every(key=>key==="rooms"||stored.includes(key))){const migrated=[...stored];migrated.splice(migrated.indexOf("count")+1,0,"rooms");setColumnOrder(migrated)}}catch{/* تجاهل ترتيب محلي تالف */}setColumnOrderLoaded(true)},[]);
   useEffect(()=>{if(columnOrderLoaded)localStorage.setItem(COLUMN_ORDER_KEY,JSON.stringify(columnOrder))},[columnOrder,columnOrderLoaded]);
   useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem(COLUMN_WIDTHS_KEY)||"{}") as Partial<Record<ColumnKey,number>>;setColumnWidths(Object.fromEntries(DEFAULT_COLUMN_ORDER.map(key=>[key,typeof stored[key]==="number"?clampColumnWidth(key,stored[key]!):DEFAULT_COLUMN_WIDTHS[key]])) as Record<ColumnKey,number>)}catch{/* تجاهل مقاسات محلية تالفة */}setColumnWidthsLoaded(true)},[]);
   useEffect(()=>{if(columnWidthsLoaded)localStorage.setItem(COLUMN_WIDTHS_KEY,JSON.stringify(columnWidths))},[columnWidths,columnWidthsLoaded]);
@@ -264,6 +264,7 @@ function Results({rows,filters,onSave,saveDisabled,saving,searchBusy,saveFeedbac
     {key:"area",label:"المساحة",value:r=>r.area,render:r=>r.area==null?"غير مذكور":`${fmt(r.area,1)} م²`},
     {key:"sqmPrice",label:"سعر المتر",value:r=>r.sqmPrice,render:r=>r.sqmPrice==null?"":fmt(r.sqmPrice,2)},
     {key:"count",label:"شقق",value:r=>r.apartments,render:r=>fmt(r.apartments)},
+    {key:"rooms",label:"غرف",value:r=>r.propertyType==="عمارة"?r.totalRooms??r.rooms:r.rooms,render:r=>fmt(r.propertyType==="عمارة"?r.totalRooms??r.rooms:r.rooms)},
     {key:"housingUnits",label:"وحدة سكنية",value:r=>r.housingUnits,render:r=>fmt(r.housingUnits)},
     {key:"commercialShops",label:"المحلات",value:r=>r.commercialShops,render:r=>fmt(r.commercialShops)},
     {key:"totalRooms",label:"إجمالي الغرف",value:r=>r.totalRooms,render:r=>fmt(r.totalRooms)},

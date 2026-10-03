@@ -660,17 +660,21 @@ test("يفصل الحد الأدنى للشقق عن الحد الأدنى لل�
 test("يطابق أعمدة النتائج الشروط الظاهرة لكل نوع عقار", () => {
   assert.deepEqual([...hiddenResultColumnKeys("عمارة", "sale")], []);
   assert.deepEqual([...hiddenResultColumnKeys("عام", "sale")], []);
+  for (const purpose of ["sale", "rent"])
+    for (const propertyType of ["عام", "عمارة", "فيلا", "شقة", "دور", "استراحة", "شاليه"])
+      assert.equal(hiddenResultColumnKeys(propertyType, purpose).has("rooms"), false, `${propertyType} ${purpose}`);
   assert.deepEqual([...hiddenResultColumnKeys("فيلا", "sale")].sort(), ["commercialShops", "count", "density", "meters"]);
   assert.deepEqual([...hiddenResultColumnKeys("شقة", "sale")].sort(), ["commercialShops", "count", "density", "floors", "meters"]);
   assert.deepEqual([...hiddenResultColumnKeys("دور", "sale")].sort(), ["commercialShops", "count", "density", "floors", "meters"]);
   for (const propertyType of ["استراحة", "شاليه"])
     assert.deepEqual([...hiddenResultColumnKeys(propertyType, "sale")].sort(), ["commercialShops", "count", "density", "meters"]);
-  assert.deepEqual([...hiddenResultColumnKeys("أرض", "sale")].sort(), ["age", "commercialShops", "count", "density", "floors", "meters", "yieldPct"]);
+  assert.deepEqual([...hiddenResultColumnKeys("أرض", "sale")].sort(), ["age", "commercialShops", "count", "density", "floors", "meters", "rooms", "yieldPct"]);
   for (const propertyType of ["مستودع", "ورشة", "محل", "مكتب", "استوديو", "غرفة"])
-    assert.deepEqual([...hiddenResultColumnKeys(propertyType, "sale")].sort(), ["commercialShops", "count", "density", "floors", "meters"]);
+    assert.deepEqual([...hiddenResultColumnKeys(propertyType, "sale")].sort(), ["commercialShops", "count", "density", "floors", "meters", "rooms"]);
   for (const propertyType of PRICE_PER_SQM_TYPES)
     assert.ok(hiddenResultColumnKeys(propertyType, "rent").has("yieldPct"), propertyType);
   assert.match(pageSource, /!hiddenColumns\.has\(column\.key\)/);
+  assert.doesNotMatch(pageSource, /propertyType!=="عمارة"\|\|column\.key!=="rooms"/);
 });
 
 test("يطبق أقل محلات تجارية على العمائر فقط وبسماحية القريب", () => {

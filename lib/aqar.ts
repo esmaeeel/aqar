@@ -90,6 +90,7 @@ export function hiddenResultColumnKeys(propertyType: string, purpose: Filters["p
   const filterToColumn: Partial<Record<keyof Filters, string>> = {
     minMeters: "meters",
     minApartments: "count",
+    minRooms: "rooms",
     minCommercialShops: "commercialShops",
     minFloors: "floors",
     minDensity: "density",
