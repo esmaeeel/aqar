@@ -32,7 +32,7 @@ type Profile={id:number;name:string;filtersJson:string};
 type TrialStatus={limit:number;used:number;remaining:number;globalLimit:number;globalUsed:number;globalRemaining:number;canStart:boolean};
 type ResultSaveFeedback={tone:"working"|"success"|"error";text:string};
 type SyncedState={exists:boolean;archived:Listing[];favorites:Listing[];viewedIds:string[];version:number};
-type SearchPageData={error?:string;code?:string;sourceDiscovery?:SourceDiscovery;sourceBaseUrl?:string;discovered?:number;checkedListingIds?:string[];results?:Listing[];warnings?:string[]};
+type SearchPageData={error?:string;code?:string;sourceDiscovery?:SourceDiscovery;sourceBaseUrl?:string;discovered?:number;checkedListingIds?:string[];hasMore?:boolean;results?:Listing[];warnings?:string[]};
 const fmt=(v:number|null,d=0)=>v==null?"غير مذكور":new Intl.NumberFormat("ar-SA",{maximumFractionDigits:d}).format(v);
 const inputNumber=(value:unknown)=>Number(value)||0;
 const CLIENT_TRANSIENT_RETRY_MS=1_400;
@@ -46,7 +46,7 @@ function automaticPageCount(filters:Filters,locations:Location[],maxListings:num
 }
 function getDeviceId(){let id=localStorage.getItem("aqar-device-id");if(!id){id=crypto.randomUUID();localStorage.setItem("aqar-device-id",id)}return id}
 function deviceHeaders(json=false){return {"x-aqar-device-id":getDeviceId(),...(json?{"content-type":"application/json"}:{})}}
-async function requestSearchPage(payload:unknown,trialToken:string){for(let attempt=0;attempt<2;attempt++){try{const response=await fetch("/api/search",{method:"POST",headers:{...deviceHeaders(true),"x-aqar-trial-token":trialToken},body:JSON.stringify(payload)});return{response,data:await response.json() as SearchPageData}}catch(error){if(attempt===0&&transientRequestPatternError(error)){await clientPause(CLIENT_TRANSIENT_RETRY_MS);continue}if(transientRequestPatternError(error))throw new Error("تعذر اتصال المتصفح بخادم البحث بعد إعادة المحاولة.");throw error}}throw new Error("تعذر اتصال المتصفح بخادم البحث بعد إعادة المحاولة.")}
+async function requestSearchPage(payload:unknown,trialToken:string){for(let attempt=0;attempt<2;attempt++){try{const response=await fetch("/api/search",{method:"POST",headers:{...deviceHeaders(true),"x-aqar-trial-token":trialToken},body:JSON.stringify(payload)});const body=await response.text();let data:SearchPageData;try{data=JSON.parse(body) as SearchPageData}catch{if(response.headers.get("cf-error-type")==="1102"||/Error 1102|Worker exceeded resource limits/i.test(body))throw new Error("تجاوز خادم البحث حد موارد Cloudflare؛ توقف البحث قبل اكتماله.");throw new Error(`تعذر قراءة رد خادم البحث (${response.status}).`)}return{response,data}}catch(error){if(attempt===0&&transientRequestPatternError(error)){await clientPause(CLIENT_TRANSIENT_RETRY_MS);continue}if(transientRequestPatternError(error))throw new Error("تعذر اتصال المتصفح بخادم البحث بعد إعادة المحاولة.");throw error}}throw new Error("تعذر اتصال المتصفح بخادم البحث بعد إعادة المحاولة.")}
 function keywordsFromDraft(value:string){return value.split(/[،,]/).map(item=>item.trim()).filter(Boolean)}
 function syncSpace(){if(typeof window==="undefined")return "";const value=new URLSearchParams(window.location.search).get("sync")||"";return /^[a-z0-9-]{20,80}$/i.test(value)?value:""}
 function storedApiUrl(path:string,shared=true){const space=shared?syncSpace():"";if(!space)return path;const local=["127.0.0.1","localhost"].includes(window.location.hostname);return `${local?CLOUD_SYNC_ORIGIN:""}${path}${path.includes("?")?"&":"?"}sync=${encodeURIComponent(space)}`}
@@ -121,17 +121,24 @@ export default function Home(){
     for(let i=0;i<allSources.length&&checked.size<clean.maxListings;i++){
       const s=allSources[i];setMessage(`قراءة ${s.city||"جميع مدن المملكة"}${s.neighborhood?` — ${s.neighborhood}`:""}، صفحة ${s.page}…`);setProgress(Math.round(i/allSources.length*100));
       try{
-        const sourceKey=JSON.stringify([s.category,s.city,s.neighborhood]);let sourceDiscovery:SourceDiscovery|undefined,response:Awaited<ReturnType<typeof requestSearchPage>>;
+        const sourceKey=JSON.stringify([s.category,s.city,s.neighborhood]);let firstBatch=true,hasMore=false;
         do{
-          response=await requestSearchPage({filters:clean,...s,remaining:Math.min(20,clean.maxListings-checked.size),excludeListingIds:[...checked],sourceBaseUrl:resolvedSources.get(sourceKey),sourceDiscovery},trialToken);
-          sourceDiscovery=response.data.sourceDiscovery;
-          if(response.response.ok&&sourceDiscovery)setMessage(`جارٍ تحديد مصدر حي ${s.neighborhood} في ${s.city}… فُحص ${sourceDiscovery.visited.length} مسار تصنيف.`);
-        }while(response.response.ok&&sourceDiscovery);
-        const {response:r,data}=response;
-        if(!r.ok){if(r.status===401||r.status===403||data.code==="SOURCE_UNRESOLVED"){stopReason=data.error||"انتهت صلاحية محاولة البحث.";stoppedAt=i;setWarnings(w=>[...w,stopReason]);break}throw new Error(data.error||"تعذر البحث")}
-        if(data.sourceBaseUrl)resolvedSources.set(sourceKey,data.sourceBaseUrl);
-        discovered+=data.discovered||0;for(const id of data.checkedListingIds||[])checked.add(id);for(const item of data.results||[])found.set(item.listingId,item);if(data.warnings?.length)setWarnings(w=>[...w,...data.warnings!].slice(-20));setResults([...found.values()].sort((a,b)=>b.score-a.score||(b.yieldPct||0)-(a.yieldPct||0)));const blocked=data.warnings?.find(shouldStopForSourceProtection);if(blocked){stopReason=blocked;stoppedAt=i;break}
-      }catch(e){const m=e instanceof Error?e.message:"تعذر البحث";setWarnings(w=>[...w,m]);if(shouldStopForSourceProtection(m)){stopReason=m;stoppedAt=i;break}}
+          let sourceDiscovery:SourceDiscovery|undefined,response:Awaited<ReturnType<typeof requestSearchPage>>;
+          do{
+            response=await requestSearchPage({filters:clean,...s,remaining:clean.maxListings-checked.size,excludeListingIds:[...checked],sourceBaseUrl:resolvedSources.get(sourceKey),sourceDiscovery},trialToken);
+            sourceDiscovery=response.data.sourceDiscovery;
+            if(response.response.ok&&sourceDiscovery)setMessage(`جارٍ تحديد مصدر حي ${s.neighborhood} في ${s.city}… فُحص ${sourceDiscovery.visited.length} مسار تصنيف.`);
+          }while(response.response.ok&&sourceDiscovery);
+          const {response:r,data}=response;
+          if(!r.ok){stopReason=data.error||`تعذر إكمال طلب البحث (${r.status}).`;stoppedAt=i;setWarnings(w=>[...w,stopReason]);break}
+          if(data.sourceBaseUrl)resolvedSources.set(sourceKey,data.sourceBaseUrl);
+          if(firstBatch){discovered+=data.discovered||0;firstBatch=false}
+          for(const id of data.checkedListingIds||[])checked.add(id);for(const item of data.results||[])found.set(item.listingId,item);if(data.warnings?.length)setWarnings(w=>[...w,...data.warnings!].slice(-20));setResults([...found.values()].sort((a,b)=>b.score-a.score||(b.yieldPct||0)-(a.yieldPct||0)));const blocked=data.warnings?.find(shouldStopForSourceProtection);if(blocked){stopReason=blocked;stoppedAt=i;break}
+          hasMore=Boolean(data.hasMore)&&(data.checkedListingIds?.length||0)>0&&checked.size<clean.maxListings;
+          if(hasMore)await clientPause(350);
+        }while(hasMore);
+        if(stopReason)break;
+      }catch(e){stopReason=e instanceof Error?e.message:"تعذر البحث";stoppedAt=i;setWarnings(w=>[...w,stopReason]);break}
     }
     if(stopReason){const pending=[...new Set(allSources.slice(stoppedAt).map(s=>s.city||"جميع مدن المملكة"))];setProgress(Math.max(1,Math.round(stoppedAt/allSources.length*100)));setMessage(`توقف البحث قبل اكتماله: ${stopReason} فُحص ${checked.size} إعلان، وظهرت ${found.size} نتيجة. المدن غير المكتملة: ${pending.join("، ")}.`)}else{setProgress(100);setMessage(`اكتمل البحث: اكتُشف ${discovered} رابطًا، وفُحص ${checked.size} إعلان، وظهرت ${found.size} نتيجة بعد التصفية.`)}setBusy(false);void loadTrialStatus();
   }

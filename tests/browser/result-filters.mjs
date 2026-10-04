@@ -11,7 +11,7 @@ const rows=makeRows(0),archived=makeRows(100),favorites=makeRows(200);
 try{
   const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   page.setDefaultTimeout(8000);
-  const errors=[],requests=[],searchRequests=[];let savedRows,allowSearch=false,reservations=0,discoveryMode=false,unresolvedMode=false;
+  const errors=[],requests=[],searchRequests=[];let savedRows,allowSearch=false,reservations=0,discoveryMode=false,unresolvedMode=false,batchMode=false,resourceLimitMode=false;
   page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(({archived,favorites})=>{
     localStorage.setItem('aqar-archived-listings-v1',JSON.stringify(archived));
@@ -26,6 +26,8 @@ try{
         assert.ok(allowSearch,'Filtering must never search');
         assert.equal(request.headers()['x-aqar-trial-token'],'offline-token');
         const payload=request.postDataJSON();searchRequests.push(payload);
+        if(resourceLimitMode)return route.fulfill({status:500,contentType:'text/html',body:'<h1>Error 1102</h1><p>Worker exceeded resource limits</p>'});
+        if(batchMode){const ids=['8200001','8200002','8200003','8200004','8200005'];const unchecked=ids.filter(id=>!payload.excludeListingIds.includes(id));return route.fulfill({json:{results:[],discovered:ids.length,checkedListingIds:unchecked.slice(0,3),hasMore:unchecked.length>3,warnings:[]}});}
         if(discoveryMode){
           if(unresolvedMode)return route.fulfill({status:502,json:{code:'SOURCE_UNRESOLVED',error:'تعذر تحديد مصدر الحي؛ هذا لا يعني عدم وجود عروض فيه.'}});
           const sourceBaseUrl='https://sa.aqar.fm/شقق-للبيع/الدمام/حي-التصنيف-الأوسع';
@@ -115,6 +117,19 @@ try{
   assert.equal(reservations,quotaStart+1);
   assert.doesNotMatch(await page.locator('.status').textContent(),/اكتمل البحث/);
   discoveryMode=false;unresolvedMode=false;allowSearch=false;
+  batchMode=true;allowSearch=true;discoveryStart=searchRequests.length;quotaStart=reservations;
+  await startButton.click();
+  await page.waitForFunction(()=>document.querySelector('.status')?.textContent.includes('فُحص 5 إعلان'));
+  assert.deepEqual(searchRequests.slice(discoveryStart).map(request=>request.page),[1,1]);
+  assert.deepEqual(searchRequests.at(-1).excludeListingIds,['8200001','8200002','8200003']);
+  assert.equal(reservations,quotaStart+1);
+  batchMode=false;resourceLimitMode=true;discoveryStart=searchRequests.length;quotaStart=reservations;
+  await startButton.click();
+  await page.waitForFunction(()=>document.querySelector('.status')?.textContent.includes('تجاوز خادم البحث حد موارد Cloudflare'));
+  assert.equal(searchRequests.length,discoveryStart+1);
+  assert.equal(reservations,quotaStart+1);
+  assert.doesNotMatch(await page.locator('.status').textContent(),/اكتمل البحث/);
+  resourceLimitMode=false;allowSearch=false;
   await page.getByRole('button',{name:'مسح الحقول',exact:true}).click();
   await page.getByRole('button',{name:'نتائج محفوظة',exact:true}).click();
   await page.getByRole('button',{name:'فتح',exact:true}).click();

@@ -20,4 +20,6 @@ test("يبقي التوقف عند حماية منصة عقار", () => {
   assert.equal(shouldStopForSourceProtection("تعذر الاتصال مؤقتًا بمنصة عقار بعد إعادة المحاولة."), true);
   assert.equal(shouldStopForSourceProtection("تعذر اتصال المتصفح بخادم البحث بعد إعادة المحاولة."), true);
   assert.equal(shouldStopForSourceProtection("تعذر اتصال خادم البحث بمنصة عقار بعد إعادة المحاولة."), true);
+  assert.equal(shouldStopForSourceProtection("تجاوز خادم البحث حد موارد Cloudflare؛ توقف البحث قبل اكتماله."), true);
+  assert.equal(shouldStopForSourceProtection("تعذر قراءة رد خادم البحث (500)."), true);
 });

@@ -4,7 +4,7 @@ import { canonicalCity, neighborhoodsMatch } from "@/lib/locations";
 export type SourcePage = { html: string; url: string };
 export type SourceDiscovery = { pending: string[]; visited: string[] };
 type Scope = { category: string; city: string; neighborhood: string; purpose: Filters["purpose"] };
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 2;
 export const MAX_DISCOVERY_PAGES = 200;
 export const SOURCE_UNRESOLVED = "تعذر تحديد مصدر الحي في صفحات عقار العامة؛ هذا لا يعني عدم وجود عروض فيه.";
 const sourceCache = new Map<string, { url: string; expires: number }>();

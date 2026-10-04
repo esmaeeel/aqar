@@ -71,5 +71,13 @@ test('search route reads the nationwide feed and returns actual cities without w
     assert.equal(excludedResponse.status,200);
     assert.deepEqual(excludedData.results.map(row=>row.city),['الدمام']);
     assert.deepEqual(excludedData.checkedListingIds,['7000001','7000002']);
+    const firstBatch=await POST(new Request('https://aqar.test/api/search',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({filters,category:'عقارات',city:'',page:1,remaining:1})}));
+    const firstData=await firstBatch.json();
+    assert.deepEqual(firstData.checkedListingIds,['7000001']);
+    assert.equal(firstData.hasMore,true);
+    const lastBatch=await POST(new Request('https://aqar.test/api/search',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({filters,category:'عقارات',city:'',page:1,remaining:1,excludeListingIds:firstData.checkedListingIds})}));
+    const lastData=await lastBatch.json();
+    assert.deepEqual(lastData.checkedListingIds,['7000002']);
+    assert.equal(lastData.hasMore,false);
   }finally{globalThis.fetch=originalFetch;}
 });

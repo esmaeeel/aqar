@@ -14,6 +14,7 @@ function errorMessage(status: number) {
 }
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const AQAR_TRANSIENT_RETRY_MS = 1_400;
+const SEARCH_BATCH_SIZE = 3;
 const transientRequestPatternError = (error: unknown) => error instanceof Error
   && /the string did not match the expected pattern/i.test(error.message);
 
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
       forgetDiscoveredSource(scope);
       return Response.json({ error: error instanceof Error ? error.message : SOURCE_UNRESOLVED, code: "SOURCE_UNRESOLVED" }, { status: 502 });
     }
-    const searchHtml = sourcePage.html; const allLinks = listingLinks(searchHtml, category, city, neighborhood, filters.purpose); const excluded = new Set(body.excludeListingIds || []); const links = allLinks.filter(link => !excluded.has(link.listingId)).slice(0, Math.max(1, Math.min(20, Number(body.remaining)||20)));
+    const searchHtml = sourcePage.html; const allLinks = listingLinks(searchHtml, category, city, neighborhood, filters.purpose); const excluded = new Set(body.excludeListingIds || []); const candidates = allLinks.filter(link => !excluded.has(link.listingId)); const links = candidates.slice(0, Math.max(1, Math.min(SEARCH_BATCH_SIZE, Number(body.remaining)||SEARCH_BATCH_SIZE))); const hasMore = candidates.length > links.length;
     if (sourceBaseUrl && !allLinks.length) {
       const actual = new URL(sourcePage.url); actual.search = "";
       actual.pathname = actual.pathname.replace(/\/\d+\/?$/, "");
@@ -108,7 +109,7 @@ export async function POST(request: Request) {
         if (shouldStopForSourceProtection(message)) break;
       }
     }
-    return Response.json({ results, discovered: allLinks.length, checkedListingIds, warnings, sourceUrl, sourceBaseUrl });
+    return Response.json({ results, discovered: allLinks.length, checkedListingIds, hasMore, warnings, sourceUrl, sourceBaseUrl });
   } catch (error) {
     const message = error instanceof Error ? error.message : "تعذر إكمال البحث.";
     return Response.json({ error: message, ...(message === SOURCE_UNRESOLVED ? { code: "SOURCE_UNRESOLVED" } : {}) }, { status: 502 });

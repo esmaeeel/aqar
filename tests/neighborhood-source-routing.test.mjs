@@ -110,13 +110,14 @@ test('discovers an arbitrary child through city/direction/parent navigation, acr
   };
   const first=await discoverNeighborhoodSource(scope,readPage);
   assert.ok(first.sourceDiscovery);
-  assert.equal(calls.length,5);
-  const second=await discoverNeighborhoodSource(scope,readPage,first.sourceDiscovery);
-  assert.equal(decodeURI(second.sourceBaseUrl),parent);
-  assert.equal(directoryMatchesNeighborhood(second.sourceBaseUrl,scope),false,'Parent and child are not aliases');
+  assert.equal(calls.length,2);
+  let next=first;
+  while(next.sourceDiscovery){const before=calls.length;next=await discoverNeighborhoodSource(scope,readPage,next.sourceDiscovery);assert.ok(calls.length-before<=2);}
+  assert.equal(decodeURI(next.sourceBaseUrl),parent);
+  assert.equal(directoryMatchesNeighborhood(next.sourceBaseUrl,scope),false,'Parent and child are not aliases');
   assert.equal(new Set(calls).size,calls.length,'No repeated probes');
   const cached=await discoverNeighborhoodSource(scope,()=>{throw Error('Should use discovered cache');});
-  assert.equal(cached.sourceBaseUrl,second.sourceBaseUrl);
+  assert.equal(cached.sourceBaseUrl,next.sourceBaseUrl);
 });
 
 test('directory navigation keeps city, category, origin and safe URL scope',()=>{
