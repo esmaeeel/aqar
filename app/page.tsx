@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboa
 import { ResultTableViewport } from "./ResultTableViewport";
 import type { Filters, Listing, Location } from "@/lib/aqar";
 import type { SourceDiscovery } from "@/lib/neighborhood-discovery";
+import type { ClientSearchPayload } from "@/lib/client-search";
 import { CATEGORIES, PRICE_PER_SQM_TYPES, ROOM_TYPES, excludedDetailsUnavailable, filterResultRows, generalSearchHasRequiredKeywords, hiddenNumericFilterKeys, hiddenResultColumnKeys, searchCategoriesFor, searchSourcesFor } from "@/lib/aqar";
 import { CITY_NAMES, canonicalCity, canonicalNeighborhood, neighborhoodSuggestions, placeSuggestions } from "@/lib/locations";
 import { buildExcelExport } from "@/lib/excel-export";
@@ -117,7 +118,12 @@ export default function Home(){
     let trialToken="";
     try{const reservationResponse=await fetch("/api/trial",{method:"POST",headers:deviceHeaders()});const reservation=await reservationResponse.json() as {token?:string|null;status:TrialStatus;error?:string};setTrial(reservation.status);if(!reservationResponse.ok||!reservation.token){setMessage(reservation.error||"لا يمكن بدء بحث جديد الآن.");return}trialToken=reservation.token}catch{setMessage("تعذر التحقق من المحاولات التجريبية. حاول مرة أخرى.");return}
     setBusy(true);setResults([]);setResultSaveFeedback(null);setWarnings([]);setProgress(0);
-    const found=new Map<string,Listing>(),checked=new Set<string>(),resolvedSources=new Map<string,string>();let discovered=0,stoppedAt=-1,stopReason="";const allSources=searchSourcesFor(clean);
+    const found=new Map<string,Listing>(),checked=new Set<string>(),resolvedSources=new Map<string,string>();let discovered=0,stoppedAt=-1,stopReason="",useClientReader=false;const allSources=searchSourcesFor(clean);
+    async function readSearchRequest(payload:ClientSearchPayload):Promise<Awaited<ReturnType<typeof requestSearchPage>>>{
+      if(!useClientReader){try{return await requestSearchPage(payload,trialToken)}catch(error){if(!(error instanceof Error&&error.message.includes("تجاوز خادم البحث حد موارد Cloudflare")))throw error;useClientReader=true;setMessage("بلغ خادم البحث حد المعالجة؛ متابعة قراءة الصفحات على الجهاز ضمن المحاولة نفسها…")}}
+      const {clientSearchPage}=await import("@/lib/client-search");
+      return await clientSearchPage(payload,trialToken,getDeviceId()) as Awaited<ReturnType<typeof requestSearchPage>>;
+    }
     for(let i=0;i<allSources.length&&checked.size<clean.maxListings;i++){
       const s=allSources[i];setMessage(`قراءة ${s.city||"جميع مدن المملكة"}${s.neighborhood?` — ${s.neighborhood}`:""}، صفحة ${s.page}…`);setProgress(Math.round(i/allSources.length*100));
       try{
@@ -125,7 +131,7 @@ export default function Home(){
         do{
           let sourceDiscovery:SourceDiscovery|undefined,response:Awaited<ReturnType<typeof requestSearchPage>>;
           do{
-            response=await requestSearchPage({filters:clean,...s,remaining:clean.maxListings-checked.size,excludeListingIds:[...checked],sourceBaseUrl:resolvedSources.get(sourceKey),sourceDiscovery},trialToken);
+            response=await readSearchRequest({filters:clean,...s,remaining:clean.maxListings-checked.size,excludeListingIds:[...checked],sourceBaseUrl:resolvedSources.get(sourceKey),sourceDiscovery});
             sourceDiscovery=response.data.sourceDiscovery;
             if(response.response.ok&&sourceDiscovery)setMessage(`جارٍ تحديد مصدر حي ${s.neighborhood} في ${s.city}… فُحص ${sourceDiscovery.visited.length} مسار تصنيف.`);
           }while(response.response.ok&&sourceDiscovery);

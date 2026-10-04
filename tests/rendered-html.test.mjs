@@ -328,6 +328,6 @@ test("retries the iPhone request-pattern failure once before stopping clearly", 
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   assert.match(page, /CLIENT_TRANSIENT_RETRY_MS=1_400/);
   assert.match(page, /attempt===0&&transientRequestPatternError\(error\)/);
-  assert.match(page, /requestSearchPage\(\{filters:clean/);
+  assert.match(page, /readSearchRequest\(\{filters:clean/);
   assert.match(page, /تعذر اتصال المتصفح بخادم البحث بعد إعادة المحاولة/);
 });

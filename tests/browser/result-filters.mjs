@@ -11,7 +11,7 @@ const rows=makeRows(0),archived=makeRows(100),favorites=makeRows(200);
 try{
   const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   page.setDefaultTimeout(8000);
-  const errors=[],requests=[],searchRequests=[];let savedRows,allowSearch=false,reservations=0,discoveryMode=false,unresolvedMode=false,batchMode=false,resourceLimitMode=false;
+  const errors=[],requests=[],searchRequests=[],sourceRequests=[];let savedRows,allowSearch=false,reservations=0,discoveryMode=false,unresolvedMode=false,batchMode=false,resourceLimitMode=false;
   page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(({archived,favorites})=>{
     localStorage.setItem('aqar-archived-listings-v1',JSON.stringify(archived));
@@ -22,6 +22,14 @@ try{
     if(url.hostname!=='aqar.test')return route.abort();
     if(path.startsWith('/api/')){
       requests.push(`${request.method()} ${path}`);
+      if(path==='/api/source-page'){
+        assert.ok(allowSearch&&resourceLimitMode);
+        assert.equal(request.headers()['x-aqar-trial-token'],'offline-token');
+        const target=request.postDataJSON().url;sourceRequests.push(target);
+        const ids=['8200001','8200002','8200003','8200004','8200005'];
+        const html=ids.some(id=>target.endsWith(`-${id}`))?`<h1>شقة للإيجار في حي فرعي تجريبي، الدمام</h1><p>شقة 20,000 ريال سنويًا</p><h2>تفاصيل الإعلان</h2><div>نوع العقار</div><div>سكني</div><div>رقم الإعلان ${target.slice(-7)}</div>`:ids.map(id=>`<a href="https://sa.aqar.fm/شقق-للإيجار/الدمام/حي-فرعي-تجريبي/شقة-${id}">إعلان</a>`).join('');
+        return route.fulfill({body:html,contentType:'text/html',headers:{'x-aqar-final-url':encodeURIComponent(target)}});
+      }
       if(path==='/api/search'){
         assert.ok(allowSearch,'Filtering must never search');
         assert.equal(request.headers()['x-aqar-trial-token'],'offline-token');
@@ -124,11 +132,16 @@ try{
   assert.deepEqual(searchRequests.at(-1).excludeListingIds,['8200001','8200002','8200003']);
   assert.equal(reservations,quotaStart+1);
   batchMode=false;resourceLimitMode=true;discoveryStart=searchRequests.length;quotaStart=reservations;
+  await page.getByRole('radio',{name:'تأجير'}).check();
+  const firstSourcePage=page.waitForResponse(response=>response.url().endsWith('/api/source-page'));
   await startButton.click();
-  await page.waitForFunction(()=>document.querySelector('.status')?.textContent.includes('تجاوز خادم البحث حد موارد Cloudflare'));
+  await firstSourcePage;
+  await page.waitForFunction(()=>document.querySelector('.status')?.textContent.includes('فُحص 5 إعلان'));
   assert.equal(searchRequests.length,discoveryStart+1);
   assert.equal(reservations,quotaStart+1);
-  assert.doesNotMatch(await page.locator('.status').textContent(),/اكتمل البحث/);
+  assert.ok(sourceRequests.length>=7,'Read the source and listings through the low-CPU route');
+  assert.match(await page.locator('.status').textContent(),/اكتمل البحث/);
+  assert.match(await page.locator('.status').textContent(),/ظهرت 5 نتيجة/);
   resourceLimitMode=false;allowSearch=false;
   await page.getByRole('button',{name:'مسح الحقول',exact:true}).click();
   await page.getByRole('button',{name:'نتائج محفوظة',exact:true}).click();
