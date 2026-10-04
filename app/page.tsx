@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboa
 import { ResultTableViewport } from "./ResultTableViewport";
 import type { Filters, Listing, Location } from "@/lib/aqar";
 import type { SourceDiscovery } from "@/lib/neighborhood-discovery";
-import { CATEGORIES, PRICE_PER_SQM_TYPES, ROOM_TYPES, filterResultRows, generalSearchHasRequiredKeywords, hiddenNumericFilterKeys, hiddenResultColumnKeys, searchCategoriesFor, searchSourcesFor } from "@/lib/aqar";
+import { CATEGORIES, PRICE_PER_SQM_TYPES, ROOM_TYPES, excludedDetailsUnavailable, filterResultRows, generalSearchHasRequiredKeywords, hiddenNumericFilterKeys, hiddenResultColumnKeys, searchCategoriesFor, searchSourcesFor } from "@/lib/aqar";
 import { CITY_NAMES, canonicalCity, canonicalNeighborhood, neighborhoodSuggestions, placeSuggestions } from "@/lib/locations";
 import { buildExcelExport } from "@/lib/excel-export";
 import { shouldStopForSourceProtection } from "@/lib/source-protection";
@@ -280,6 +280,8 @@ function Results({rows,filters,onSave,saveDisabled,saving,searchBusy,saveFeedbac
   const filteredRows=useMemo(()=>filterResultRows(rows,filters),[rows,filters]);
   const visibleArchivedRows=useMemo(()=>filterResultRows(archivedRows,filters),[archivedRows,filters]);
   const visibleFavoriteRows=useMemo(()=>filterResultRows(favoriteRows,filters),[favoriteRows,filters]);
+  const unverifiedDetailsCount=new Set([...rows,...archivedRows,...favoriteRows]
+    .filter(row=>excludedDetailsUnavailable(filters.excludedKeywords,row)).map(row=>row.listingId)).size;
   const visibleRows=filteredRows.filter(row=>!archivedIds.has(row.listingId));
   const columnsByKey=new Map(columns.map(column=>[column.key,column]));
   const orderedColumns=columnOrder.map(key=>columnsByKey.get(key)).filter((column):column is TableColumn=>Boolean(column));
@@ -327,6 +329,7 @@ function Results({rows,filters,onSave,saveDisabled,saving,searchBusy,saveFeedbac
       </div>
     </div>
     {saveFeedback&&<span className={`resultSaveStatus ${saveFeedback.tone}`} role="status" aria-live="polite">{saveFeedback.text}</span>}
+    {unverifiedDetailsCount>0&&<p className="swipeHint">أُخفي {unverifiedDetailsCount} عقارًا لا تتوفر تفاصيل إعلاناته للتحقق من المواصفات المستبعدة. يبقى محفوظًا ويعود عند إزالة الشرط.</p>}
     {filters.commercialOnly&&<p className="swipeHint">تجاري: تظهر النتائج ذات التصنيف التجاري المحفوظ؛ قد لا يتوفر هذا التصنيف في النتائج القديمة.</p>}
     <>
       <div className="tableTools"><p className="swipeHint">مرّر الجدول يمينًا ويسارًا بالسحب العادي. اضغط العنوان للفرز، واسحب مقبض ↔ لترتيب العمود. المس ⋮ في السعر للأرشفة أو الإضافة إلى المفضلة. اسحب مقبض الحافة لتغيير العرض، أو انقر الحافة مرتين لإعادته. اضغط صف الإعلان مرة لفتحه.</p></div>

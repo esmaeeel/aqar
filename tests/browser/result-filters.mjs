@@ -6,7 +6,7 @@ const pw=createRequire(import.meta.url)(process.env.AQAR_PLAYWRIGHT_MODULE||'pla
 const {default:worker}=await import('../../dist/server/index.js');
 const engine=process.env.AQAR_BROWSER||'webkit';
 const browser=await pw[engine].launch({headless:true,...(process.env.AQAR_BROWSER_EXECUTABLE?{executablePath:process.env.AQAR_BROWSER_EXECUTABLE}:{})});
-const makeRows=offset=>['الدمام','الدمام','الخبر','جدة','الخرج'].map((city,i)=>({listingId:String(7000000+offset+i),url:`https://sa.aqar.fm/عمائر-للبيع/${city}/عقار-${7000000+offset+i}`,title:`اختبار ${city} ${i}`,city,neighborhood:'طيبة',propertyType:i===1?'فيلا':'عمارة',price:i===1?1000000:2000000,age:'16',description:'موقف سيارة',status:'مطابقة',score:100,nearEligible:true}));
+const makeRows=offset=>['الدمام','الدمام','الخبر','جدة','الخرج'].map((city,i)=>({listingId:String(7000000+offset+i),url:`https://sa.aqar.fm/عمائر-للبيع/${city}/عقار-${7000000+offset+i}`,title:`اختبار ${city} ${i}`,city,neighborhood:'طيبة',propertyType:i===1?'فيلا':'عمارة',price:i===1?1000000:2000000,age:'16',description:'موقف سيارة',...(i===4?{}:{detailsText:'نوع العقار\nسكني'}),status:'مطابقة',score:100,nearEligible:true}));
 const rows=makeRows(0),archived=makeRows(100),favorites=makeRows(200);
 try{
   const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
@@ -132,10 +132,15 @@ try{
   }
   await allTables(5);
   const initialRequests=requests.length;
+  await excludedInput.fill('سكني');
+  await allTables(0);
+  await excludedInput.fill('');
+  await allTables(5);
   await excludedInput.fill('موقف سيارة');
   await allTables(0);
   await excludedInput.fill('مكيف');
-  await allTables(5);
+  await allTables(4);
+  assert.match(await page.locator('.results .swipeHint').allTextContents().then(parts=>parts.join(' ')),/لا تتوفر تفاصيل إعلاناته/);
   await excludedInput.fill('');
   await allTables(5);
   const city=page.getByRole('combobox',{name:'المدينة',exact:true});

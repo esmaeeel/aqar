@@ -56,7 +56,7 @@ test('search route reads the nationwide feed and returns actual cities without w
     if(path==='https://sa.aqar.fm/عقارات')return new Response(feed);
     const ad=ads.find(item=>adUrl(item)===path);
     assert.ok(ad,'Unexpected external request: '+path);
-    return new Response(`<h1>شقة للبيع في حي النور، مدينة ${ad.city}، المنطقة</h1><div>500,000 ريال</div><div>استكشف خيارات التمويل</div><p>${ad.description}</p><div>رقم الإعلان ${ad.id}</div>`);
+    return new Response(`<h1>شقة للبيع في حي النور، مدينة ${ad.city}، المنطقة</h1><div>500,000 ريال</div><div>استكشف خيارات التمويل</div><p>${ad.description}</p><h2>تفاصيل الإعلان</h2><div>نوع العقار</div><div>سكني</div><div>رقم الإعلان ${ad.id}</div>`);
   };
   try{
     const response=await POST(new Request('https://aqar.test/api/search',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({filters,category:'عقارات',city:'',neighborhood:'ignored',page:1,remaining:2})}));

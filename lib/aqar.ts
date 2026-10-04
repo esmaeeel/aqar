@@ -116,7 +116,7 @@ export type Listing = {
   street: number | null; age: string | null; income: number | null;
   incomeKind: "actual" | "expected" | "unknown"; yieldPct: number | null;
   density: number | null; warnings: string[]; status: "مطابقة" | "قريبة" | "بيانات ناقصة";
-  score: number; nearEligible: boolean; description: string;
+  score: number; nearEligible: boolean; description: string; detailsText?: string;
 };
 
 const arDigits = "٠١٢٣٤٥٦٧٨٩";
@@ -454,13 +454,13 @@ function totalBuildingRooms(source: string, acceptGenericRoomCount = false) {
 }
 
 const EXCLUSION_NEGATIONS = new Set(["غير", "بدون", "بلا", "دون", "ليس", "ليست", "مو", "مش", "لا"]);
-export function excludedKeywordMatches(keywords: string[] | undefined, item: Pick<Listing, "title" | "description">) {
+export function excludedKeywordMatches(keywords: string[] | undefined, item: Pick<Listing, "title" | "description"> & Pick<Partial<Listing>, "detailsText">) {
   if (!Array.isArray(keywords) || !keywords.length) return false;
   for (const keyword of keywords) {
     if (typeof keyword !== "string") continue;
     const size = (normalizeText(keyword).match(/[\p{L}\p{N}]+/gu) || []).length;
     if (!size) continue;
-    for (const field of [item.title, item.description]) {
+    for (const field of [item.title, item.description, item.detailsText || ""]) {
       if (!keywordMatches(keyword, field)) continue;
       // Compare each phrase in its own field, so «غير مؤثثة» does not count as
       // a positive mention and separate title/description sentences do not join.
@@ -474,6 +474,10 @@ export function excludedKeywordMatches(keywords: string[] | undefined, item: Pic
     }
   }
   return false;
+}
+export function excludedDetailsUnavailable(keywords: string[] | undefined, item: Pick<Partial<Listing>, "detailsText">) {
+  return Boolean(keywords?.some(keyword => typeof keyword === "string" && normalizeText(keyword)))
+    && !item.detailsText?.trim();
 }
 function ageFromSource(source: string) {
   const n = normalizeDigits(source).toLowerCase().replace(/ـ/g, "").replace(/[\u064b-\u065f\u0670]/g, "")
@@ -589,6 +593,9 @@ export function parseListing(html: string, url: string, propertyType: string): L
   const text = listingPageText(html); const sourceListingId = text.match(/رقم\s+الإعلان\s*[:：\-]?\s*(\d{5,})/)?.[1];
   if (listingId && sourceListingId && sourceListingId !== listingId) throw new Error(`تعذر التحقق من هوية الإعلان: الرابط ${listingId} والصفحة ${sourceListingId}`);
   const { header, desc, structured } = splitDescription(text);
+  const detailsText = structured.replace(/^\s*(?:المزيد\s*)?تفاصيل\s+الإعلان\s*/, "")
+    .split(/\n\s*(?:المميزات|الميزات|الفيديوهات|الصور|الموقع|الخريطة|معلومات المعلن)\s*(?=\n|$)/, 1)[0]
+    .trim().slice(0, 2200);
   const titleHtml = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "إعلان عقار";
   const title = htmlText(titleHtml).replace(/\s*\|\s*تطبيق عقار.*$/, "");
   // «الحد» السعري يجب أن يليه المبلغ مباشرة؛ فلا نلتقط طول ضلع من «الحد الشمالي بطول 50.36م».
@@ -705,7 +712,7 @@ export function parseListing(html: string, url: string, propertyType: string): L
   return { listingId, url, title, city, neighborhood, propertyType, price, area, sqmPrice: price && area ? price / area : explicitSqmPrice,
     apartments, housingUnits, commercialShops, rooms: ROOM_TYPES.has(propertyType) ? rooms : null, totalRooms: propertyType === "عمارة" ? totalRooms : null, bedrooms, majlis, maqlat, meters, floors, street, age, income,
     incomeKind, yieldPct: rentalListing ? null : income && price ? income / price * 100 : null, density: apartments && area ? apartments / area * 100 : null,
-    warnings, status: "بيانات ناقصة", score: 0, nearEligible: true, description: desc.slice(0, 2200) };
+    warnings, status: "بيانات ناقصة", score: 0, nearEligible: true, description: desc.slice(0, 2200), detailsText };
 }
 
 export function evaluate(item: Listing, f: Filters) {
@@ -773,7 +780,7 @@ export function filterResultRows(rows: Listing[], filters: Filters & { commercia
     if (filters.commercialOnly && row.sourceCommercialOnly !== true) return [];
     const searchable = listingKeywordSearchableText({ ...row, propertyType });
     if (filters.keywords.length && !filters.keywords.some(word => keywordMatches(word, searchable))) return [];
-    if (excludedKeywordMatches(filters.excludedKeywords, row)) return [];
+    if (excludedKeywordMatches(filters.excludedKeywords, row) || excludedDetailsUnavailable(filters.excludedKeywords, row)) return [];
     const result = evaluate({ ...row, propertyType }, active);
     return (filters.mode === "strict" ? result.status === "مطابقة" : result.nearEligible) ? [result] : [];
   });

@@ -4,9 +4,9 @@ import test from 'node:test';
 import ts from 'typescript';
 const dataModule=source=>'data:text/javascript;base64,'+Buffer.from(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText).toString('base64');
 const locations=dataModule(await readFile(new URL('../lib/locations.ts',import.meta.url),'utf8'));
-const {filterResultRows,excludedKeywordMatches}=await import(dataModule((await readFile(new URL('../lib/aqar.ts',import.meta.url),'utf8')).replace('"@/lib/locations"',JSON.stringify(locations))));
+const {filterResultRows,excludedKeywordMatches,parseListing}=await import(dataModule((await readFile(new URL('../lib/aqar.ts',import.meta.url),'utf8')).replace('"@/lib/locations"',JSON.stringify(locations))));
 const filters={propertyType:'عام',purpose:'sale',locations:[],keywords:[],mode:'strict',priceMin:0,priceMax:0,areaMin:0,areaMax:0,sqmMin:0,sqmMax:0,yieldMin:0,minMeters:0,minApartments:0,minRooms:0,minCommercialShops:0,minFloors:0,minStreet:0,minAge:0,maxAge:0,minDensity:0};
-const listing={listingId:'7000001',url:'https://sa.aqar.fm/عمائر-للبيع/الدمام/عمارة-7000001',title:'عمارة مواقف سيارات',description:'',city:'الدمام',neighborhood:'طيبة',propertyType:'عمارة',price:2000000,area:500,sqmPrice:4000,income:160000,incomeKind:'actual',yieldPct:8,apartments:10,totalRooms:26,rooms:null,meters:10,commercialShops:2,floors:3,street:20,age:'16',density:2,status:'بيانات ناقصة',score:1,nearEligible:false};
+const listing={listingId:'7000001',url:'https://sa.aqar.fm/عمائر-للبيع/الدمام/عمارة-7000001',title:'عمارة مواقف سيارات',description:'',detailsText:'نوع العقار\nتجاري',city:'الدمام',neighborhood:'طيبة',propertyType:'عمارة',price:2000000,area:500,sqmPrice:4000,income:160000,incomeKind:'actual',yieldPct:8,apartments:10,totalRooms:26,rooms:null,meters:10,commercialShops:2,floors:3,street:20,age:'16',density:2,status:'بيانات ناقصة',score:1,nearEligible:false};
 const ids=rows=>rows.map(row=>row.listingId);
 test('city/type/price filters compose and removing them restores the untouched source',()=>{
   const rows=[listing,{...listing,listingId:'2',city:'الخبر'},{...listing,listingId:'3',city:'جدة'},{...listing,listingId:'4',city:'الخرج'},{...listing,listingId:'5',propertyType:'فيلا'}];
@@ -57,4 +57,19 @@ test('excluded phrases reject advertised features but not their negation',()=>{
   assert.deepEqual(ids(filterResultRows(rows,{...filters,excludedKeywords:['مفروش']})),['7000001','3']);
   assert.deepEqual(ids(filterResultRows(rows,filters)),['7000001','2','3']);
   assert.equal(JSON.stringify(rows),original);
+});
+test('excludes land classified residential in listing details from search and stored views',()=>{
+  const html='<h1>أرض للبيع في مدينة الخرج</h1><p>أرض زاوية للبيع</p><h2>تفاصيل الإعلان</h2><div>نوع العقار</div><div>سكني</div><div>المساحة</div><div>690م²</div><h2>المميزات</h2><div>موقف سيارات</div>';
+  const parsed=parseListing(html,'https://sa.aqar.fm/أراضي-للبيع/الخرج/أرض-7000002','أرض');
+  assert.match(parsed.detailsText,/نوع العقار\s+سكني/);
+  assert.doesNotMatch(parsed.detailsText,/موقف سيارات/);
+  assert.equal(excludedKeywordMatches(['سكني'],parsed),true);
+  assert.equal(excludedKeywordMatches(['موقف سيارات'],parsed),false);
+  assert.equal(excludedKeywordMatches(['سكني'],{...parsed,detailsText:'نوع العقار\nغير سكني'}),false);
+  const stored={...listing,listingId:'7000002',propertyType:'أرض',url:'https://sa.aqar.fm/أراضي-للبيع/الخرج/أرض-7000002',detailsText:parsed.detailsText};
+  assert.deepEqual(ids(filterResultRows([stored],{...filters,excludedKeywords:['سكني']})),[]);
+  assert.deepEqual(ids(filterResultRows([stored],filters)),['7000002']);
+  const legacy={...stored,detailsText:undefined};
+  assert.deepEqual(ids(filterResultRows([legacy],{...filters,excludedKeywords:['سكني']})),[]);
+  assert.deepEqual(ids(filterResultRows([legacy],filters)),['7000002']);
 });
